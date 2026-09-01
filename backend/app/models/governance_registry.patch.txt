@@ -1,0 +1,5 @@
+Add this import to backend/app/models/__init__.py:
+
+from app.models.governance_policy import GovernancePolicy
+
+Add "GovernancePolicy" to __all__.

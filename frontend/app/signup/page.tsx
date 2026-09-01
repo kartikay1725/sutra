@@ -1,0 +1,1 @@
+import { Signup } from "@/components/auth"; export default function Page(){return <Signup/>}
