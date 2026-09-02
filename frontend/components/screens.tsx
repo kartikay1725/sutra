@@ -1169,6 +1169,7 @@ export function Repositories() {
   const [repositories, setRepositories] = useState<Repository[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [githubConnected, setGithubConnected] = useState(false);
   const [
     isNewRepositoryModalOpen,
     setIsNewRepositoryModalOpen,
@@ -1204,12 +1205,33 @@ export function Repositories() {
       }
     };
 
+    const loadGithubStatus = async () => {
+      try {
+        const { integrationService } = await import("../lib/integrations");
+        const status = await integrationService.getGitHubStatus();
+        if (!cancelled) setGithubConnected(status.connected);
+      } catch {
+        // GitHub status is non-critical — don't block repo listing
+      }
+    };
+
     void loadRepositories();
+    void loadGithubStatus();
 
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const handleConnectGitHub = async () => {
+    try {
+      const { integrationService } = await import("../lib/integrations");
+      const { redirect_url } = await integrationService.getGitHubConnectUrl();
+      window.location.href = redirect_url;
+    } catch (err: any) {
+      console.error("GitHub connect failed:", err);
+    }
+  };
 
   return (
     <>
@@ -1288,16 +1310,24 @@ export function Repositories() {
                   marginBottom: 18,
                 }}
               >
-                Create your first repository to start
-                building with SUTRA.
+                Create a new repository or connect GitHub to discover existing ones.
               </div>
 
-              <Link href="/repositories/new">
-                <Btn primary>
-                  <I.Plus size={14} />
-                  New Repository
-                </Btn>
-              </Link>
+              <div className="row" style={{ justifyContent: "center", gap: 10 }}>
+                <Link href="/repositories/new">
+                  <Btn primary>
+                    <I.Plus size={14} />
+                    New Repository
+                  </Btn>
+                </Link>
+
+                {!githubConnected && (
+                  <Btn onClick={handleConnectGitHub}>
+                    <I.GitBranch size={14} />
+                    Connect GitHub
+                  </Btn>
+                )}
+              </div>
             </div>
           </Card>
         )}
@@ -1319,15 +1349,20 @@ export function Repositories() {
                     {repo.name}
                   </div>
 
-                  <Badge
-                    tone={
-                      repo.visibility === "private"
-                        ? "violet"
-                        : "green"
-                    }
-                  >
-                    {repo.visibility}
-                  </Badge>
+                  <div className="row" style={{ gap: 6 }}>
+                    {(repo as any).provider_type === "github" && (
+                      <Badge tone="aqua">GitHub</Badge>
+                    )}
+                    <Badge
+                      tone={
+                        repo.visibility === "private"
+                          ? "violet"
+                          : "green"
+                      }
+                    >
+                      {repo.visibility}
+                    </Badge>
+                  </div>
                 </div>
 
                 <div className="repo-desc">
@@ -1341,9 +1376,11 @@ export function Repositories() {
                   </span>
 
                   <span className="meta">
-                    {repo.owner
-                      ? `@${repo.owner}`
-                      : "Owned by you"}
+                    {(repo as any).provider_owner
+                      ? `@${(repo as any).provider_owner}`
+                      : repo.owner
+                        ? `@${repo.owner}`
+                        : "Owned by you"}
                   </span>
                 </div>
               </Link>
@@ -7734,12 +7771,83 @@ export function Marketplace() {
 }
 
 export function Settings() {
+  const [githubStatus, setGithubStatus] = React.useState<{
+    connected: boolean;
+    account: string | null;
+    repo_count: number;
+  } | null>(null);
+  const [githubLoading, setGithubLoading] = React.useState(true);
+  const [githubBusy, setGithubBusy] = React.useState(false);
+  const [githubError, setGithubError] = React.useState<string | null>(null);
+
+  // Dynamically import integrations to avoid circular deps in large screens.tsx
+  const loadGithubStatus = async () => {
+    try {
+      setGithubLoading(true);
+      setGithubError(null);
+      const { integrationService } = await import("../lib/integrations");
+      const status = await integrationService.getGitHubStatus();
+      setGithubStatus(status);
+    } catch (err: any) {
+      setGithubError(err?.message || "Failed to load GitHub status");
+    } finally {
+      setGithubLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadGithubStatus();
+  }, []);
+
+  const handleConnectGitHub = async () => {
+    setGithubBusy(true);
+    setGithubError(null);
+    try {
+      const { integrationService } = await import("../lib/integrations");
+      const { redirect_url } = await integrationService.getGitHubConnectUrl();
+      window.location.href = redirect_url;
+    } catch (err: any) {
+      setGithubError(err?.message || "Failed to initiate GitHub connection");
+      setGithubBusy(false);
+    }
+  };
+
+  const handleDisconnectGitHub = async () => {
+    if (!confirm("Disconnect GitHub? Your synced repositories will remain but become read-only until reconnected.")) return;
+    setGithubBusy(true);
+    setGithubError(null);
+    try {
+      const { integrationService } = await import("../lib/integrations");
+      await integrationService.disconnectGitHub();
+      await loadGithubStatus();
+    } catch (err: any) {
+      setGithubError(err?.message || "Failed to disconnect GitHub");
+    } finally {
+      setGithubBusy(false);
+    }
+  };
+
+  const handleSyncGitHub = async () => {
+    setGithubBusy(true);
+    setGithubError(null);
+    try {
+      const { integrationService } = await import("../lib/integrations");
+      const result = await integrationService.syncGitHub();
+      await loadGithubStatus();
+      setGithubError(null);
+    } catch (err: any) {
+      setGithubError(err?.message || "Failed to sync repositories");
+    } finally {
+      setGithubBusy(false);
+    }
+  };
+
   return (
     <>
       <PageHead
         eyebrow="Account"
         title="Settings"
-        sub="Personal preferences, credentials, tokens, and notifications."
+        sub="Personal preferences, credentials, tokens, and integrations."
       />
 
       <div className="grid g2">
@@ -7836,10 +7944,77 @@ export function Settings() {
             ))}
           </div>
         </Card>
+
+        {/* GitHub Integration Card */}
+        <Card>
+          <div className="card-head">
+            <div className="h2">
+              GitHub
+            </div>
+            <Badge tone={githubStatus?.connected ? "green" : "violet"}>
+              {githubStatus?.connected ? "Connected" : "Not connected"}
+            </Badge>
+          </div>
+
+          <div className="card-pad">
+            {githubLoading ? (
+              <div className="sub">Checking GitHub status…</div>
+            ) : githubStatus?.connected ? (
+              <>
+                <div className="sub" style={{ marginBottom: 12 }}>
+                  Connected as <strong>{githubStatus.account}</strong>
+                  {" · "}{githubStatus.repo_count} repositories synced
+                </div>
+                <div className="row" style={{ gap: 8 }}>
+                  <button
+                    className="btn"
+                    onClick={handleSyncGitHub}
+                    disabled={githubBusy}
+                    type="button"
+                  >
+                    {githubBusy ? "Syncing…" : "Sync repositories"}
+                  </button>
+                  <button
+                    className="btn"
+                    onClick={handleDisconnectGitHub}
+                    disabled={githubBusy}
+                    type="button"
+                    style={{ color: "#ff8fa0" }}
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="sub" style={{ marginBottom: 12 }}>
+                  Connect your GitHub account to discover and manage repositories
+                  through the SUTRA GitHub App. GitHub remains the source of
+                  truth for repository contents and history.
+                </div>
+                <button
+                  className="btn primary"
+                  onClick={handleConnectGitHub}
+                  disabled={githubBusy}
+                  type="button"
+                >
+                  <I.GitBranch size={14} />
+                  {githubBusy ? "Redirecting…" : "Connect GitHub"}
+                </button>
+              </>
+            )}
+            {githubError && (
+              <div className="sub" style={{ color: "#ff8fa0", marginTop: 8 }}>
+                {githubError}
+              </div>
+            )}
+          </div>
+        </Card>
       </div>
     </>
   );
 }
+
 
 export function SearchResults() {
   return (

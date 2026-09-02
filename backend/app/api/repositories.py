@@ -154,11 +154,15 @@ def list_repositories(
             "visibility": repo.visibility,
             "default_branch": repo.default_branch,
             "settings": repo.settings or {},
+            "provider_type": getattr(repo, "provider_type", "local") or "local",
+            "external_id": getattr(repo, "external_id", None),
+            "provider_owner": getattr(repo, "provider_owner", None),
             "created_at": repo.created_at.isoformat() if repo.created_at else None,
             "updated_at": repo.updated_at.isoformat() if repo.updated_at else None,
         }
         for repo in repositories
     ]
+
 
 class UpdateSettingsRequest(BaseModel):
     settings: dict | None = None

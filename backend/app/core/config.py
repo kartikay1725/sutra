@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     github_test_repo_owner: str | None = None
     github_test_repo_name: str | None = None
     github_api_base_url: str = "https://api.github.com"
+    # GitHub App slug — used to build the installation URL:
+    # https://github.com/apps/{github_app_slug}/installations/new
+    # Find this on GitHub → Settings → Developer settings → GitHub Apps → your app
+    github_app_slug: str | None = None
 
     groq_api_key: str = Field(min_length=1,)
 

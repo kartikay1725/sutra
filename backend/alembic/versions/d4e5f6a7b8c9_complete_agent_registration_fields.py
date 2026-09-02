@@ -66,26 +66,31 @@ def upgrade() -> None:
             )
         )
 
-    # SQLite cannot safely add a NOT NULL column to a populated table
-    # without a server/default value. The table is currently expected
-    # to be empty on a fresh development DB, so normalize NULL values
-    # and then enforce NOT NULL using another batch rebuild.
+    # Normalize NULL values before enforcing NOT NULL.
+    #
+    # This migration targets PostgreSQL in production, so PostgreSQL
+    # boolean literals are used here.
     op.execute(
-        """
-        UPDATE agent_registration_requests
-        SET new_repo = 0
-        WHERE new_repo IS NULL
-        """
+        sa.text(
+            """
+            UPDATE agent_registration_requests
+            SET new_repo = FALSE
+            WHERE new_repo IS NULL
+            """
+        )
     )
 
     op.execute(
-        """
-        UPDATE agent_registration_requests
-        SET is_temporary_token_used = 0
-        WHERE is_temporary_token_used IS NULL
-        """
+        sa.text(
+            """
+            UPDATE agent_registration_requests
+            SET is_temporary_token_used = FALSE
+            WHERE is_temporary_token_used IS NULL
+            """
+        )
     )
 
+    # Now enforce NOT NULL on the boolean fields.
     with op.batch_alter_table(
         "agent_registration_requests",
         schema=None,

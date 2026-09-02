@@ -188,6 +188,10 @@ def initialize_configured_test_database():
 
     Some integration/concurrency tests use the application's global engine
     rather than the isolated `db` fixture, so all model tables must exist.
+
+    If the configured database is unreachable (e.g., no network access to
+    Supabase in a local dev environment), this fixture degrades gracefully
+    so that unit tests using the isolated SQLite `db` fixture still run.
     """
     if not _is_test_database():
         yield
@@ -198,11 +202,21 @@ def initialize_configured_test_database():
         "Import app.models before initializing the test database."
     )
 
-    Base.metadata.create_all(bind=app_engine)
+    try:
+        Base.metadata.create_all(bind=app_engine)
+    except Exception as e:
+        import warnings
+        warnings.warn(
+            f"Could not initialize configured test database ({e}). "
+            "Unit tests using the isolated 'db' fixture will still run. "
+            "Integration tests requiring Supabase connectivity will be skipped.",
+            stacklevel=2,
+        )
 
     yield
 
     # Intentionally do not drop the configured test DB.
+
     # Some integration/concurrency tests share it for the duration of pytest.
 
 

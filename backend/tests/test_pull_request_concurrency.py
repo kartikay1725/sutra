@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models.actor import Actor
+from pathlib import Path
 from app.models.agent import Agent
 from app.models.change import Change
 from app.models.change_event import ChangeEvent
@@ -93,14 +94,25 @@ def setup_concurrency_fixtures():
 
         db.commit()
 
+        repo_storage_path = (
+            Path(settings.repository_storage_path) / repo.storage_key
+        )
+
+        initial_commit = RepositoryService._run_git(
+            "rev-parse",
+            "--verify",
+            "refs/heads/main",
+            cwd=repo_storage_path,
+        ).stdout.strip()
+
         change = Change(
             id=str(uuid4()),
             repository_id=repo.id,
             actor_id=actor.id,
             intent="Concurrency Change",
             risk_level="low",
-            resulting_commit="1111111111111111111111111111111111111111",
-            base_commit="0000000000000000000000000000000000000000",
+            resulting_commit=initial_commit,
+            base_commit=initial_commit,
             operation_key=(uuid4().hex * 2)[:64],
             status="proposed",
         )

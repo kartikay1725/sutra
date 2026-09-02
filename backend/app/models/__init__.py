@@ -1,4 +1,5 @@
 from app.models.actor import Actor
+from app.models.github_installation import GitHubInstallation
 from app.models.agent import Agent
 from app.models.agent_repository_access import AgentRepositoryAccess
 from app.models.branch_protection_rule import BranchProtectionRule
@@ -41,5 +42,5 @@ __all__ = [
     "AgentRegistrationRequest", "KnowledgeNode", "KnowledgeEdge", "Issue", "IssueComment",
     "Discussion", "DiscussionComment", "AgentMessage", "RepositoryStar", "ActorFollow",
     "UserSession", "WebAuthnCredential", "Notification", "Organization", "OrganizationMember",
-    "Artifact", "Environment", "Deployment",
+    "Artifact", "Environment", "Deployment", "GitHubInstallation",
 ]

@@ -1,0 +1,269 @@
+"""
+GitHub Installation Service
+============================
+Manages the association between SUTRA users and GitHub App installations.
+
+Design principles:
+- No installation access tokens are ever persisted in the database.
+- Tokens are fetched on-demand and used ephemerally.
+- Repository sync is fully idempotent: identified by (provider_type, external_id).
+- One GitHub installation → one SUTRA user (enforced by unique constraint).
+"""
+import logging
+from datetime import datetime, timezone
+from typing import Optional
+from uuid import uuid4
+
+import httpx
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models.github_installation import GitHubInstallation
+from app.models.repository import Repository
+from app.models.user import User
+from app.providers.github.auth import GitHubAppAuthService
+
+logger = logging.getLogger("sutra.services.github_installation")
+
+
+class GitHubInstallationService:
+    """Service for GitHub App installation lifecycle and repository synchronization."""
+
+    def __init__(self, auth_service: GitHubAppAuthService):
+        self.auth_service = auth_service
+
+    # ------------------------------------------------------------------
+    # Installation CRUD
+    # ------------------------------------------------------------------
+
+    def get_installation_for_user(
+        self, db: Session, user_id: str
+    ) -> Optional[GitHubInstallation]:
+        """Return the active GitHub installation record for a SUTRA user, or None."""
+        return db.scalar(
+            select(GitHubInstallation).where(
+                GitHubInstallation.user_id == user_id
+            )
+        )
+
+    def upsert_installation(
+        self,
+        db: Session,
+        user_id: str,
+        github_installation_id: int,
+        github_account_id: int,
+        github_account_login: str,
+        target_type: str,
+    ) -> GitHubInstallation:
+        """
+        Create or update the GitHubInstallation record for a user.
+        If the same installation_id is already owned by a different user, raises ValueError.
+        """
+        # Check if this installation_id is already claimed by another user
+        existing_by_install_id = db.scalar(
+            select(GitHubInstallation).where(
+                GitHubInstallation.github_installation_id == github_installation_id
+            )
+        )
+        if existing_by_install_id and existing_by_install_id.user_id != user_id:
+            raise ValueError(
+                f"GitHub installation {github_installation_id} is already "
+                f"associated with a different SUTRA user."
+            )
+
+        # Find existing record for this user
+        installation = self.get_installation_for_user(db, user_id)
+
+        if installation is None:
+            installation = GitHubInstallation(
+                id=str(uuid4()),
+                user_id=user_id,
+                github_installation_id=github_installation_id,
+                github_account_id=github_account_id,
+                github_account_login=github_account_login,
+                target_type=target_type,
+            )
+            db.add(installation)
+        else:
+            # Update all fields — user may have reinstalled or switched org
+            installation.github_installation_id = github_installation_id
+            installation.github_account_id = github_account_id
+            installation.github_account_login = github_account_login
+            installation.target_type = target_type
+            installation.updated_at = datetime.now(timezone.utc)
+
+        db.commit()
+        db.refresh(installation)
+        return installation
+
+    def delete_installation(self, db: Session, user_id: str) -> bool:
+        """
+        Remove a user's GitHub installation record.
+        Does NOT delete synced repositories — they become orphaned (provider_type=github)
+        and should be handled gracefully by the listing endpoints.
+        """
+        installation = self.get_installation_for_user(db, user_id)
+        if installation is None:
+            return False
+        db.delete(installation)
+        db.commit()
+        return True
+
+    # ------------------------------------------------------------------
+    # GitHub API verification
+    # ------------------------------------------------------------------
+
+    def verify_installation_from_github(
+        self, installation_id: int
+    ) -> dict:
+        """
+        Verify an installation by calling the GitHub API.
+        Returns the raw installation data from GitHub.
+        Raises httpx.HTTPStatusError if the installation is invalid/inaccessible.
+
+        IMPORTANT: Uses the App JWT (never an installation token) — the private key
+        stays on the server and is never exposed.
+        """
+        jwt_token = self.auth_service.generate_app_jwt()
+        headers = {
+            "Authorization": f"Bearer {jwt_token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        client = self.auth_service._client
+        response = client.get(f"/app/installations/{installation_id}", headers=headers)
+        response.raise_for_status()
+        return response.json()
+
+    # ------------------------------------------------------------------
+    # Repository listing from GitHub
+    # ------------------------------------------------------------------
+
+    def list_repos_for_installation(self, installation_id: int) -> list[dict]:
+        """
+        Fetch all repositories accessible through a GitHub App installation.
+        Uses a short-lived installation token (fetched, used, and discarded here).
+        The token is NOT stored anywhere.
+        """
+        # Get an installation token scoped only for listing repos (metadata:read)
+        token_data = self.auth_service.create_installation_token(
+            installation_id=installation_id,
+            repositories=[],  # all repos in the installation
+            permissions={"metadata": "read"},
+        )
+        raw_token = token_data["token"]
+
+        headers = {
+            "Authorization": f"Bearer {raw_token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+
+        all_repos = []
+        page = 1
+        client = self.auth_service._client
+
+        try:
+            while True:
+                resp = client.get(
+                    f"/installation/repositories?per_page=100&page={page}",
+                    headers=headers,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                repos = data.get("repositories", [])
+                all_repos.extend(repos)
+                # Stop if we got fewer than 100 (last page)
+                if len(repos) < 100:
+                    break
+                page += 1
+        finally:
+            # Always revoke the token immediately after use
+            try:
+                self.auth_service.revoke_installation_token(raw_token)
+            except Exception as e:
+                logger.warning(f"Failed to revoke listing token for installation {installation_id}: {e}")
+
+        return all_repos
+
+    # ------------------------------------------------------------------
+    # Repository sync (idempotent)
+    # ------------------------------------------------------------------
+
+    def sync_repos_for_user(
+        self,
+        db: Session,
+        user: User,
+        installation: GitHubInstallation,
+    ) -> list[Repository]:
+        """
+        Fetch all repositories from GitHub for this installation and upsert them
+        into the SUTRA repositories table.
+
+        Idempotency: identified by (provider_type='github', external_id=str(github_repo_id)).
+        If a repo already exists, its metadata is updated. No duplicates are created.
+
+        IMPORTANT: No Git content is fetched or stored. SUTRA only stores metadata.
+        """
+        github_repos = self.list_repos_for_installation(
+            installation.github_installation_id
+        )
+
+        synced = []
+        now = datetime.now(timezone.utc)
+
+        for gh_repo in github_repos:
+            external_id = str(gh_repo["id"])
+            repo_name = gh_repo["name"]
+            owner_login = gh_repo["owner"]["login"]
+
+            # Look up by stable external identity
+            existing = db.scalar(
+                select(Repository).where(
+                    Repository.provider_type == "github",
+                    Repository.external_id == external_id,
+                    Repository.deleted_at.is_(None),
+                )
+            )
+
+            if existing is not None:
+                # Update mutable metadata
+                existing.name = repo_name
+                existing.slug = repo_name.lower()
+                existing.description = gh_repo.get("description")
+                existing.visibility = "private" if gh_repo.get("private") else "public"
+                existing.default_branch = gh_repo.get("default_branch", "main")
+                existing.github_installation_id = installation.github_installation_id
+                existing.provider_owner = owner_login
+                existing.updated_at = now
+                synced.append(existing)
+            else:
+                # Create new repository record
+                new_repo = Repository(
+                    id=str(uuid4()),
+                    owner_id=user.id,
+                    name=repo_name,
+                    slug=repo_name.lower(),
+                    description=gh_repo.get("description"),
+                    visibility="private" if gh_repo.get("private") else "public",
+                    default_branch=gh_repo.get("default_branch", "main"),
+                    # storage_key is used for local git objects; for GitHub repos it's a placeholder
+                    storage_key=f"github/{installation.github_installation_id}/{external_id}",
+                    provider_type="github",
+                    external_id=external_id,
+                    github_installation_id=installation.github_installation_id,
+                    provider_owner=owner_login,
+                    settings={},
+                )
+                db.add(new_repo)
+                synced.append(new_repo)
+
+        db.commit()
+        for repo in synced:
+            db.refresh(repo)
+
+        logger.info(
+            f"Synced {len(synced)} GitHub repositories for user {user.id} "
+            f"(installation {installation.github_installation_id})"
+        )
+        return synced

@@ -83,16 +83,7 @@ def upgrade() -> None:
     #
     # Therefore we do NOT recreate that index here.
     # ------------------------------------------------------------------
-    with op.batch_alter_table("changes", schema=None) as batch_op:
-        batch_op.create_unique_constraint(
-            "uq_changes_operation_key",
-            ["operation_key"],
-        )
-
-        batch_op.create_check_constraint(
-            "ck_changes_status",
-            "status IN ('proposed', 'recorded', 'blocked', 'rejected')",
-        )
+    
 
     # ------------------------------------------------------------------
     # Git push events
@@ -165,42 +156,9 @@ def downgrade() -> None:
     # ------------------------------------------------------------------
     # Changes table
     # ------------------------------------------------------------------
-    with op.batch_alter_table("changes", schema=None) as batch_op:
-        batch_op.drop_constraint(
-            "ck_changes_status",
-            type_="check",
-        )
+   
 
-        # The baseline-created index is intentionally preserved only if
-        # it still exists. Batch mode will otherwise fail trying to
-        # remove a non-existent index.
-        existing_change_indexes = _get_index_names("changes")
-
-        if "ix_changes_operation_key" in existing_change_indexes:
-            batch_op.drop_index("ix_changes_operation_key")
-
-        batch_op.drop_constraint(
-            "uq_changes_operation_key",
-            type_="unique",
-        )
-
-    # ------------------------------------------------------------------
-    # Restore PostgreSQL's old partial unique index only on PostgreSQL.
-    # SQLite cannot represent PostgreSQL's partial-index syntax here.
-    # ------------------------------------------------------------------
-    bind = op.get_bind()
-
-    if bind.dialect.name == "postgresql":
-        existing_indexes = _get_index_names("changes")
-
-        if "uq_changes_operation_key" not in existing_indexes:
-            op.create_index(
-                "uq_changes_operation_key",
-                "changes",
-                ["operation_key"],
-                unique=True,
-                postgresql_where=sa.text("operation_key IS NOT NULL"),
-            )
+    
 
     # ------------------------------------------------------------------
     # Agent registration requests
