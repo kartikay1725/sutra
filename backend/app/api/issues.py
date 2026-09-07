@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
-import re
-from uuid import uuid4
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -9,10 +8,15 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user
 from app.db.session import get_db
-from app.models.actor import Actor
+from app.models.user import User
 from app.models.issue import Issue, IssueComment
 from app.models.repository import Repository
 from app.models.user import User
+
+from app.providers.github.auth import GitHubAppAuthService
+from app.providers.github.repository import GitHubRepositoryProvider
+from app.core.config import settings
+
 from app.services.notification_service import NotificationService
 
 
@@ -22,20 +26,19 @@ router = APIRouter(
 )
 
 
-UUID_PATTERN = (
-    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-"
-    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
-    r"[0-9a-fA-F]{12}$"
-)
+# ============================================================
+# REQUEST / RESPONSE MODELS
+# ============================================================
 
 
 class IssueCreateRequest(BaseModel):
     title: str = Field(min_length=1, max_length=255)
     body: str = Field(min_length=1, max_length=10000)
-    author_id: str | None = Field(
-        default=None,
-        pattern=UUID_PATTERN,
-    )
+
+    # Reserved for the future agent issue pathway.
+    agent_id: Optional[str] = None
+    agent_session_id: Optional[str] = None
+    task_id: Optional[str] = None
 
 
 class IssueCommentCreateRequest(BaseModel):
@@ -43,9 +46,17 @@ class IssueCommentCreateRequest(BaseModel):
         min_length=1,
         max_length=10000,
     )
-    author_id: str | None = Field(
+
+
+class IssueStatusRequest(BaseModel):
+    status: str = Field(
+        pattern="^(open|closed)$"
+    )
+
+    # Optional comment that will be posted to GitHub.
+    comment: Optional[str] = Field(
         default=None,
-        pattern=UUID_PATTERN,
+        max_length=10000,
     )
 
 
@@ -54,13 +65,27 @@ class IssueResponse(BaseModel):
 
     id: str
     repository_id: str
-    author_id: str
+
+    # GitHub identity.
+    github_issue_id: Optional[str]
+    github_issue_number: Optional[int]
+    github_html_url: Optional[str]
+
+    source_type: str
+
+    agent_id: Optional[str]
+    agent_session_id: Optional[str]
+    task_id: Optional[str]
+
     title: str
     body: str
     status: str
+
+    github_author_login: Optional[str]
+
     created_at: datetime
     updated_at: datetime
-    closed_at: datetime | None
+    closed_at: Optional[datetime]
 
 
 class IssueCommentResponse(BaseModel):
@@ -68,10 +93,22 @@ class IssueCommentResponse(BaseModel):
 
     id: str
     issue_id: str
-    author_id: str
+
+    github_comment_id: Optional[str]
+    github_html_url: Optional[str]
+
+    author_id: Optional[str]
+    github_author_login: Optional[str]
+
     body: str
+
     created_at: datetime
     updated_at: datetime
+
+
+# ============================================================
+# REPOSITORY / PROVIDER HELPERS
+# ============================================================
 
 
 def get_repository_for_user(
@@ -80,13 +117,22 @@ def get_repository_for_user(
     db: Session,
     user: User,
 ) -> Repository:
+    """
+    Resolve the SUTRA repository.
 
+    The GitHub repository itself is identified using
+    Repository.provider_owner + Repository.name.
+    """
     repo = db.scalar(
         select(Repository)
-        .join(Actor, Actor.id == Repository.owner_id)
+        .join(
+            User,
+            User.id == Repository.owner_id,
+        )
         .where(
-            Actor.name == owner_name,
-            Repository.name == repo_name,
+            User.username == owner_name,
+            Repository.slug == repo_name.lower(),
+            Repository.deleted_at.is_(None),
         )
     )
 
@@ -105,45 +151,192 @@ def get_repository_for_user(
     return repo
 
 
-def _verify_actor(
-    actor_id: str,
-    current_user: User,
-    db: Session,
-) -> Actor:
-    actor = db.get(
-        Actor,
-        actor_id,
-    )
-
-    if not actor:
+def _github_provider(
+    repository: Repository,
+) -> GitHubRepositoryProvider:
+    if repository.provider_type != "github":
         raise HTTPException(
             status_code=400,
-            detail="Invalid author_id",
+            detail=(
+                "This Issues API currently supports "
+                "GitHub repositories only."
+            ),
         )
 
-    # Preserve the existing behavior for now:
-    # users may act as themselves or their agents.
-    return actor
+    if not repository.provider_owner:
+        raise HTTPException(
+            status_code=500,
+            detail="GitHub repository owner metadata is missing",
+        )
+
+    if (
+        not settings.github_app_id
+        or not settings.github_private_key_pem
+    ):
+        raise HTTPException(
+            status_code=503,
+            detail="GitHub App is not configured",
+        )
+
+    auth_service = GitHubAppAuthService(
+        app_id=settings.github_app_id,
+        private_key_pem=settings.github_private_key_pem,
+        base_url=settings.github_api_base_url,
+    )
+
+    return GitHubRepositoryProvider(
+        auth_service=auth_service,
+        base_url=settings.github_api_base_url,
+    )
 
 
-def _create_issue_comment(
+# ============================================================
+# LOCAL LINKAGE HELPERS
+# ============================================================
+
+
+def _find_linked_issue(
+    *,
+    repository_id: str,
+    github_issue_number: int,
+    db: Session,
+) -> Optional[Issue]:
+    return db.scalar(
+        select(Issue).where(
+            Issue.repository_id == repository_id,
+            Issue.github_issue_number == github_issue_number,
+        )
+    )
+
+
+def _sync_issue_link(
+    *,
+    repository: Repository,
+    github_issue,
+    db: Session,
+    source_type: str = "human",
+    agent_id: Optional[str] = None,
+    agent_session_id: Optional[str] = None,
+    task_id: Optional[str] = None,
+    author_id: Optional[str] = None,
+) -> Issue:
+    """
+    Synchronize a GitHub issue into SUTRA's lightweight
+    provenance/linkage record.
+
+    GitHub remains authoritative.
+    """
+
+    issue = _find_linked_issue(
+        repository_id=repository.id,
+        github_issue_number=github_issue.number,
+        db=db,
+    )
+
+    now = datetime.now(timezone.utc)
+
+    if issue is None:
+        issue = Issue(
+            repository_id=repository.id,
+            github_issue_id=str(github_issue.id),
+            github_issue_number=github_issue.number,
+            github_html_url=github_issue.html_url,
+            source_type=source_type,
+            agent_id=agent_id,
+            agent_session_id=agent_session_id,
+            task_id=task_id,
+            author_id=author_id,
+            title=github_issue.title,
+            body=github_issue.body or "",
+            status=github_issue.state,
+            github_author_login=github_issue.author_login,
+            created_at=github_issue.created_at,
+            updated_at=github_issue.updated_at,
+            closed_at=github_issue.closed_at,
+        )
+
+        db.add(issue)
+
+    else:
+        issue.github_issue_id = str(github_issue.id)
+        issue.github_html_url = github_issue.html_url
+
+        issue.title = github_issue.title
+        issue.body = github_issue.body or ""
+        issue.status = github_issue.state
+        issue.github_author_login = (
+            github_issue.author_login
+        )
+
+        issue.created_at = github_issue.created_at
+        issue.updated_at = github_issue.updated_at
+        issue.closed_at = github_issue.closed_at
+
+        # Only populate provenance when explicitly supplied.
+        if agent_id is not None:
+            issue.agent_id = agent_id
+
+        if agent_session_id is not None:
+            issue.agent_session_id = agent_session_id
+
+        if task_id is not None:
+            issue.task_id = task_id
+
+        if author_id is not None:
+            issue.author_id = author_id
+
+        issue.source_type = source_type
+
+        issue.updated_at = now
+
+    db.flush()
+
+    return issue
+
+
+def _sync_comment(
     *,
     issue: Issue,
-    author_id: str,
-    body: str,
+    github_comment,
     db: Session,
 ) -> IssueComment:
+    existing = db.scalar(
+        select(IssueComment).where(
+            IssueComment.github_comment_id
+            == str(github_comment.id),
+        )
+    )
+
+    if existing:
+        existing.body = github_comment.body
+        existing.github_html_url = github_comment.html_url
+        existing.github_author_login = (
+            github_comment.author_login
+        )
+        existing.updated_at = github_comment.updated_at
+        db.flush()
+        return existing
+
     comment = IssueComment(
-        id=str(uuid4()),
         issue_id=issue.id,
-        author_id=author_id,
-        body=body,
+        github_comment_id=str(github_comment.id),
+        github_html_url=github_comment.html_url,
+        author_id=None,
+        github_author_login=github_comment.author_login,
+        body=github_comment.body,
+        created_at=github_comment.created_at,
+        updated_at=github_comment.updated_at,
     )
 
     db.add(comment)
     db.flush()
 
     return comment
+
+
+# ============================================================
+# CREATE ISSUE
+# ============================================================
 
 
 @router.post(
@@ -158,51 +351,78 @@ def create_issue(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    repo = get_repository_for_user(
+    repository = get_repository_for_user(
         owner_name,
         repo_name,
         db,
         current_user,
     )
 
-    author_id = (
-        payload.author_id
-        or current_user.id
-    )
+    provider = _github_provider(repository)
 
-    _verify_actor(
-        author_id,
-        current_user,
-        db,
-    )
+    try:
+        github_issue = provider.create_issue(
+            owner=repository.provider_owner,
+            name=repository.name,
+            title=payload.title,
+            body=payload.body,
+        )
 
-    issue = Issue(
-        repository_id=repo.id,
-        author_id=author_id,
-        title=payload.title,
-        body=payload.body,
-    )
+        # This is a normal human-created issue unless the
+        # future agent pathway explicitly supplies agent identity.
+        source_type = (
+            "agent"
+            if payload.agent_id
+            else "human"
+        )
 
-    db.add(issue)
-    db.commit()
-    db.refresh(issue)
+        issue = _sync_issue_link(
+            repository=repository,
+            github_issue=github_issue,
+            db=db,
+            source_type=source_type,
+            agent_id=payload.agent_id,
+            agent_session_id=payload.agent_session_id,
+            task_id=payload.task_id,
+            author_id=current_user.id,
+        )
 
-    NotificationService.create_notification(
-        db=db,
-        user_id=repo.owner_id,
-        title=f"New issue: {issue.title}",
-        message=(
-            f"Issue #{issue.id[:8]} "
-            f"was created in {repo_name}."
-        ),
-        type="issue",
-        link=(
-            f"/repositories/"
-            f"{repo_name}/issues/{issue.id}"
-        ),
-    )
+        db.commit()
+        db.refresh(issue)
 
-    return issue
+        NotificationService.create_notification(
+            db=db,
+            user_id=current_user.id,
+            title=f"New issue: {issue.title}",
+            message=(
+                f"GitHub issue #{issue.github_issue_number} "
+                f"was created in {repo_name}."
+            ),
+            type="issue",
+            link=(
+                f"/repositories/"
+                f"{repo_name}/issues/"
+                f"{issue.github_issue_number}"
+            ),
+        )
+
+        return issue
+
+    except HTTPException:
+        raise
+
+    except Exception as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=503,
+            detail=f"GitHub issue creation failed: {exc}",
+        ) from exc
+
+
+# ============================================================
+# LIST ISSUES
+# ============================================================
 
 
 @router.get(
@@ -228,32 +448,57 @@ def list_issues(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    repo = get_repository_for_user(
+    repository = get_repository_for_user(
         owner_name,
         repo_name,
         db,
         current_user,
     )
 
-    stmt = select(Issue).where(
-        Issue.repository_id == repo.id
-    )
+    provider = _github_provider(repository)
 
-    if state != "all":
-        stmt = stmt.where(
-            Issue.status == state
+    try:
+        github_issues = provider.list_issues(
+            owner=repository.provider_owner,
+            name=repository.name,
+            state=state,
+            limit=limit,
+            offset=offset,
         )
 
-    stmt = (
-        stmt
-        .order_by(Issue.created_at.desc())
-        .limit(limit)
-        .offset(offset)
-    )
+        result: list[Issue] = []
 
-    issues = db.scalars(stmt).all()
+        for github_issue in github_issues:
+            issue = _sync_issue_link(
+                repository=repository,
+                github_issue=github_issue,
+                db=db,
+            )
 
-    return list(issues)
+            result.append(issue)
+
+        db.commit()
+
+        for issue in result:
+            db.refresh(issue)
+
+        return result
+
+    except HTTPException:
+        raise
+
+    except Exception as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=503,
+            detail=f"GitHub issue listing failed: {exc}",
+        ) from exc
+
+
+# ============================================================
+# GET ISSUE
+# ============================================================
 
 
 @router.get(
@@ -267,27 +512,107 @@ def get_issue(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    repo = get_repository_for_user(
+    repository = get_repository_for_user(
         owner_name,
         repo_name,
         db,
         current_user,
     )
 
-    issue = db.scalar(
-        select(Issue).where(
-            Issue.id == issue_id,
-            Issue.repository_id == repo.id,
-        )
-    )
+    provider = _github_provider(repository)
 
-    if not issue:
+    try:
+        # Existing frontend may still pass the previous local UUID.
+        #
+        # Prefer the local linkage lookup first so existing routes
+        # remain compatible.
+        linked_issue = db.scalar(
+            select(Issue).where(
+                Issue.id == issue_id,
+                Issue.repository_id == repository.id,
+            )
+        )
+
+        github_issue_number: Optional[int] = None
+
+        if linked_issue:
+            github_issue_number = (
+                linked_issue.github_issue_number
+            )
+        else:
+            # New frontend may pass the GitHub issue number.
+            try:
+                github_issue_number = int(issue_id)
+            except ValueError:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Issue not found",
+                )
+
+        github_issue = provider.get_issue(
+            owner=repository.provider_owner,
+            name=repository.name,
+            issue_number=github_issue_number,
+        )
+
+        if github_issue is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Issue not found",
+            )
+
+        issue = _sync_issue_link(
+            repository=repository,
+            github_issue=github_issue,
+            db=db,
+            source_type=(
+                linked_issue.source_type
+                if linked_issue
+                else "human"
+            ),
+            agent_id=(
+                linked_issue.agent_id
+                if linked_issue
+                else None
+            ),
+            agent_session_id=(
+                linked_issue.agent_session_id
+                if linked_issue
+                else None
+            ),
+            task_id=(
+                linked_issue.task_id
+                if linked_issue
+                else None
+            ),
+            author_id=(
+                linked_issue.author_id
+
+                if linked_issue
+                else None
+            ),
+        )
+
+        db.commit()
+        db.refresh(issue)
+
+        return issue
+
+    except HTTPException:
+        raise
+
+    except Exception as exc:
+        db.rollback()
+
         raise HTTPException(
-            status_code=404,
-            detail="Issue not found",
-        )
+            status_code=503,
+            detail=f"GitHub issue lookup failed: {exc}",
+        ) from exc
 
-    return issue
+
+# ============================================================
+# CREATE COMMENT
+# ============================================================
 
 
 @router.post(
@@ -303,48 +628,118 @@ def create_issue_comment(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    repo = get_repository_for_user(
+    repository = get_repository_for_user(
         owner_name,
         repo_name,
         db,
         current_user,
     )
 
-    issue = db.scalar(
-        select(Issue).where(
-            Issue.id == issue_id,
-            Issue.repository_id == repo.id,
-        )
-    )
+    provider = _github_provider(repository)
 
-    if not issue:
+    try:
+        linked_issue = db.scalar(
+            select(Issue).where(
+                Issue.id == issue_id,
+                Issue.repository_id == repository.id,
+            )
+        )
+
+        if linked_issue:
+            issue_number = linked_issue.github_issue_number
+        else:
+            try:
+                issue_number = int(issue_id)
+            except ValueError:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Issue not found",
+                )
+
+        if issue_number is None:
+            raise HTTPException(
+                status_code=404,
+                detail="GitHub issue linkage is missing",
+            )
+
+        github_comment = provider.create_issue_comment(
+            owner=repository.provider_owner,
+            name=repository.name,
+            issue_number=issue_number,
+            body=payload.body,
+        )
+
+        # Ensure the issue linkage exists.
+        github_issue = provider.get_issue(
+            owner=repository.provider_owner,
+            name=repository.name,
+            issue_number=issue_number,
+        )
+
+        if github_issue is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Issue not found on GitHub",
+            )
+
+        issue = _sync_issue_link(
+            repository=repository,
+            github_issue=github_issue,
+            db=db,
+            source_type=(
+                linked_issue.source_type
+                if linked_issue
+                else "human"
+            ),
+            agent_id=(
+                linked_issue.agent_id
+                if linked_issue
+                else None
+            ),
+            agent_session_id=(
+                linked_issue.agent_session_id
+                if linked_issue
+                else None
+            ),
+            task_id=(
+                linked_issue.task_id
+                if linked_issue
+                else None
+            ),
+            author_id=(
+                linked_issue.author_id
+
+                if linked_issue
+                else current_user.id
+            ),
+        )
+
+        comment = _sync_comment(
+            issue=issue,
+            github_comment=github_comment,
+            db=db,
+        )
+
+        db.commit()
+        db.refresh(comment)
+
+        return comment
+
+    except HTTPException:
+        raise
+
+    except Exception as exc:
+        db.rollback()
+
         raise HTTPException(
-            status_code=404,
-            detail="Issue not found",
-        )
+            status_code=503,
+            detail=f"GitHub issue comment failed: {exc}",
+        ) from exc
 
-    author_id = (
-        payload.author_id
-        or current_user.id
-    )
 
-    _verify_actor(
-        author_id,
-        current_user,
-        db,
-    )
-
-    comment = _create_issue_comment(
-        issue=issue,
-        author_id=author_id,
-        body=payload.body,
-        db=db,
-    )
-
-    db.commit()
-    db.refresh(comment)
-
-    return comment
+# ============================================================
+# LIST COMMENTS
+# ============================================================
 
 
 @router.get(
@@ -367,57 +762,123 @@ def get_issue_comments(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    repo = get_repository_for_user(
+    repository = get_repository_for_user(
         owner_name,
         repo_name,
         db,
         current_user,
     )
 
-    issue = db.scalar(
-        select(Issue).where(
-            Issue.id == issue_id,
-            Issue.repository_id == repo.id,
-        )
-    )
+    provider = _github_provider(repository)
 
-    if not issue:
+    try:
+        linked_issue = db.scalar(
+            select(Issue).where(
+                Issue.id == issue_id,
+                Issue.repository_id == repository.id,
+            )
+        )
+
+        if linked_issue:
+            issue_number = linked_issue.github_issue_number
+        else:
+            try:
+                issue_number = int(issue_id)
+            except ValueError:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Issue not found",
+                )
+
+        if issue_number is None:
+            raise HTTPException(
+                status_code=404,
+                detail="GitHub issue linkage is missing",
+            )
+
+        github_issue = provider.get_issue(
+            owner=repository.provider_owner,
+            name=repository.name,
+            issue_number=issue_number,
+        )
+
+        if github_issue is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Issue not found",
+            )
+
+        issue = _sync_issue_link(
+            repository=repository,
+            github_issue=github_issue,
+            db=db,
+            source_type=(
+                linked_issue.source_type
+                if linked_issue
+                else "human"
+            ),
+            agent_id=(
+                linked_issue.agent_id
+                if linked_issue
+                else None
+            ),
+            agent_session_id=(
+                linked_issue.agent_session_id
+                if linked_issue
+                else None
+            ),
+            task_id=(
+                linked_issue.task_id
+                if linked_issue
+                else None
+            ),
+            author_id=(
+                linked_issue.author_id
+
+                if linked_issue
+                else current_user.id
+            ),
+        )
+
+        github_comments = provider.list_issue_comments(
+            owner=repository.provider_owner,
+            name=repository.name,
+            issue_number=issue_number,
+            limit=limit,
+            offset=offset,
+        )
+
+        comments = [
+            _sync_comment(
+                issue=issue,
+                github_comment=comment,
+                db=db,
+            )
+            for comment in github_comments
+        ]
+
+        db.commit()
+
+        for comment in comments:
+            db.refresh(comment)
+
+        return comments
+
+    except HTTPException:
+        raise
+
+    except Exception as exc:
+        db.rollback()
+
         raise HTTPException(
-            status_code=404,
-            detail="Issue not found",
-        )
-
-    stmt = (
-        select(IssueComment)
-        .where(
-            IssueComment.issue_id == issue.id
-        )
-        .order_by(
-            IssueComment.created_at.asc()
-        )
-        .limit(limit)
-        .offset(offset)
-    )
-
-    comments = db.scalars(stmt).all()
-
-    return list(comments)
+            status_code=503,
+            detail=f"GitHub issue comments failed: {exc}",
+        ) from exc
 
 
-class IssueStatusRequest(BaseModel):
-    status: str = Field(
-        pattern="^(open|closed)$"
-    )
-
-    resolution: str | None = Field(
-        default=None,
-        pattern="^(completed|not_planned|duplicate)$",
-    )
-
-    comment: str | None = Field(
-        default=None,
-        max_length=10000,
-    )
+# ============================================================
+# OPEN / CLOSE
+# ============================================================
 
 
 @router.patch(
@@ -431,142 +892,144 @@ def update_issue_status(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    repo = get_repository_for_user(
+    repository = get_repository_for_user(
         owner_name,
         repo_name,
         db,
         current_user,
     )
 
-    issue = db.scalar(
-        select(Issue).where(
-            Issue.id == issue_id,
-            Issue.repository_id == repo.id,
-        )
-    )
+    provider = _github_provider(repository)
 
-    if not issue:
-        raise HTTPException(
-            status_code=404,
-            detail="Issue not found",
+    try:
+        linked_issue = db.scalar(
+            select(Issue).where(
+                Issue.id == issue_id,
+                Issue.repository_id == repository.id,
+            )
         )
 
-    now = datetime.now(timezone.utc)
+        if linked_issue:
+            issue_number = linked_issue.github_issue_number
+        else:
+            try:
+                issue_number = int(issue_id)
+            except ValueError:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Issue not found",
+                )
 
-    # ---------------------------------------------------------
-    # CLOSE
-    # ---------------------------------------------------------
-    if payload.status == "closed":
-
-        if not payload.resolution:
+        if issue_number is None:
             raise HTTPException(
-                status_code=400,
-                detail=(
-                    "A resolution is required when "
-                    "closing an issue."
-                ),
+                status_code=404,
+                detail="GitHub issue linkage is missing",
             )
 
-        if not payload.comment or not payload.comment.strip():
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "A closing comment is required "
-                    "when closing an issue."
-                ),
+        # --------------------------------------------------------
+        # CLOSE
+        # --------------------------------------------------------
+
+        if payload.status == "closed":
+            github_issue = provider.close_issue(
+                owner=repository.provider_owner,
+                name=repository.name,
+                issue_number=issue_number,
             )
 
-        resolution_labels = {
-            "completed": "completed",
-            "not_planned": "not planned",
-            "duplicate": "duplicate",
-        }
+            resolution_text = (
+                "Closed via SUTRA."
+            )
 
-        resolution_label = resolution_labels[
-            payload.resolution
-        ]
+            if payload.comment and payload.comment.strip():
+                resolution_text += (
+                    "\n\n"
+                    + payload.comment.strip()
+                )
 
-        audit_body = (
-            f"Closed as {resolution_label}.\n\n"
-            f"{payload.comment.strip()}"
-        )
+            provider.create_issue_comment(
+                owner=repository.provider_owner,
+                name=repository.name,
+                issue_number=issue_number,
+                body=resolution_text,
+            )
 
-        _create_issue_comment(
-            issue=issue,
-            author_id=current_user.id,
-            body=audit_body,
+        # --------------------------------------------------------
+        # REOPEN
+        # --------------------------------------------------------
+
+        else:
+            github_issue = provider.reopen_issue(
+                owner=repository.provider_owner,
+                name=repository.name,
+                issue_number=issue_number,
+            )
+
+            if payload.comment and payload.comment.strip():
+                provider.create_issue_comment(
+                    owner=repository.provider_owner,
+                    name=repository.name,
+                    issue_number=issue_number,
+                    body=payload.comment.strip(),
+                )
+
+        issue = _sync_issue_link(
+            repository=repository,
+            github_issue=github_issue,
             db=db,
-        )
+            source_type=(
+                linked_issue.source_type
+                if linked_issue
+                else "human"
+            ),
+            agent_id=(
+                linked_issue.agent_id
+                if linked_issue
+                else None
+            ),
+            agent_session_id=(
+                linked_issue.agent_session_id
+                if linked_issue
+                else None
+            ),
+            task_id=(
+                linked_issue.task_id
+                if linked_issue
+                else None
+            ),
+            author_id=(
+                linked_issue.author_id
 
-        issue.status = "closed"
-        issue.closed_at = now
-        issue.updated_at = now
+                if linked_issue
+                else current_user.id
+            ),
+        )
 
         db.commit()
         db.refresh(issue)
 
-        NotificationService.create_notification(
-            db=db,
-            user_id=repo.owner_id,
-            title=f"Issue resolved: {issue.title}",
-            message=(
-                f"Issue #{issue.id[:8]} was "
-                f"closed as {resolution_label}."
-            ),
-            type="issue",
-            link=(
-                f"/repositories/"
-                f"{repo_name}/issues/{issue.id}"
-            ),
-        )
-
         return {
             "status": "ok",
-            "issue_status": "closed",
-            "resolution": payload.resolution,
+            "issue_status": github_issue.state,
+            "github_issue_number": github_issue.number,
+            "resolution": None,
         }
 
-    # ---------------------------------------------------------
-    # REOPEN
-    # ---------------------------------------------------------
-    issue.status = "open"
-    issue.closed_at = None
-    issue.updated_at = now
+    except HTTPException:
+        raise
 
-    if payload.comment and payload.comment.strip():
-        _create_issue_comment(
-            issue=issue,
-            author_id=current_user.id,
-            body=(
-                "Reopened.\n\n"
-                f"{payload.comment.strip()}"
-            ),
-            db=db,
-        )
+    except Exception as exc:
+        db.rollback()
 
-    db.commit()
-    db.refresh(issue)
+        raise HTTPException(
+            status_code=503,
+            detail=f"GitHub issue status update failed: {exc}",
+        ) from exc
 
-    NotificationService.create_notification(
-        db=db,
-        user_id=repo.owner_id,
-        title=f"Issue reopened: {issue.title}",
-        message=(
-            f"Issue #{issue.id[:8]} was reopened "
-            f"in {repo_name}."
-        ),
-        type="issue",
-        link=(
-            f"/repositories/"
-            f"{repo_name}/issues/{issue.id}"
-        ),
-    )
 
-    return {
-        "status": "ok",
-        "issue_status": "open",
-        "resolution": None,
-    }
+# ============================================================
+# DELETE
+# ============================================================
 
 
 @router.delete(
@@ -579,29 +1042,20 @@ def delete_issue(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    repo = get_repository_for_user(
-        owner_name,
-        repo_name,
-        db,
-        current_user,
+    """
+    GitHub is authoritative.
+
+    We intentionally do not expose a fake local delete operation.
+    GitHub Issues do not provide the deletion semantics that the old
+    SUTRA-local issue model provided.
+
+    Use GitHub itself for issue deletion where applicable.
+    """
+
+    raise HTTPException(
+        status_code=405,
+        detail=(
+            "Issue deletion is controlled by GitHub. "
+            "SUTRA does not delete GitHub issues."
+        ),
     )
-
-    issue = db.scalar(
-        select(Issue).where(
-            Issue.id == issue_id,
-            Issue.repository_id == repo.id,
-        )
-    )
-
-    if not issue:
-        raise HTTPException(
-            status_code=404,
-            detail="Issue not found",
-        )
-
-    db.delete(issue)
-    db.commit()
-
-    return {
-        "status": "deleted"
-    }

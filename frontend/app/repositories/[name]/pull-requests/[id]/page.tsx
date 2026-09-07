@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { AppShell, PageHead, Card, Btn, Badge } from "@/components/shell";
 import { pullRequestService, PullRequest, PRReview, PREvent, PRChange } from "@/lib/pull-requests";
 import { ciService, CIJob } from "@/lib/ci";
@@ -139,9 +140,22 @@ export default function PullRequestDetailPage({ params }: { params: Promise<{ na
   return (
     <AppShell>
       <PageHead
-        eyebrow="Pull Requests"
+        eyebrow={`Pull Request #${pr.github_pr_number || pr.id.slice(0, 8)}`}
         title={pr.title}
-        sub={`${repoName} • ${pr.source_commit ? pr.source_commit.slice(0,7) : "—"} → ${pr.target_branch} • opened ${timeAgo(pr.created_at)}`}
+        sub={`${repoName} • ${pr.head_branch || (pr.source_commit ? pr.source_commit.slice(0,7) : "—")} → ${pr.target_branch} • opened ${timeAgo(pr.created_at)}`}
+        action={
+          pr.github_html_url ? (
+            <a
+              href={pr.github_html_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn primary"
+              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+            >
+              <I.ExternalLink size={14} /> Open on GitHub
+            </a>
+          ) : undefined
+        }
       />
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 20px" }}>
@@ -422,6 +436,73 @@ export default function PullRequestDetailPage({ params }: { params: Promise<{ na
 
           {/* RIGHT sidebar */}
           <div style={{ width: 280, flexShrink: 0, display: "flex", flexDirection: "column", gap: 20 }}>
+
+            {/* SUTRA Provenance Card */}
+            <Card style={{ padding: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span>SUTRA Provenance</span>
+                <Badge tone={pr.actor_type === "agent" || pr.agent_id ? "aqua" : "gray"}>
+                  {pr.actor_type === "agent" || pr.agent_id ? "Agent" : "Human"}
+                </Badge>
+              </div>
+
+              {pr.actor_type === "agent" || pr.agent_id ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 13 }}>
+                  <div>
+                    <div className="meta" style={{ fontSize: 11 }}>Agent</div>
+                    <div style={{ fontWeight: 600, color: "var(--fg)", display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                      <I.Bot size={13} style={{ color: "var(--cyan)" }} />
+                      <span>{pr.agent_name || "Autonomous Agent"}</span>
+                      {pr.agent_id && <span className="meta" style={{ fontFamily: "monospace", fontSize: 11 }}>({pr.agent_id.slice(0, 6)})</span>}
+                    </div>
+                  </div>
+
+                  {pr.agent_session_id && (
+                    <div>
+                      <div className="meta" style={{ fontSize: 11 }}>Agent Session</div>
+                      <div style={{ fontFamily: "monospace", fontSize: 12, color: "var(--fg)", marginTop: 2 }}>
+                        {pr.agent_session_id.slice(0, 12)}…
+                      </div>
+                    </div>
+                  )}
+
+                  {pr.task_id && (
+                    <div>
+                      <div className="meta" style={{ fontSize: 11 }}>Originating Task</div>
+                      <Link href={`/tasks/${pr.task_id}`} style={{ color: "var(--cyan)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4, marginTop: 2 }}>
+                        <I.ListTodo size={13} /> {pr.task_title || `Task #${pr.task_id.slice(0, 8)}`}
+                      </Link>
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="meta" style={{ fontSize: 11 }}>Originating Change</div>
+                    <Link href={`/changes/${pr.source_change_id}`} style={{ color: "var(--cyan)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4, marginTop: 2 }}>
+                      <I.GitBranch size={13} /> Change #{pr.source_change_id.slice(0, 8)}
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 13 }}>
+                  <div>
+                    <div className="meta" style={{ fontSize: 11 }}>Author</div>
+                    <div style={{ fontWeight: 600, color: "var(--fg)", display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                      <I.User size={13} />
+                      <span>{pr.actor_name || pr.author_id}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="meta" style={{ fontSize: 11 }}>Originating Change</div>
+                    <Link href={`/changes/${pr.source_change_id}`} style={{ color: "var(--cyan)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4, marginTop: 2 }}>
+                      <I.GitBranch size={13} /> Change #{pr.source_change_id.slice(0, 8)}
+                    </Link>
+                  </div>
+                  <div className="sub" style={{ fontSize: 12 }}>
+                    External / human-originated PR (no agent session).
+                  </div>
+                </div>
+              )}
+            </Card>
 
             {/* Reviewers */}
             <Card style={{ padding: 16 }}>

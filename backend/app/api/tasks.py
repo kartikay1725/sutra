@@ -241,6 +241,21 @@ def list_tasks(
 
 
 @router.get(
+    "/tasks",
+    response_model=list[TaskResponse],
+)
+def list_all_tasks(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        tasks = TaskService(db).list_all_tasks(current_user.id)
+        return [_to_response(task) for task in tasks]
+    except Exception as exc:
+        raise _service_error(exc) from exc
+
+
+@router.get(
     "/tasks/{task_id}",
     response_model=TaskResponse,
 )
@@ -270,15 +285,17 @@ def delete_task(
     db: Session = Depends(get_db),
 ):
     try:
-        # In a real app, you might want a soft delete or proper authorization checks here
-        # For now, we allow the creator or assignee to delete it.
         task = db.scalar(select(Task).where(Task.id == task_id))
         if not task:
             raise HTTPException(status_code=404, detail="Task not found")
-            
-        if task.created_by != current_user.id and task.assigned_user_id != current_user.id:
+
+        repo = db.scalar(select(Repository).where(Repository.id == task.repository_id))
+        if repo and repo.visibility == "private" and repo.owner_id != current_user.id and task.created_by != current_user.id:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        if task.created_by != current_user.id and task.assigned_user_id != current_user.id and (not repo or repo.owner_id != current_user.id):
             raise HTTPException(status_code=403, detail="Not authorized to delete this task")
-            
+
         db.delete(task)
         db.commit()
     except Exception as exc:

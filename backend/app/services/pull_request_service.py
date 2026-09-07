@@ -4,21 +4,28 @@ import json
 from pathlib import Path
 import re
 import subprocess
+from typing import Optional
+from uuid import uuid4
+
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.actor import Actor
+from app.models.agent import Agent
 from app.models.change import Change
 from app.models.change_event import ChangeEvent
 from app.models.change_file import ChangeFile
 from app.models.change_review import ChangeReview
+from app.models.ci_job import CIJob
 from app.models.pull_request import PullRequest
 from app.models.repository import Repository
 from app.models.task import Task
 from app.models.user import User
+from app.providers.base import RepositoryProvider
 from app.services.authorization_service import AuthorizationService
+from app.services.branch_protection_service import BranchProtectionService
 from app.services.change_policy_service import ChangePolicyService
 from app.services.conflict_service import ConflictResult, ConflictService
 from app.services.git_merge_service import GitMergeService
@@ -30,6 +37,8 @@ class PRMergeResult:
     status: str
     detail: str
     pull_request: PullRequest
+    merge_commit_sha: Optional[str] = None
+    merged_at: Optional[datetime] = None
 
 
 class PullRequestService:
@@ -77,8 +86,30 @@ class PullRequestService:
         STATUS_CLOSED: set(),
     }
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, provider: Optional[RepositoryProvider] = None):
         self.db = db
+        self.provider = provider
+
+    def _get_provider(self, repository: Repository) -> Optional[RepositoryProvider]:
+        if self.provider is not None:
+            return self.provider
+        if repository.provider_type == "github" and repository.provider_owner:
+            if settings.github_app_id and settings.github_private_key_pem:
+                try:
+                    from app.providers.github.auth import GitHubAppAuthService
+                    from app.providers.github.repository import GitHubRepositoryProvider
+                    auth_service = GitHubAppAuthService(
+                        app_id=settings.github_app_id,
+                        private_key_pem=settings.github_private_key_pem,
+                        base_url=settings.github_api_base_url,
+                    )
+                    return GitHubRepositoryProvider(
+                        auth_service=auth_service,
+                        base_url=settings.github_api_base_url,
+                    )
+                except Exception:
+                    return None
+        return None
 
     # ---------------------------------------------------------
     # AUTHORIZATION HELPERS
@@ -383,6 +414,52 @@ class PullRequestService:
                             ci_svc.run_execution(ci_job.id, worker_id=f"api_worker_{uuid4().hex[:8]}")
                     except Exception:
                         pass
+            now = datetime.now(timezone.utc)
+            # Link Task -> PR if Change belongs to a Task
+            task = self.db.scalar(
+                select(Task).where(Task.resulting_change_id == source_change_id)
+            )
+            if task is not None:
+                task.resulting_pull_request_id = pr.id
+                task.updated_at = now
+
+            # Sync PR info and GitHub substrate into change metadata
+            if change:
+                try:
+                    meta = json.loads(change.metadata_json or "{}")
+                except Exception:
+                    meta = {}
+                meta["pull_request_id"] = pr.id
+                meta["pull_request_title"] = pr.title
+                meta["pull_request_status"] = pr.status
+                meta["target_branch"] = pr.target_branch
+
+                provider = self._get_provider(repository)
+                if provider is not None and repository.provider_owner and "github_pr_number" not in meta:
+                    head_branch = meta.get("branch") or meta.get("head_branch")
+                    if head_branch:
+                        try:
+                            gh_head = provider.get_branch(
+                                owner=repository.provider_owner,
+                                name=repository.name,
+                                branch=head_branch,
+                            )
+                            if gh_head:
+                                gh_pr = provider.create_pull_request(
+                                    owner=repository.provider_owner,
+                                    name=repository.name,
+                                    title=pr.title,
+                                    body=pr.description or "",
+                                    head_branch=head_branch,
+                                    base_branch=pr.target_branch,
+                                )
+                                meta["github_pr_number"] = gh_pr.number
+                                meta["github_pr_url"] = gh_pr.html_url
+                        except Exception:
+                            pass
+
+                change.metadata_json = json.dumps(meta, sort_keys=True)
+                change.updated_at = now
 
             self.db.flush()
             savepoint.commit()
@@ -640,10 +717,31 @@ class PullRequestService:
         if pr.author_id == approver_id or change.actor_id == approver_id:
             raise ValueError("Self-review approval is strictly prohibited: A reviewer cannot approve their own review request")
 
+        # Ensure approver is a human user, not an agent
+        approver_actor = self.db.scalar(select(Actor).where(Actor.id == approver_id))
+        if approver_actor and approver_actor.type == "agent":
+            raise ValueError("Agents cannot approve pull requests: only human reviewers may approve")
+        approver_agent = self.db.scalar(select(Agent).where(Agent.id == approver_id))
+        if approver_agent:
+            raise ValueError("Agents cannot approve pull requests: only human reviewers may approve")
+
         # Evaluate policy
         policy_decision = ChangePolicyService(self.db).evaluate(change)
         if policy_decision.decision == ChangePolicyService.BLOCK:
             raise ValueError(f"Change is currently blocked by policy: {policy_decision.reason}")
+
+        # Evaluate governance precondition
+        from app.services.governance_service import GovernanceService, GovernanceVerdict
+        provider = self._get_provider(repository)
+        gov_svc = GovernanceService(self.db, provider=provider)
+        gov_eval = gov_svc.evaluate_pull_request(pr.id, record_audit=False)
+        if gov_eval["verdict"] in (GovernanceVerdict.BLOCKED, GovernanceVerdict.CI_FAILED):
+            failing_reasons = [f for f in gov_eval.get("failed", []) if "CI" in f or "failed" in f.lower() or "blocked" in f.lower()]
+            raise ValueError(f"Cannot approve PullRequest: Governance evaluation is blocked ({'; '.join(failing_reasons) if failing_reasons else gov_eval['verdict']})")
+        elif gov_eval["verdict"] == GovernanceVerdict.CI_PENDING:
+            raise ValueError("Cannot approve PullRequest: Automated CI checks are still running or pending")
+        elif gov_eval["verdict"] == GovernanceVerdict.POLICY_FAILED:
+            raise ValueError(f"Cannot approve PullRequest: Change policy violation: {'; '.join(gov_eval.get('failed', []))}")
 
         # Resolve authoritative ChangeReview
         if review_id:
@@ -654,12 +752,22 @@ class PullRequestService:
                 )
             )
         else:
-            # Find latest review for source change
+            # Find a pending review or review by this approver
             review = self.db.scalar(
                 select(ChangeReview)
-                .where(ChangeReview.change_id == change.id)
+                .where(
+                    ChangeReview.change_id == change.id,
+                    (ChangeReview.status == "pending") | (ChangeReview.reviewer_id == approver_id),
+                )
                 .order_by(ChangeReview.created_at.desc())
             )
+            if review is None:
+                # Find latest review for source change
+                review = self.db.scalar(
+                    select(ChangeReview)
+                    .where(ChangeReview.change_id == change.id)
+                    .order_by(ChangeReview.created_at.desc())
+                )
 
         if review is None:
             raise ValueError("An approved ChangeReview is required before PR approval")
@@ -674,6 +782,7 @@ class PullRequestService:
             raise ValueError("Cannot approve PullRequest: ChangeReview has been rejected")
 
         now = datetime.now(timezone.utc)
+        head_sha = pr.source_commit or change.resulting_commit
 
         if review.status == "pending":
             review.status = "approved"
@@ -692,6 +801,7 @@ class PullRequestService:
                     "review_id": review.id,
                     "reviewer_id": approver_id,
                     "reason": reason,
+                    "head_sha": head_sha,
                 },
             )
             self.db.flush()
@@ -701,21 +811,89 @@ class PullRequestService:
                 self.db.flush()
 
         elif review.status == "approved":
-            if review.reviewer_id == approver_id or (review.reviewer_id and review.reviewer_id != pr.author_id and review.reviewer_id != change.actor_id):
+            if review.reviewer_id == approver_id:
+                # Idempotent re-approval by the same reviewer
                 pass
             elif review.reviewer_id == pr.author_id or review.reviewer_id == change.actor_id:
                 raise ValueError("Self-review approval is strictly prohibited")
+            else:
+                # Additional distinct human reviewer approval on multi-reviewer PR
+                new_review = ChangeReview(
+                    id=str(uuid4()),
+                    change_id=change.id,
+                    requested_by=review.requested_by,
+                    reviewer_id=approver_id,
+                    status="approved",
+                    reason=reason or "Approved by additional human reviewer",
+                    reviewed_at=now,
+                )
+                self.db.add(new_review)
+                self.db.flush()
+                review = new_review
 
-        return self.transition_pull_request(
-            pr,
-            self.STATUS_APPROVED,
-            actor_id=approver_id,
-            reason=reason,
-            metadata={
-                "review_id": review.id if review else None,
-                "reviewer_id": approver_id,
-            },
-        )
+        # Track reviewed commit SHA in change metadata
+        change_meta = {}
+        if change.metadata_json:
+            try:
+                change_meta = json.loads(change.metadata_json)
+            except Exception:
+                pass
+        change_meta["approved_head_sha"] = head_sha
+        reviewed_head_shas = change_meta.get("reviewed_head_shas", {})
+        if review:
+            reviewed_head_shas[review.id] = head_sha
+        change_meta["reviewed_head_shas"] = reviewed_head_shas
+        change.metadata_json = json.dumps(change_meta)
+        self.db.flush()
+
+        # Count total valid approvals against required approvals
+        rule = BranchProtectionService(self.db).get_effective_rule(pr.repository_id, pr.target_branch)
+        required_approvals = rule.required_approvals if rule else 1
+        all_approved = self.db.scalars(
+            select(ChangeReview).where(
+                ChangeReview.change_id == change.id,
+                ChangeReview.status == "approved",
+                ChangeReview.reviewer_id != pr.author_id,
+                ChangeReview.reviewer_id != change.actor_id,
+            )
+        ).all()
+        unique_reviewers = {r.reviewer_id for r in all_approved if r.reviewer_id}
+        actual_approvals = len(unique_reviewers)
+
+        # Transition PR to approved if required approvals are satisfied
+        if actual_approvals >= required_approvals:
+            if pr.status != self.STATUS_APPROVED:
+                pr = self.transition_pull_request(
+                    pr,
+                    self.STATUS_APPROVED,
+                    actor_id=approver_id,
+                    reason=reason,
+                    metadata={
+                        "review_id": review.id if review else None,
+                        "reviewer_id": approver_id,
+                        "head_sha": head_sha,
+                        "required_approvals": required_approvals,
+                        "actual_approvals": actual_approvals,
+                    },
+                )
+        else:
+            self._record_event(
+                pr=pr,
+                event_type="pull_request.review_approved",
+                from_status=pr.status,
+                to_status=pr.status,
+                actor_id=approver_id,
+                reason=reason,
+                metadata={
+                    "review_id": review.id if review else None,
+                    "reviewer_id": approver_id,
+                    "head_sha": head_sha,
+                    "required_approvals": required_approvals,
+                    "actual_approvals": actual_approvals,
+                },
+            )
+
+        return pr
 
     # ---------------------------------------------------------
     # PR MERGE (Guarded Orchestration Boundary)
@@ -737,7 +915,7 @@ class PullRequestService:
         if pr is None:
             return None
 
-        # 2. Repository resolution & authorization check
+        # 2. Repository resolution
         repository = self.db.scalar(
             select(Repository).where(
                 Repository.id == pr.repository_id,
@@ -747,14 +925,25 @@ class PullRequestService:
         if repository is None:
             return None
 
+        # 3. STRICT AGENT PROHIBITION: Agents cannot merge pull requests under any circumstances
+        merger_actor = self.db.scalar(select(Actor).where(Actor.id == merger_id))
+        if merger_actor and merger_actor.type == "agent":
+            raise PermissionError("Agents are strictly prohibited from merging pull requests")
+        merger_agent = self.db.scalar(select(Agent).where(Agent.id == merger_id))
+        if merger_agent is not None:
+            raise PermissionError("Agents are strictly prohibited from merging pull requests")
+
+        # 4. Human Repository Authorization check
         self._authorize_user_repo_access(merger_id, repository)
 
-        # 3. Lifecycle check
+        # 5. SUTRA Lifecycle check & Idempotency
         if pr.status == self.STATUS_MERGED:
             return PRMergeResult(
                 status="merged",
                 detail="PullRequest is already merged",
                 pull_request=pr,
+                merge_commit_sha=pr.target_commit,
+                merged_at=pr.merged_at,
             )
 
         if pr.status == self.STATUS_CLOSED:
@@ -763,7 +952,7 @@ class PullRequestService:
         if pr.status not in {self.STATUS_OPEN, self.STATUS_APPROVED}:
             raise ValueError(f"Cannot merge PullRequest in status '{pr.status}'")
 
-        # 4. Source Change resolution & cross-repository invariant
+        # 6. Source Change resolution & cross-repository invariant
         change = self.db.scalar(
             select(Change).where(Change.id == pr.source_change_id)
         )
@@ -779,61 +968,207 @@ class PullRequestService:
         if not pr.target_branch:
             raise ValueError("Target branch is invalid")
 
-        # 5. Policy evaluation
-        policy = ChangePolicyService(self.db).evaluate(change)
-        if policy.decision == ChangePolicyService.BLOCK:
-            raise ValueError(f"Merge rejected: Change is blocked by policy: {policy.reason}")
+        # Resolve change metadata
+        change_meta = {}
+        if change.metadata_json:
+            try:
+                change_meta = json.loads(change.metadata_json)
+            except Exception:
+                pass
 
-        if policy.decision == ChangePolicyService.REVIEW:
-            reviews = self.db.scalars(
-                select(ChangeReview).where(
-                    ChangeReview.change_id == change.id,
-                    ChangeReview.status == "approved",
-                )
-            ).all()
-            valid = [r for r in reviews if r.reviewer_id != pr.author_id and r.reviewer_id != change.actor_id]
-            if not valid:
-                raise ValueError("Merge rejected: Change requires an approved ChangeReview")
-
-        # 6. Conflict check
-        conflict = ConflictService(self.db).analyze(change)
-        if conflict.level == ConflictService.LEVEL_CONFLICT:
-            raise ValueError("Merge rejected: Git detected an actual merge conflict")
-
-        if conflict.level == ConflictService.LEVEL_POTENTIAL:
-            raise ValueError(f"Merge rejected: Potential Git conflict: {conflict.reason}")
-
-        # 7. Branch protection evaluation gate
-        from app.services.branch_protection_service import BranchProtectionService
-        bp_eval = BranchProtectionService(self.db).evaluate_pull_request(pr.id)
-        if not bp_eval["passed"]:
-            failed_str = ", ".join(bp_eval["failed_gates"])
-            raise ValueError(f"Merge rejected by branch protection: Failed gates: {failed_str}")
-
-        # 8. Real Server-Side Git Merge Transport Execution (v0.3.6)
-        merge_svc = GitMergeService()
-        merge_res = merge_svc.execute_server_side_merge(
-            repository_storage_key=repository.storage_key,
-            target_branch=pr.target_branch,
-            source_commit=pr.source_commit,
-            merger_id=merger_id,
-            commit_message=f"Merge PR #{pr.id}: {pr.title}",
+        # 7. Substrate Provider Resolution
+        provider = self._get_provider(repository)
+        is_github = bool(
+            repository.provider_type == "github"
+            and repository.provider_owner
+            and provider is not None
         )
 
-        if not merge_res or not merge_res.success or not merge_res.resulting_commit:
-            raise ValueError(
-                f"Git merge transport execution failed: {getattr(merge_res, 'error_message', 'Unknown error')}"
+        current_head = pr.source_commit or change.resulting_commit
+
+        if is_github:
+            gh_pr_number = change_meta.get("github_pr_number")
+            if not gh_pr_number:
+                raise ValueError("GitHub PR number could not be resolved for this pull request")
+
+            # A. Live substrate state inspection
+            gh_pr = provider.get_pull_request(
+                owner=repository.provider_owner,
+                name=repository.name,
+                pr_number=gh_pr_number,
+            )
+            if gh_pr is None:
+                raise ValueError(f"Pull request #{gh_pr_number} not found on GitHub substrate")
+
+            # B. Substrate Idempotency Reconciler
+            if gh_pr.is_merged:
+                now = datetime.now(timezone.utc)
+                pr.target_commit = gh_pr.base_sha or pr.target_commit or current_head
+                pr.status = self.STATUS_MERGED
+                pr.merged_at = pr.merged_at or now
+                change.status = "recorded"
+                change_meta["merged"] = True
+                change_meta["merge_commit_sha"] = pr.target_commit
+                change_meta["merged_at"] = pr.merged_at.isoformat()
+                change_meta["merged_by"] = merger_id
+                change.metadata_json = json.dumps(change_meta, sort_keys=True)
+
+                linked_task = self.db.scalar(
+                    select(Task).where(
+                        (Task.resulting_pull_request_id == pr.id) |
+                        (Task.resulting_change_id == change.id)
+                    ).with_for_update()
+                )
+                if linked_task and linked_task.status != Task.STATUS_COMPLETED:
+                    from app.services.task_service import TaskService
+                    TaskService(self.db)._complete_locked_task(
+                        linked_task,
+                        actor_id=merger_id,
+                    )
+                self.db.flush()
+                return PRMergeResult(
+                    status="merged",
+                    detail="PullRequest is already merged on GitHub substrate",
+                    pull_request=pr,
+                    merge_commit_sha=pr.target_commit,
+                    merged_at=pr.merged_at,
+                )
+
+            # C. Substrate Mergeability Check
+            if gh_pr.mergeable is False:
+                raise ValueError("Merge rejected: GitHub reports pull request is not mergeable due to merge conflicts")
+
+            # D. Substrate HEAD SHA Race Check (Part 1)
+            substrate_head_sha = gh_pr.head_sha
+            if pr.source_commit and pr.source_commit != substrate_head_sha:
+                raise ValueError("Merge authorization invalidated: PR HEAD changed since governance evaluation.")
+            if change.resulting_commit and change.resulting_commit != substrate_head_sha:
+                raise ValueError("Merge authorization invalidated: PR HEAD changed since governance evaluation.")
+            current_head = substrate_head_sha
+
+        # 8. Authoritative Governance Precondition Gate
+        from app.services.governance_service import GovernanceService, GovernanceVerdict
+        gov_svc = GovernanceService(self.db, provider=provider)
+        gov = gov_svc.evaluate_pull_request(pr.id)
+        if gov["verdict"] != GovernanceVerdict.READY_FOR_MERGE:
+            failed_reasons = gov.get("failed", [])
+            fail_msg = failed_reasons[0] if failed_reasons else f"Pull request governance verdict is {gov['verdict']}; requires READY_FOR_MERGE"
+            raise ValueError(f"Merge rejected by SUTRA governance: {fail_msg}")
+
+        # 9. Verify Human Approval authorizes THIS HEAD
+        approved_head_sha = change_meta.get("approved_head_sha")
+        if approved_head_sha and current_head and approved_head_sha != current_head:
+            raise ValueError("Merge authorization invalidated: PR HEAD changed since governance evaluation.")
+
+        # 10. Execution Boundary
+        if is_github:
+            # Immediate pre-merge re-fetch to protect against race condition
+            gh_pr_latest = provider.get_pull_request(
+                owner=repository.provider_owner,
+                name=repository.name,
+                pr_number=gh_pr_number,
+            )
+            if not gh_pr_latest or gh_pr_latest.head_sha != current_head:
+                raise ValueError("Merge authorization invalidated: PR HEAD changed since governance evaluation.")
+
+            # Authoritative Substrate Merge Execution
+            merge_res = provider.merge_pull_request(
+                owner=repository.provider_owner,
+                name=repository.name,
+                pr_number=gh_pr_number,
+                commit_title=f"Merge PR #{gh_pr_number}: {pr.title}",
+                commit_message=f"{pr.title}\n\nApproved-by: Human {merger_id}\nReviewed-HEAD: {current_head}",
+                expected_head_sha=current_head,
+                method="merge",
+            )
+            if not merge_res.success:
+                raise ValueError(f"GitHub substrate merge failed: {merge_res.message}")
+
+            resulting_commit = merge_res.merge_commit_sha
+
+            # Authoritative Post-Merge Verification
+            verify_pr = provider.get_pull_request(
+                owner=repository.provider_owner,
+                name=repository.name,
+                pr_number=gh_pr_number,
+            )
+            if verify_pr and not verify_pr.is_merged:
+                raise ValueError("Post-merge substrate verification failed: GitHub reports PR is not merged")
+            if not resulting_commit and verify_pr:
+                resulting_commit = verify_pr.base_sha
+
+        else:
+            # Local repository fallback execution (for local workspace tests)
+            policy = ChangePolicyService(self.db).evaluate(change)
+            if policy.decision == ChangePolicyService.BLOCK:
+                raise ValueError(f"Merge rejected: Change is blocked by policy: {policy.reason}")
+
+            conflict = ConflictService(self.db).analyze(change)
+            if conflict.level == ConflictService.LEVEL_CONFLICT:
+                raise ValueError("Merge rejected: Git detected an actual merge conflict")
+            if conflict.level == ConflictService.LEVEL_POTENTIAL:
+                raise ValueError(f"Merge rejected: Potential Git conflict: {conflict.reason}")
+
+            from app.services.branch_protection_service import BranchProtectionService
+            bp_eval = BranchProtectionService(self.db).evaluate_pull_request(pr.id)
+            if not bp_eval["passed"]:
+                failed_str = ", ".join(bp_eval["failed_gates"])
+                raise ValueError(f"Merge rejected by branch protection: Failed gates: {failed_str}")
+
+            merge_svc = GitMergeService()
+            merge_res = merge_svc.execute_server_side_merge(
+                repository_storage_key=repository.storage_key,
+                target_branch=pr.target_branch,
+                source_commit=pr.source_commit,
+                merger_id=merger_id,
+                commit_message=f"Merge PR #{pr.id}: {pr.title}",
             )
 
-        GitMergeService.validate_commit_sha(merge_res.resulting_commit)
+            if not merge_res or not merge_res.success or not merge_res.resulting_commit:
+                raise ValueError(
+                    f"Git merge transport execution failed: {getattr(merge_res, 'error_message', 'Unknown error')}"
+                )
 
+            GitMergeService.validate_commit_sha(merge_res.resulting_commit)
+            resulting_commit = merge_res.resulting_commit
+
+        # 11. State Progression & Provenance Enrichment
         now = datetime.now(timezone.utc)
         old_status = pr.status
-        pr.target_commit = merge_res.resulting_commit
+        pr.target_commit = resulting_commit
         pr.status = self.STATUS_MERGED
         pr.merged_at = now
         change.status = "recorded"
 
+        change_meta["merged"] = True
+        change_meta["merge_commit_sha"] = resulting_commit
+        change_meta["merged_at"] = now.isoformat()
+        change_meta["merged_by"] = merger_id
+        change_meta["head_sha"] = current_head
+        change.metadata_json = json.dumps(change_meta, sort_keys=True)
+
+        # 12. Linked Task Completion
+        linked_task = self.db.scalar(
+            select(Task)
+            .where(
+                (Task.resulting_pull_request_id == pr.id) |
+                (Task.resulting_change_id == change.id)
+            )
+            .with_for_update()
+        )
+
+        if linked_task and linked_task.status != Task.STATUS_COMPLETED:
+            if not linked_task.resulting_pull_request_id:
+                linked_task.resulting_pull_request_id = pr.id
+            if not linked_task.resulting_change_id:
+                linked_task.resulting_change_id = change.id
+            from app.services.task_service import TaskService
+            TaskService(self.db)._complete_locked_task(
+                linked_task,
+                actor_id=merger_id,
+            )
+
+        # 13. Immutable Sanitized Audit Event
         self._record_event(
             pr=pr,
             event_type="pull_request.merged",
@@ -841,27 +1176,17 @@ class PullRequestService:
             to_status=self.STATUS_MERGED,
             actor_id=merger_id,
             metadata={
-                "source_commit": pr.source_commit,
-                "previous_target_commit": merge_res.previous_target_commit,
-                "resulting_commit": merge_res.resulting_commit,
-                "is_fast_forward": merge_res.is_fast_forward,
+                "pull_request_id": pr.id,
+                "github_pr_number": gh_pr_number if is_github else None,
+                "head_sha": current_head,
+                "merge_sha": resulting_commit,
+                "merge_method": "github" if is_github else "git_server_side",
+                "actor_id": merger_id,
+                "task_id": linked_task.id if linked_task else None,
+                "change_id": change.id,
                 "target_branch": pr.target_branch,
             },
         )
-
-        # Complete linked task if present
-        linked_task = self.db.scalar(
-            select(Task)
-            .where(Task.resulting_pull_request_id == pr.id)
-            .with_for_update()
-        )
-
-        if linked_task:
-            from app.services.task_service import TaskService
-            TaskService(self.db)._complete_locked_task(
-                linked_task,
-                actor_id=merger_id,
-            )
 
         self.db.flush()
 
@@ -876,8 +1201,10 @@ class PullRequestService:
 
         return PRMergeResult(
             status="merged",
-            detail=f"Successfully merged PR #{pr.id} into '{pr.target_branch}' at commit {merge_res.resulting_commit}",
+            detail=f"Successfully merged PR #{pr.id} into '{pr.target_branch}' at commit {resulting_commit}",
             pull_request=pr,
+            merge_commit_sha=resulting_commit,
+            merged_at=now,
         )
 
     # ---------------------------------------------------------

@@ -26,10 +26,46 @@ export interface CILog {
   output_log: string | null;
 }
 
+export interface NormalizedCheck {
+  id: string;
+  name: string;
+  status: "pending" | "running" | "passed" | "failed" | "cancelled" | "skipped" | "neutral";
+  conclusion: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  details_url: string | null;
+  source: string;
+  required: boolean;
+  job_id: string | null;
+}
+
+export interface PRChecksSummary {
+  total: number;
+  passed: number;
+  failed: number;
+  running: number;
+  pending: number;
+}
+
+export interface PRChecksResponse {
+  pull_request_id: string;
+  repository_id: string;
+  head_sha: string | null;
+  summary: PRChecksSummary;
+  overall_status: "passed" | "failed" | "running" | "pending" | "none";
+  governance_verdict: "READY FOR GOVERNANCE" | "BLOCKED BY CI" | "CHECKS IN PROGRESS" | "NO CHECKS REPORTED" | string;
+  checks: NormalizedCheck[];
+}
+
 export const ciService = {
   /** List all CI jobs for a given Pull Request. */
   async listJobsForPR(prId: string): Promise<CIJob[]> {
     return apiAuth<CIJob[]>(`/v1/pull-requests/${prId}/ci`);
+  },
+
+  /** Get authoritative normalized checks and governance verdict for a Pull Request. */
+  async getPRChecks(prId: string): Promise<PRChecksResponse> {
+    return apiAuth<PRChecksResponse>(`/v1/pull-requests/${prId}/checks`);
   },
 
   /** Get a single CI job. */
@@ -65,3 +101,4 @@ export const ciService = {
     }
   },
 };
+

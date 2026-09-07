@@ -102,3 +102,8 @@ export const repositoryService = {
     });
   },
 };
+
+export const repositoriesService = {
+  list: repositoryService.listRepositories,
+  ...repositoryService,
+};

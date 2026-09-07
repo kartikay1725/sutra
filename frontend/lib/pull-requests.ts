@@ -16,6 +16,41 @@ export interface PullRequest {
   updated_at: string;
   merged_at: string | null;
   closed_at: string | null;
+
+  // Enriched SUTRA & Substrate Provenance Context
+  repository_name?: string | null;
+  head_branch?: string | null;
+  base_branch?: string | null;
+  github_pr_number?: number | null;
+  github_html_url?: string | null;
+  task_id?: string | null;
+  task_title?: string | null;
+  agent_id?: string | null;
+  agent_name?: string | null;
+  agent_session_id?: string | null;
+  actor_name?: string | null;
+  actor_type?: string | null;
+  checks_summary?: {
+    total: number;
+    passed: number;
+    failed: number;
+    running: number;
+    pending: number;
+  } | null;
+  checks_verdict?: string | null;
+  governance_verdict?: string | null;
+  ready_for_approval?: boolean | null;
+  ready_for_merge?: boolean | null;
+  eligible_for_merge?: boolean | null;
+  approved?: boolean | null;
+  reviewer?: {
+    id: string;
+    username: string;
+    name: string;
+    reviewed_at?: string;
+  } | null;
+  required_approvals?: number | null;
+  actual_valid_approvals?: number | null;
 }
 
 export interface PRReview {
@@ -138,5 +173,9 @@ export const pullRequestService = {
       method: "POST",
       body: JSON.stringify({}),
     });
+  },
+
+  async getPRChecks(prId: string): Promise<any> {
+    return apiAuth<any>(`/v1/pull-requests/${prId}/checks`);
   },
 };

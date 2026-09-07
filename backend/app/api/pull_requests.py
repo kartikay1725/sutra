@@ -4,16 +4,27 @@ import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.agent_dependencies import get_current_agent
+from app.api.agent_dependencies import get_current_agent, get_current_agent_session
 from app.api.dependencies import get_current_user
 from app.db.session import get_db
+from app.models.actor import Actor
 from app.models.agent import Agent
+from app.models.agent_session import AgentSession
+from app.models.change import Change
+from app.models.change_review import ChangeReview
+from app.models.ci_job import CIJob
+from app.models.pull_request import PullRequest
+from app.models.repository import Repository
+from app.models.task import Task
 from app.models.user import User
 from app.services.agent_review_service import AgentReviewService
 from app.services.inline_review_service import InlineReviewService
 from app.services.pull_request_service import PullRequestService
+from app.services.ci_service import CIService
+from app.services.governance_service import GovernanceService, GovernanceVerdict
 
 
 router = APIRouter(
@@ -54,6 +65,46 @@ class PullRequestResponse(BaseModel):
     updated_at: datetime
     merged_at: datetime | None
     closed_at: datetime | None
+
+    # Enriched SUTRA & Substrate Context
+    repository_name: str | None = None
+    head_branch: str | None = None
+    base_branch: str | None = None
+    github_pr_number: int | None = None
+    github_html_url: str | None = None
+    task_id: str | None = None
+    task_title: str | None = None
+    agent_id: str | None = None
+    agent_name: str | None = None
+    agent_session_id: str | None = None
+    actor_name: str | None = None
+    actor_type: str | None = None
+    checks_summary: dict | None = None
+    checks_verdict: str | None = None
+    governance_verdict: str | None = None
+    ready_for_approval: bool | None = None
+    ready_for_merge: bool | None = None
+    eligible_for_merge: bool | None = None
+    approved: bool | None = None
+    reviewer: dict | None = None
+    required_approvals: int | None = None
+    actual_valid_approvals: int | None = None
+
+
+class GovernanceEvaluationResponse(BaseModel):
+    pull_request_id: str
+    repository_id: str
+    verdict: str
+    ready_for_approval: bool
+    head_sha: str
+    evaluated_at: str
+    passed: list[str]
+    failed: list[str]
+    warnings: list[str]
+    checks: dict
+    provenance: dict
+    policy: dict
+    review: dict
 
 
 from sqlalchemy import select
@@ -110,6 +161,8 @@ class PRMergeResponse(BaseModel):
     status: str
     pull_request_id: str
     detail: str
+    merge_commit_sha: str | None = None
+    merged_at: datetime | None = None
 
 
 class PREventResponse(BaseModel):
@@ -191,7 +244,137 @@ class AgentReviewSummaryResponse(BaseModel):
     findings: list[dict]
 
 
-def _to_response(pr) -> PullRequestResponse:
+def _to_response(pr, db: Session | None = None) -> PullRequestResponse:
+    repo_name = None
+    head_branch = None
+    github_pr_number = None
+    github_html_url = None
+    task_id = None
+    task_title = None
+    agent_id = None
+    agent_name = None
+    agent_session_id = None
+    actor_name = None
+    actor_type = None
+
+    if db is not None:
+        try:
+            repo = db.scalar(select(Repository).where(Repository.id == pr.repository_id))
+            if repo:
+                repo_name = repo.name
+
+            actor = db.scalar(select(Actor).where(Actor.id == pr.author_id))
+            if actor:
+                actor_name = actor.name
+                actor_type = actor.type
+
+            change = db.scalar(select(Change).where(Change.id == pr.source_change_id))
+            if change:
+                try:
+                    meta = json.loads(change.metadata_json or "{}")
+                except Exception:
+                    meta = {}
+                head_branch = meta.get("branch") or meta.get("head_branch")
+                github_pr_number = meta.get("github_pr_number")
+                github_html_url = meta.get("github_pr_url")
+                task_id = meta.get("task_id")
+                task_title = meta.get("task_title")
+                agent_id = meta.get("agent_id")
+                agent_name = meta.get("agent_name")
+                agent_session_id = meta.get("agent_session_id")
+
+                if not task_id:
+                    task = db.scalar(select(Task).where(Task.resulting_change_id == change.id))
+                    if task:
+                        task_id = task.id
+                        task_title = task.title
+                        if not agent_id:
+                            agent_id = task.assigned_agent_id
+                        if not agent_session_id:
+                            agent_session_id = task.claimed_by_session_id
+
+                if agent_id and not agent_name:
+                    ag = db.scalar(select(Agent).where(Agent.id == agent_id))
+                    if ag:
+                        agent_name = ag.name
+        except Exception:
+            pass
+
+    checks_summary = None
+    checks_verdict = None
+    if db is not None and pr.source_commit:
+        try:
+            head_jobs = db.scalars(
+                select(CIJob).where(
+                    CIJob.pull_request_id == pr.id,
+                    CIJob.commit_sha == pr.source_commit,
+                )
+            ).all()
+            if head_jobs:
+                total_c = len(head_jobs)
+                passed_c = sum(1 for j in head_jobs if j.status == CIJob.STATUS_PASSED)
+                failed_c = sum(1 for j in head_jobs if j.status == CIJob.STATUS_FAILED)
+                running_c = sum(1 for j in head_jobs if j.status == CIJob.STATUS_RUNNING)
+                pending_c = sum(1 for j in head_jobs if j.status in (CIJob.STATUS_QUEUED, "pending"))
+                checks_summary = {
+                    "total": total_c,
+                    "passed": passed_c,
+                    "failed": failed_c,
+                    "running": running_c,
+                    "pending": pending_c,
+                }
+                if failed_c > 0:
+                    checks_verdict = "BLOCKED BY CI"
+                elif running_c > 0 or pending_c > 0:
+                    checks_verdict = "CHECKS IN PROGRESS"
+                else:
+                    checks_verdict = "READY FOR GOVERNANCE"
+        except Exception:
+            pass
+
+    governance_verdict = None
+    ready_for_approval = None
+    ready_for_merge = None
+    eligible_for_merge = None
+    approved = (pr.status == "approved")
+    reviewer = None
+    required_approvals = None
+    actual_valid_approvals = None
+
+    if db is not None:
+        try:
+            gov_svc = GovernanceService(db)
+            gov_eval = gov_svc.evaluate_pull_request(pr.id, record_audit=False)
+            governance_verdict = gov_eval["verdict"]
+            ready_for_approval = gov_eval["ready_for_approval"]
+            ready_for_merge = gov_eval.get("ready_for_merge", False)
+            eligible_for_merge = gov_eval.get("eligible_for_merge", False)
+            if "review" in gov_eval:
+                required_approvals = gov_eval["review"].get("required_approvals", 1)
+                actual_valid_approvals = gov_eval["review"].get("actual_approvals", 0)
+
+            # Find latest valid human reviewer
+            reviews = db.scalars(
+                select(ChangeReview)
+                .where(
+                    ChangeReview.change_id == pr.source_change_id,
+                    ChangeReview.status == "approved",
+                )
+                .order_by(ChangeReview.reviewed_at.desc())
+            ).all()
+            for r in reviews:
+                if r.reviewer_id and r.reviewer_id != pr.author_id:
+                    rev_user = db.scalar(select(User).where(User.id == r.reviewer_id))
+                    reviewer = {
+                        "id": r.reviewer_id,
+                        "username": rev_user.username if rev_user else r.reviewer_id,
+                        "name": rev_user.username if rev_user else "Human Reviewer",
+                        "reviewed_at": r.reviewed_at.isoformat() if r.reviewed_at else None,
+                    }
+                    break
+        except Exception:
+            pass
+
     return PullRequestResponse(
         id=pr.id,
         repository_id=pr.repository_id,
@@ -207,7 +390,143 @@ def _to_response(pr) -> PullRequestResponse:
         updated_at=pr.updated_at,
         merged_at=pr.merged_at,
         closed_at=pr.closed_at,
+        repository_name=repo_name,
+        head_branch=head_branch,
+        base_branch=pr.target_branch,
+        github_pr_number=github_pr_number,
+        github_html_url=github_html_url,
+        task_id=task_id,
+        task_title=task_title,
+        agent_id=agent_id,
+        agent_name=agent_name,
+        agent_session_id=agent_session_id,
+        actor_name=actor_name,
+        actor_type=actor_type,
+        checks_summary=checks_summary,
+        checks_verdict=checks_verdict,
+        governance_verdict=governance_verdict,
+        ready_for_approval=ready_for_approval,
+        ready_for_merge=ready_for_merge,
+        eligible_for_merge=eligible_for_merge,
+        approved=approved,
+        reviewer=reviewer,
+        required_approvals=required_approvals,
+        actual_valid_approvals=actual_valid_approvals,
     )
+
+
+@router.get(
+    "/v1/pull-requests/{id}/checks",
+    status_code=status.HTTP_200_OK,
+)
+def get_pr_checks_alias(
+    id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not re.match(UUID_PATTERN, id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="PullRequest not found",
+        )
+
+    svc = CIService(db)
+    try:
+        return svc.get_pr_checks(id, current_user.id)
+    except PermissionError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="PullRequest not found",
+        )
+    except ValueError as e:
+        msg = str(e)
+        if "not found" in msg.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=msg,
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg,
+        )
+
+
+@router.get(
+    "/v1/pull-requests/{id}/governance",
+    response_model=GovernanceEvaluationResponse,
+    status_code=status.HTTP_200_OK,
+)
+def get_pr_governance(
+    id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not re.match(UUID_PATTERN, id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="PullRequest not found",
+        )
+
+    svc = GovernanceService(db)
+    try:
+        return svc.evaluate_pull_request(id, current_user.id, record_audit=False)
+    except PermissionError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e),
+        )
+    except ValueError as e:
+        msg = str(e)
+        if "not found" in msg.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=msg,
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg,
+        )
+
+
+@router.post(
+    "/v1/pull-requests/{id}/governance/evaluate",
+    response_model=GovernanceEvaluationResponse,
+    status_code=status.HTTP_200_OK,
+)
+def evaluate_pr_governance_post(
+    id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not re.match(UUID_PATTERN, id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="PullRequest not found",
+        )
+
+    svc = GovernanceService(db)
+    try:
+        res = svc.evaluate_pull_request(id, current_user.id, record_audit=True)
+        db.commit()
+        return res
+    except PermissionError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e),
+        )
+    except ValueError as e:
+        db.rollback()
+        msg = str(e)
+        if "not found" in msg.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=msg,
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg,
+        )
 
 
 # ---------------------------------------------------------
@@ -236,7 +555,7 @@ def create_pull_request(
             is_draft=payload.is_draft,
         )
         db.commit()
-        return _to_response(pr)
+        return _to_response(pr, db)
     except PermissionError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -264,25 +583,71 @@ def create_pull_request(
 )
 def create_agent_pull_request(
     payload: PullRequestCreateRequest,
-    current_agent: Agent = Depends(get_current_agent),
+    session: AgentSession = Depends(get_current_agent_session),
     db: Session = Depends(get_db),
 ):
-    svc = PullRequestService(db)
-    
-    # We must look up the actor for the agent
-    from sqlalchemy import select
-    from app.models.actor import Actor
+    change = db.scalar(select(Change).where(Change.id == payload.source_change_id))
+    if not change:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Source Change not found")
+
+    # If Change belongs to a task, enforce task lease ownership and delegate to AgentChangeService
+    task = db.scalar(select(Task).where(Task.resulting_change_id == payload.source_change_id))
+    if task is None:
+        try:
+            meta = json.loads(change.metadata_json or "{}")
+            t_id = meta.get("task_id")
+            if t_id:
+                task = db.scalar(select(Task).where(Task.id == t_id))
+        except Exception:
+            pass
+
+    if task is not None:
+        if task.assigned_agent_id != session.agent_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Agent is not assigned to this task")
+        if task.claimed_by_session_id != session.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Agent session does not hold the task lease")
+
+        repository = db.scalar(select(Repository).where(Repository.id == task.repository_id))
+        from app.api.agent_tasks import _get_provider_for_repository
+        from app.services.agent_change_service import AgentChangeService
+        provider = _get_provider_for_repository(repository) if repository else None
+        agent_svc = AgentChangeService(db=db, provider=provider)
+        try:
+            pr = agent_svc.create_pull_request(
+                session=session,
+                task=task,
+                title=payload.title,
+                target_branch=payload.target_branch,
+                description=payload.description,
+                is_draft=payload.is_draft,
+            )
+            db.commit()
+            db.refresh(pr)
+            return _to_response(pr, db)
+        except PermissionError as e:
+            from app.api.agent_errors import raise_capability_required
+            raise_capability_required(
+                capability="repository.write",
+                repository_slug=payload.repository_id,
+            )
+        except ValueError as e:
+            msg = str(e)
+            if "not found" in msg:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
+
+    # Standalone change without task: check agent actor and capability
     actor = db.scalar(
         select(Actor).where(
-            Actor.id == current_agent.id,
+            Actor.id == session.agent_id,
             Actor.type == "agent",
-            Actor.owner_id == current_agent.owner_id,
         )
     )
     if not actor:
         from app.api.agent_errors import raise_agent_inactive
         raise_agent_inactive()
-        
+
+    svc = PullRequestService(db)
     try:
         pr = svc.create_pull_request(
             repository_id=payload.repository_id,
@@ -294,7 +659,7 @@ def create_agent_pull_request(
             is_draft=payload.is_draft,
         )
         db.commit()
-        return _to_response(pr)
+        return _to_response(pr, db)
     except PermissionError as e:
         from app.api.agent_errors import raise_capability_required
         raise_capability_required(
@@ -343,7 +708,7 @@ def list_all_pull_requests(
                 limit=limit,
                 offset=offset,
             )
-            return [_to_response(pr) for pr in prs]
+            return [_to_response(pr, db) for pr in prs]
         except PermissionError as e:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -362,7 +727,7 @@ def list_all_pull_requests(
         limit=limit,
         offset=offset,
     )
-    return [_to_response(pr) for pr in prs]
+    return [_to_response(pr, db) for pr in prs]
 
 
 @router.get(
@@ -387,7 +752,7 @@ def get_pull_request(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="PullRequest not found",
         )
-    return _to_response(pr)
+    return _to_response(pr, db)
 
 
 @router.get(
@@ -599,7 +964,7 @@ def list_pull_requests(
             limit=limit,
             offset=offset,
         )
-        return [_to_response(pr) for pr in prs]
+        return [_to_response(pr, db) for pr in prs]
     except PermissionError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -629,18 +994,71 @@ def approve_pull_request(
         )
 
     svc = PullRequestService(db)
-    pr = svc.get_pull_request(pull_request_id, current_user.id)
+    pr = db.scalar(select(PullRequest).where(PullRequest.id == pull_request_id))
     if pr is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="PullRequest not found",
         )
+    repo = db.scalar(
+        select(Repository).where(
+            Repository.id == pr.repository_id,
+            Repository.deleted_at.is_(None),
+        )
+    )
+    if repo is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="PullRequest not found",
+        )
+
+    # Private repository IDOR protection: user must own repo, author PR, or have an existing ChangeReview on it
+    if getattr(repo, "visibility", "private") != "public" and repo.owner_id != current_user.id and pr.author_id != current_user.id:
+        existing_review = db.scalar(
+            select(ChangeReview).where(
+                ChangeReview.change_id == pr.source_change_id,
+                (
+                    (ChangeReview.reviewer_id == current_user.id)
+                    | (ChangeReview.reviewer_id.is_(None) & (ChangeReview.status == "pending"))
+                    | (ChangeReview.requested_by == current_user.id)
+                ),
+            )
+        )
+        if existing_review is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="PullRequest not found",
+            )
 
     reason = payload.reason if payload else None
+
+    # If no review exists for source change, auto-create review request so human approval can proceed seamlessly
+    existing_review = db.scalar(
+        select(ChangeReview).where(ChangeReview.change_id == pr.source_change_id)
+    )
+    if existing_review is None:
+        from uuid import uuid4
+        requester = pr.author_id
+        is_user = db.scalar(select(User).where(User.id == pr.author_id)) is not None
+        if not is_user:
+            repo = db.scalar(select(Repository).where(Repository.id == pr.repository_id))
+            requester = repo.owner_id if repo else current_user.id
+
+        new_review = ChangeReview(
+            id=str(uuid4()),
+            change_id=pr.source_change_id,
+            requested_by=requester,
+            reviewer_id=current_user.id,
+            status="pending",
+            reason=reason or "Requested review for PR approval",
+        )
+        db.add(new_review)
+        db.flush()
+
     try:
         approved_pr = svc.approve_pull_request(pr, current_user.id, reason=reason)
         db.commit()
-        return _to_response(approved_pr)
+        return _to_response(approved_pr, db)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -668,9 +1086,22 @@ def merge_pull_request(
             detail="PullRequest not found",
         )
 
-    svc = PullRequestService(db)
+    pr = db.scalar(select(PullRequest).where(PullRequest.id == pull_request_id))
+    if pr is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="PullRequest not found",
+        )
+
+    repo = db.scalar(select(Repository).where(Repository.id == pr.repository_id, Repository.deleted_at.is_(None)))
+    provider = None
+    if repo:
+        from app.api.agent_tasks import _get_provider_for_repository
+        provider = _get_provider_for_repository(repo)
+
+    svc = PullRequestService(db, provider=provider)
     try:
-        result = svc.merge_pull_request(pull_request_id, current_user.id)
+        result = svc.merge_pull_request(pr, current_user.id)
         if result is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -681,6 +1112,8 @@ def merge_pull_request(
             status=result.status,
             pull_request_id=result.pull_request.id,
             detail=result.detail,
+            merge_commit_sha=result.merge_commit_sha,
+            merged_at=result.merged_at,
         )
     except PermissionError as e:
         raise HTTPException(
@@ -722,7 +1155,7 @@ def close_pull_request(
     try:
         closed_pr = svc.close_pull_request(pr, current_user.id, reason=reason)
         db.commit()
-        return _to_response(closed_pr)
+        return _to_response(closed_pr, db)
     except PermissionError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

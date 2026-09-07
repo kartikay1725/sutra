@@ -17,11 +17,46 @@ export interface ChangeReview {
     | "commented";
 }
 
+export interface CommitProvenance {
+  source: "sutra" | "github" | string;
+  tracked: boolean;
+  identity_type: "agent" | "human" | "external" | "unknown" | string;
+  actor_id?: string | null;
+  actor_name?: string | null;
+  agent?: {
+    id: string;
+    name: string;
+    provider?: string;
+    model?: string;
+  } | null;
+  session?: {
+    id: string;
+    status?: string;
+    expires_at?: string;
+  } | null;
+  task?: {
+    id: string;
+    title?: string;
+    status?: string;
+    task_type?: string;
+  } | null;
+}
+
+export interface CommitDetail {
+  sha: string;
+  message?: string | null;
+  author_name?: string | null;
+  author_email?: string | null;
+  committed_at?: string | null;
+  provenance?: CommitProvenance | null;
+}
+
 export interface Change {
   id: string;
   repository_id: string;
-  title?: string;
-  description?: string;
+  repository_name?: string | null;
+  title?: string | null;
+  description?: string | null;
   intent?: string;
   status: string;
 
@@ -29,27 +64,34 @@ export interface Change {
   actor_type?: "human" | "agent";
   actor_name?: string;
 
-  task_id?: string;
-  task_title?: string;
-  agent_id?: string;
-  agent_name?: string;
+  task_id?: string | null;
+  task_title?: string | null;
+  agent_id?: string | null;
+  agent_name?: string | null;
+  agent_session_id?: string | null;
   agent_run_duration?: string;
+
+  branch?: string | null;
+  base_branch?: string | null;
 
   risk_level?: string;
 
-  base_commit?: string;
-  resulting_commit?: string;
+  base_commit?: string | null;
+  resulting_commit?: string | null;
 
   files_changed?: number;
   additions?: number;
   deletions?: number;
 
+  commits?: CommitDetail[];
   checks?: ChangeCheck[];
   reviews?: ChangeReview[];
 
   pull_request_id?: string | null;
   pull_request_title?: string | null;
   pull_request_status?: string | null;
+  github_pr_number?: number | null;
+  github_pr_url?: string | null;
 
   created_at: string;
   updated_at: string;
@@ -77,20 +119,20 @@ export interface ChangeFile {
 }
 
 export const changeService = {
+  async getAllChanges(): Promise<Change[]> {
+    return apiAuth<Change[]>("/v1/changes");
+  },
+
   async listChanges(
-    username: string,
-    repo: string,
+    username?: string,
+    repo?: string,
     queryParams?: Record<string, string>,
   ): Promise<Change[]> {
-    const params = new URLSearchParams(
-      queryParams || {},
-    );
-    params.set("owner", username);
-    params.set("repo", repo);
-
-    return apiAuth<Change[]>(
-      `/v1/changes?${params.toString()}`,
-    );
+    const params = new URLSearchParams(queryParams || {});
+    if (username) params.set("owner", username);
+    if (repo) params.set("repo", repo);
+    const qs = params.toString();
+    return apiAuth<Change[]>(qs ? `/v1/changes?${qs}` : "/v1/changes");
   },
 
   async getChange(
@@ -98,9 +140,11 @@ export const changeService = {
     repo: string,
     changeId: string,
   ): Promise<Change> {
-    return apiAuth<Change>(
-      `/v1/changes/${changeId}`,
-    );
+    return apiAuth<Change>(`/v1/changes/${changeId}`);
+  },
+
+  async getChangeById(changeId: string): Promise<Change> {
+    return apiAuth<Change>(`/v1/changes/${changeId}`);
   },
 
   async getChangeFiles(
@@ -108,9 +152,7 @@ export const changeService = {
     repo: string,
     changeId: string,
   ): Promise<ChangeFile[]> {
-    return apiAuth<ChangeFile[]>(
-      `/v1/changes/${changeId}/files`,
-    );
+    return apiAuth<ChangeFile[]>(`/v1/changes/${changeId}/files`);
   },
 
   async getChangeReviews(

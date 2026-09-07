@@ -4,14 +4,23 @@ from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    status,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.agent_dependencies import get_current_agent_session
+from app.api.changes import ChangeResponse, _to_change_response
+from app.api.pull_requests import PullRequestResponse, _to_response
+from app.core.config import settings
 from app.db.session import get_db
 from app.models.agent_session import AgentSession
+from app.models.repository import Repository
 from app.models.task import Task
+from app.providers.github.auth import GitHubAppAuthService
+from app.providers.github.repository import GitHubRepositoryProvider
+from app.services.agent_change_service import AgentChangeService
 from app.services.task_service import TaskService
 
 
@@ -195,3 +204,209 @@ def execute_task(
         else:
             db.rollback()
         raise _handle_error(exc) from exc
+
+
+class AgentTaskChangeCreateRequest(BaseModel):
+    intent: str = Field(default="", max_length=5000)
+    title: str | None = None
+    description: str | None = None
+    branch: str | None = None
+    base_branch: str | None = None
+    base_commit: str | None = None
+    risk_level: str = "unknown"
+
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_intent(cls, data):
+        if isinstance(data, dict):
+            if not data.get("intent"):
+                data["intent"] = data.get("title") or data.get("description") or "Agent change"
+        return data
+
+
+class AgentTaskChangeCommitRequest(BaseModel):
+    resulting_commit: str = Field(
+        default="",
+        max_length=64,
+    )
+    commit_sha: str | None = None
+    message: str | None = None
+    author_name: str | None = None
+    author_email: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_commit(cls, data):
+        if isinstance(data, dict):
+            if not data.get("resulting_commit") and data.get("commit_sha"):
+                data["resulting_commit"] = data["commit_sha"]
+        return data
+
+
+def _get_provider_for_repository(repository: Repository):
+    if repository.provider_type == "github":
+        if settings.github_app_id and settings.github_private_key_pem:
+            auth_service = GitHubAppAuthService(
+                app_id=settings.github_app_id,
+                private_key_pem=settings.github_private_key_pem,
+                base_url=settings.github_api_base_url,
+            )
+            return GitHubRepositoryProvider(
+                auth_service=auth_service,
+                base_url=settings.github_api_base_url,
+            )
+    return None
+
+
+@router.post(
+    "/{task_id}/changes",
+    response_model=ChangeResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create Change for Claimed Agent Task",
+    description="Agent declares intent to create a Change for its claimed task. Enforces AgentSession task lease ownership.",
+)
+def create_agent_task_change(
+    task_id: str,
+    payload: AgentTaskChangeCreateRequest,
+    session: AgentSession = Depends(get_current_agent_session),
+    db: Session = Depends(get_db),
+):
+    task = db.scalar(select(Task).where(Task.id == task_id))
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    repository = db.scalar(select(Repository).where(Repository.id == task.repository_id))
+    if not repository:
+        raise HTTPException(status_code=404, detail="Task repository not found")
+
+    provider = _get_provider_for_repository(repository)
+    svc = AgentChangeService(db=db, provider=provider)
+
+    try:
+        change = svc.create_change(
+            session=session,
+            task=task,
+            intent=payload.intent,
+            branch=payload.branch,
+            base_branch=payload.base_branch,
+            base_commit=payload.base_commit,
+            risk_level=payload.risk_level,
+        )
+        db.commit()
+        db.refresh(change)
+        return _to_change_response(change, None, db)
+    except PermissionError as exc:
+        db.rollback()
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create agent change: {exc}") from exc
+
+
+@router.post(
+    "/{task_id}/commit",
+    response_model=ChangeResponse,
+    summary="Record Resulting Commit for Claimed Agent Task",
+    description="Agent attaches resulting commit for its claimed task change. Enforces AgentSession task lease ownership.",
+)
+def record_agent_task_commit(
+    task_id: str,
+    payload: AgentTaskChangeCommitRequest,
+    session: AgentSession = Depends(get_current_agent_session),
+    db: Session = Depends(get_db),
+):
+    task = db.scalar(select(Task).where(Task.id == task_id))
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    repository = db.scalar(select(Repository).where(Repository.id == task.repository_id))
+    if not repository:
+        raise HTTPException(status_code=404, detail="Task repository not found")
+
+    provider = _get_provider_for_repository(repository)
+    svc = AgentChangeService(db=db, provider=provider)
+
+    try:
+        change = svc.record_commit(
+            session=session,
+            task=task,
+            resulting_commit=payload.resulting_commit,
+        )
+        db.commit()
+        db.refresh(change)
+        return _to_change_response(change, None, db)
+    except PermissionError as exc:
+        db.rollback()
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to record agent commit: {exc}") from exc
+
+
+class AgentTaskPRCreateRequest(BaseModel):
+    title: str | None = None
+    target_branch: str | None = None
+    description: str | None = None
+    is_draft: bool = False
+
+
+@router.post(
+    "/{task_id}/pull-requests",
+    response_model=PullRequestResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create Pull Request for Claimed Agent Task",
+    description="Agent creates a GitHub & SUTRA Pull Request for its recorded Change. Enforces AgentSession lease ownership and recorded commit.",
+)
+def create_agent_task_pull_request(
+    task_id: str,
+    payload: AgentTaskPRCreateRequest,
+    session: AgentSession = Depends(get_current_agent_session),
+    db: Session = Depends(get_db),
+):
+    task = db.scalar(select(Task).where(Task.id == task_id))
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    repository = db.scalar(select(Repository).where(Repository.id == task.repository_id))
+    if not repository:
+        raise HTTPException(status_code=404, detail="Task repository not found")
+
+    provider = _get_provider_for_repository(repository)
+    svc = AgentChangeService(db=db, provider=provider)
+
+    try:
+        pr = svc.create_pull_request(
+            session=session,
+            task=task,
+            title=payload.title,
+            target_branch=payload.target_branch,
+            description=payload.description,
+            is_draft=payload.is_draft,
+        )
+        db.commit()
+        db.refresh(pr)
+        return _to_response(pr, db)
+    except PermissionError as exc:
+        db.rollback()
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create agent pull request: {exc}") from exc

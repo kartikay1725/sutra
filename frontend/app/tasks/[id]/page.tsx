@@ -3,10 +3,12 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Bot, CheckCircle2, GitBranch, Play, ShieldCheck, MessageSquare, Plus, Check } from "lucide-react";
+import { Bot, CheckCircle2, GitBranch, Play, ShieldCheck, MessageSquare, Plus, Check, GitPullRequest, ArrowRight, Sparkles } from "lucide-react";
 import { Page, Card, Badge } from "@/components/ui";
 import { Task, taskService } from "@/lib/tasks";
 import { Agent, agentService } from "@/lib/agents";
+import { ciService, type PRChecksResponse } from "@/lib/ci";
+import { governanceService, type GovernanceEvaluation } from "@/lib/governance";
 
 export default function TaskPage() {
   const params = useParams() as any;
@@ -14,6 +16,8 @@ export default function TaskPage() {
   
   const [task, setTask] = useState<Task | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [checks, setChecks] = useState<PRChecksResponse | null>(null);
+  const [gov, setGov] = useState<GovernanceEvaluation | null>(null);
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState(false);
 
@@ -27,6 +31,10 @@ export default function TaskPage() {
     .then(([t, a]) => {
       setTask(t);
       setAgents(a);
+      if (t?.resulting_pull_request_id) {
+        ciService.getPRChecks(t.resulting_pull_request_id).then(setChecks).catch(() => {});
+        governanceService.getPRGovernance(t.resulting_pull_request_id).then(setGov).catch(() => {});
+      }
     })
     .catch(console.error)
     .finally(() => setLoading(false));
@@ -44,6 +52,10 @@ export default function TaskPage() {
       ]).then(([t, a]) => {
         setTask(t);
         setAgents(a);
+        if (t?.resulting_pull_request_id) {
+          ciService.getPRChecks(t.resulting_pull_request_id).then(setChecks).catch(() => {});
+          governanceService.getPRGovernance(t.resulting_pull_request_id).then(setGov).catch(() => {});
+        }
       }).catch(console.error);
     }, 5000);
     
@@ -83,19 +95,127 @@ export default function TaskPage() {
       title={task.title} 
       description={task.description || "No description provided."} 
       actions={
-        <>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {isOpen && (
              <button className="btn outline" onClick={handleDispatchNext} disabled={assigning}>
                Auto-Dispatch
              </button>
           )}
           {isInProgress && <button className="btn">Reassign</button>}
-          {isCompleted && task.resulting_change_id && (
-             <Link href={`/changes/${task.resulting_change_id}`} className="btn primary">Open change</Link>
+          {task.resulting_change_id && (
+             <Link href={`/changes/${task.resulting_change_id}`} className="btn outline" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+               <GitBranch size={14} /> Open Change
+             </Link>
           )}
-        </>
+          {task.resulting_pull_request_id && (
+             <Link href={`/pull-requests/${task.resulting_pull_request_id}`} className="btn primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+               <GitPullRequest size={14} /> View Pull Request
+             </Link>
+          )}
+          <Link
+            href={`/assistant`}
+            className="btn outline"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Sparkles size={14} style={{ color: 'var(--cyan)' }} /> Ask Assistant
+          </Link>
+        </div>
       }
     >
+      {/* SUTRA Pipeline Stepper */}
+      <Card style={{ marginBottom: 20 }}>
+        <div style={{ padding: "16px 20px", overflowX: "auto" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 720, fontSize: 13 }}>
+            {[
+              { label: "Task", active: true, done: isCompleted || isInProgress },
+              { label: "AgentSession", active: Boolean(task.assigned_agent_id || task.active_session_id), done: Boolean(task.assigned_agent_id || task.active_session_id) },
+              { label: "Issue", active: Boolean(task.issue_id), done: Boolean(task.issue_id) },
+              { label: "Change", active: Boolean(task.resulting_change_id), done: Boolean(task.resulting_change_id) },
+              { label: "GitHub PR", active: Boolean(task.resulting_pull_request_id), done: Boolean(task.resulting_pull_request_id) },
+              { label: "Checks / CI", active: Boolean(task.resulting_pull_request_id), done: checks?.overall_status === 'passed' },
+              { label: "Governance", active: checks?.overall_status === 'passed', done: Boolean(gov?.provenance?.verified && gov?.policy?.passed) },
+              { label: "Approval", active: Boolean(gov?.ready_for_approval) || gov?.verdict === 'READY_FOR_APPROVAL' || gov?.verdict === 'NEEDS_REVIEW', done: Boolean(gov?.review?.satisfied) || isCompleted },
+              { label: "Merge", active: Boolean(gov?.review?.satisfied), done: isCompleted },
+            ].map((step, idx, arr) => (
+              <React.Fragment key={step.label}>
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  color: step.done ? "var(--green)" : step.active ? "var(--cyan)" : "var(--muted)",
+                  fontWeight: step.active || step.done ? 600 : 400
+                }}>
+                  {step.done ? <CheckCircle2 size={15} /> : step.active ? <Play size={14} /> : <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--line)" }} />}
+                  <span>{step.label}</span>
+                </div>
+                {idx < arr.length - 1 && (
+                  <ArrowRight size={13} style={{ color: "var(--line)", flexShrink: 0 }} />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      {/* Resulting Pull Request Banner if exists */}
+      {task.resulting_pull_request_id && (
+        <Card style={{ marginBottom: 20, border: "1px solid rgba(0, 240, 255, 0.25)", background: "var(--bg-subtle)" }}>
+          <div style={{ padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(0, 240, 255, 0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <GitPullRequest size={17} style={{ color: "var(--cyan)" }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--fg)", display: "flex", alignItems: "center", gap: 8 }}>
+                  <span>Resulting Substrate Pull Request</span>
+                  {isCompleted && <Badge tone="green">✓ MERGED</Badge>}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                  {isCompleted 
+                    ? `Pull Request was approved by human reviewer and merged into substrate repository.`
+                    : `Autonomous Agent session produced and linked SUTRA Pull Request #${task.resulting_pull_request_id.slice(0, 8)}`}
+                </div>
+                {checks && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6, fontSize: 12, flexWrap: 'wrap' }}>
+                    <span style={{ 
+                      fontWeight: 600,
+                      color: checks.overall_status === 'passed' ? 'var(--green)' : checks.overall_status === 'failed' ? '#ff4d4f' : 'var(--cyan)' 
+                    }}>
+                      CI Checks: {checks.summary.passed}/{checks.summary.total} passing
+                    </span>
+                    <Badge tone={checks.overall_status === 'passed' ? 'green' : checks.overall_status === 'failed' ? 'red' : 'aqua'}>
+                      {checks.governance_verdict}
+                    </Badge>
+                    {gov && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 6 }}>
+                        <span style={{ fontWeight: 600, color: 'var(--fg)' }}>Governance:</span>
+                        <Badge tone={gov.verdict === 'READY_FOR_MERGE' ? 'green' : gov.verdict === 'READY_FOR_APPROVAL' ? 'aqua' : gov.verdict === 'NEEDS_REVIEW' ? 'amber' : gov.verdict === 'CI_PENDING' ? 'aqua' : 'red'}>
+                          {gov.verdict.replaceAll('_', ' ')}
+                        </Badge>
+                      </span>
+                    )}
+                    {gov?.review && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 6 }}>
+                        <span style={{ fontWeight: 600, color: 'var(--fg)' }}>Approval:</span>
+                        <span style={{ color: gov.review.satisfied ? 'var(--green)' : 'var(--amber)', fontWeight: 600 }}>
+                          {gov.review.actual_approvals} / {gov.review.required_approvals}
+                        </span>
+                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                          {gov.review.satisfied ? 'Approved by Human Reviewer' : 'Needs human reviewer'}
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+            <Link href={`/pull-requests/${task.resulting_pull_request_id}`} className="btn primary" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <GitPullRequest size={14} /> View Pull Request
+            </Link>
+          </div>
+        </Card>
+      )}
+
       <div className="grid grid3">
         {/* Agent Card */}
         <Card>
@@ -155,7 +275,30 @@ export default function TaskPage() {
         <Card>
           <div className="statlabel">Validation</div>
           <div style={{marginTop:10}}>
-            {isCompleted || isInProgress ? (
+            {checks ? (
+              <>
+                <div className={`statusline ${checks.overall_status === 'passed' ? 'green' : checks.overall_status === 'failed' ? 'red' : 'cyan'}`}>
+                  {checks.overall_status === 'passed' ? <CheckCircle2 size={14} /> : <Play size={14} />}
+                  {checks.summary.passed} / {checks.summary.total} checks passing
+                </div>
+                <div style={{ marginTop: 8, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <ShieldCheck size={14} style={{ color: checks.governance_verdict === 'READY FOR GOVERNANCE' ? 'var(--green)' : 'var(--amber)' }} />
+                  <span>Verdict: <strong>{checks.governance_verdict}</strong></span>
+                </div>
+                {checks.checks.length > 0 && (
+                  <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {checks.checks.slice(0, 3).map(chk => (
+                      <div key={chk.id} style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ color: chk.status === 'passed' ? 'var(--green)' : chk.status === 'failed' ? '#ff4d4f' : 'var(--cyan)' }}>
+                          {chk.status === 'passed' ? '✓' : chk.status === 'failed' ? '✗' : '●'}
+                        </span>
+                        <span>{chk.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : isCompleted || isInProgress ? (
               <>
                 <div className={`statusline ${isCompleted ? 'green' : 'amber'}`}><CheckCircle2 size={14}/> {isCompleted ? '18 / 18 tests passing' : 'Running tests...'}</div>
                 <div className={`statusline ${isCompleted ? 'green' : 'amber'}`} style={{marginTop:8}}><ShieldCheck size={14}/> {isCompleted ? 'Security clean' : 'Scanning...'}</div>

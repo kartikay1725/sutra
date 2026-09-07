@@ -1,8 +1,8 @@
 'use client';
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Search, Bell, Command, UserRound, LogOut } from "lucide-react";
+import { Bell, UserRound, LogOut, Settings, ChevronDown } from "lucide-react";
 import { globalNav, repoNav } from "../lib/nav";
 import { authService, User } from "../lib/auth";
 import { I } from "../lib/icons";
@@ -14,6 +14,8 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!authService.isAuthenticated()) {
@@ -40,7 +42,19 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
       });
   }, [router, isPublic]);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const handleLogout = async () => {
+    setDropdownOpen(false);
     await authService.logout();
     router.push("/login");
   };
@@ -51,6 +65,7 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
         e.preventDefault();
         router.push("/search");
       }
+      if (e.key === "Escape") setDropdownOpen(false);
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -129,13 +144,101 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
             <span>Docs</span>
           </Link>
           <Link href="/notifications" className="iconbtn" title="Notifications"><Bell size={15}/></Link>
-          <Link href="/profile" className="iconbtn" title="Profile"><UserRound size={15}/></Link>
+
+          {/* Profile dropdown */}
+          <div ref={dropdownRef} style={{ position: "relative" }}>
+            <button
+              className="iconbtn"
+              title="Account"
+              onClick={() => setDropdownOpen(o => !o)}
+              style={{ display: "flex", alignItems: "center", gap: 4, paddingRight: user ? 6 : undefined }}
+            >
+              <UserRound size={15}/>
+              {user && <ChevronDown size={11} style={{ opacity: 0.5, transition: "transform 200ms", transform: dropdownOpen ? "rotate(180deg)" : "none" }}/>}
+            </button>
+
+            {dropdownOpen && (
+              <div style={{
+                position: "absolute",
+                top: "calc(100% + 8px)",
+                right: 0,
+                minWidth: 200,
+                background: "var(--card)",
+                border: "1px solid var(--line)",
+                borderRadius: 10,
+                boxShadow: "0 8px 32px rgba(0,0,0,0.45)",
+                overflow: "hidden",
+                zIndex: 9999,
+                animation: "fadeIn 120ms ease",
+              }}>
+                {user && (
+                  <div style={{
+                    padding: "12px 14px 10px",
+                    borderBottom: "1px solid var(--line)",
+                  }}>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{user.username}</div>
+                    <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{(user as any).email}</div>
+                  </div>
+                )}
+
+                <div style={{ padding: "6px 0" }}>
+                  <Link
+                    href="/profile"
+                    onClick={() => setDropdownOpen(false)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      padding: "8px 14px", fontSize: 13, color: "var(--fg)",
+                      textDecoration: "none", transition: "background 120ms",
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <UserRound size={14} style={{ opacity: 0.6 }} />
+                    Profile
+                  </Link>
+
+                  <Link
+                    href="/settings"
+                    onClick={() => setDropdownOpen(false)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      padding: "8px 14px", fontSize: 13, color: "var(--fg)",
+                      textDecoration: "none", transition: "background 120ms",
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <Settings size={14} style={{ opacity: 0.6 }} />
+                    Settings
+                  </Link>
+
+                  <div style={{ height: 1, background: "var(--line)", margin: "6px 0" }} />
+
+                  <button
+                    onClick={handleLogout}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10, width: "100%",
+                      padding: "8px 14px", fontSize: 13, color: "#ff8fa0",
+                      background: "none", border: "none", cursor: "pointer",
+                      textAlign: "left", transition: "background 120ms",
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,143,160,0.07)")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <LogOut size={14} style={{ opacity: 0.7 }} />
+                    Sign out
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
       <div className="content">{children}</div>
     </main>
   </div>
 }
+
 
 export function PageHead({eyebrow,title,sub,action}:{eyebrow?:string,title:string,sub?:string,action?:React.ReactNode}){
  return <div className="page-head"><div>{eyebrow&&<div className="eyebrow">{eyebrow}</div>}<h1 className="h1">{title}</h1>{sub&&<div className="sub" style={{marginTop:7}}>{sub}</div>}</div>{action&&<div className="actions">{action}</div>}</div>

@@ -20,6 +20,7 @@ import {
   MessageCircle,
   Save,
   ExternalLink,
+  Settings,
 } from "lucide-react";
 
 type SocialLinks = {
@@ -462,6 +463,11 @@ export default function ProfilePage() {
               >
                 <ExternalLink size={14} />
                 View public profile
+              </Btn>
+
+              <Btn onClick={() => router.push("/settings")}>
+                <Settings size={14} />
+                Settings
               </Btn>
 
               <Btn

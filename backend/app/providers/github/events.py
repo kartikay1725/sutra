@@ -1,7 +1,12 @@
-﻿import hmac
+import hmac
 import hashlib
 from typing import Optional, Dict, Any, Union
-from app.providers.events import WebhookEventAdapter, NormalizedPushEvent, NormalizedPullRequestEvent
+from app.providers.events import (
+    WebhookEventAdapter,
+    NormalizedPushEvent,
+    NormalizedPullRequestEvent,
+    NormalizedCheckRunEvent,
+)
 
 
 class GitHubWebhookAdapter(WebhookEventAdapter):
@@ -73,6 +78,30 @@ class GitHubWebhookAdapter(WebhookEventAdapter):
                 base_ref=pr_data.get("base", {}).get("ref", ""),
                 base_sha=pr_data.get("base", {}).get("sha", ""),
                 is_merged=pr_data.get("merged", False),
+                raw_payload=payload,
+            )
+
+        elif event_type == "check_run":
+            check_data = payload.get("check_run", {})
+            pr_numbers = [
+                pr["number"]
+                for pr in check_data.get("pull_requests", [])
+                if isinstance(pr, dict) and "number" in pr
+            ]
+            return NormalizedCheckRunEvent(
+                provider_type="github",
+                repository_owner=owner,
+                repository_name=name,
+                check_run_id=check_data.get("id", 0),
+                name=check_data.get("name", ""),
+                head_sha=check_data.get("head_sha", ""),
+                status=check_data.get("status", "completed"),
+                conclusion=check_data.get("conclusion"),
+                html_url=check_data.get("html_url"),
+                details_url=check_data.get("details_url"),
+                started_at=check_data.get("started_at"),
+                completed_at=check_data.get("completed_at"),
+                pull_request_numbers=pr_numbers,
                 raw_payload=payload,
             )
 

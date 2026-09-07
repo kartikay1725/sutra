@@ -169,6 +169,19 @@ class TaskService:
             .order_by(Task.created_at.desc())
         ).all()
 
+    def list_all_tasks(self, user_id: str) -> List[Task]:
+        return list(
+            self.db.scalars(
+                select(Task)
+                .join(Repository, Task.repository_id == Repository.id)
+                .where(
+                    (Repository.owner_id == user_id) | (Repository.visibility == "public"),
+                    Repository.deleted_at.is_(None),
+                )
+                .order_by(Task.created_at.desc())
+            ).all()
+        )
+
     def assign_task(
         self,
         task_id: str,

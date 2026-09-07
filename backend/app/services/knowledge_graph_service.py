@@ -234,3 +234,201 @@ def index_repository_files(
     except Exception:
         return 0
 
+
+def index_engineering_lifecycle(
+    db: Session,
+    repository: Repository | str,
+) -> dict[str, int]:
+    """
+    Ingests and interlinks authoritative SUTRA engineering lifecycle entities:
+    Task -> Agent -> Change -> Commit -> PullRequest -> Discussion.
+    """
+    from app.models.task import Task
+    from app.models.change import Change
+    from app.models.pull_request import PullRequest
+    from app.models.agent import Agent
+    from app.models.discussion import Discussion
+
+    repo_id = repository.id if hasattr(repository, "id") else str(repository)
+    node_count = 0
+    edge_count = 0
+
+    # 1. Tasks & Agents
+    tasks = db.scalars(
+        select(Task).where(Task.repository_id == repo_id)
+    ).all()
+
+    for t in tasks:
+        task_node = upsert_node(
+            db=db,
+            repository_id=repo_id,
+            entity_type="task",
+            name=f"Task #{t.id[:8]}: {t.title}",
+            summary=t.description or f"Task in status {t.status}",
+            metadata={"task_id": t.id, "status": t.status, "priority": t.priority},
+        )
+        node_count += 1
+
+        if t.assigned_agent_id:
+            agent = db.scalar(select(Agent).where(Agent.id == t.assigned_agent_id))
+            if agent:
+                agent_node = upsert_node(
+                    db=db,
+                    repository_id=repo_id,
+                    entity_type="agent",
+                    name=f"Agent: {agent.name}",
+                    summary=agent.description or "Autonomous SUTRA Agent",
+                    metadata={"agent_id": agent.id},
+                )
+                node_count += 1
+                add_edge(
+                    db=db,
+                    source_node_id=task_node.id,
+                    target_node_id=agent_node.id,
+                    relationship_type="assigned_to",
+                )
+                edge_count += 1
+
+        # 2. Resulting Change
+        if t.resulting_change_id:
+            change = db.scalar(select(Change).where(Change.id == t.resulting_change_id))
+            if change:
+                files = []
+                try:
+                    meta = json.loads(change.metadata_json or "{}")
+                    files = meta.get("files", [])
+                except Exception:
+                    pass
+
+                change_node = upsert_node(
+                    db=db,
+                    repository_id=repo_id,
+                    entity_type="change",
+                    name=f"Change #{change.id[:8]}",
+                    summary=change.intent,
+                    metadata={"change_id": change.id, "status": change.status, "files": files},
+                )
+                node_count += 1
+                add_edge(
+                    db=db,
+                    source_node_id=task_node.id,
+                    target_node_id=change_node.id,
+                    relationship_type="produced",
+                )
+                edge_count += 1
+
+                # 3. Code files touched
+                for f in files:
+                    file_node = upsert_node(
+                        db=db,
+                        repository_id=repo_id,
+                        entity_type="file",
+                        name=f,
+                        summary=f"Repository file: {f}",
+                    )
+                    node_count += 1
+                    add_edge(
+                        db=db,
+                        source_node_id=change_node.id,
+                        target_node_id=file_node.id,
+                        relationship_type="modifies",
+                    )
+                    edge_count += 1
+
+        # 4. Resulting PR
+        if t.resulting_pull_request_id:
+            pr = db.scalar(select(PullRequest).where(PullRequest.id == t.resulting_pull_request_id))
+            if pr:
+                pr_node = upsert_node(
+                    db=db,
+                    repository_id=repo_id,
+                    entity_type="pull_request",
+                    name=f"PR #{pr.id[:8]}: {pr.title or 'Pull Request'}",
+                    summary=f"Pull Request in status {pr.status}",
+                    metadata={"pull_request_id": pr.id, "status": pr.status},
+                )
+                node_count += 1
+                add_edge(
+                    db=db,
+                    source_node_id=task_node.id,
+                    target_node_id=pr_node.id,
+                    relationship_type="reviewed_in",
+                )
+                edge_count += 1
+
+    # 5. Discussions
+    discussions = db.scalars(
+        select(Discussion).where(Discussion.repository_id == repo_id)
+    ).all()
+
+    for d in discussions:
+        disc_node = upsert_node(
+            db=db,
+            repository_id=repo_id,
+            entity_type="discussion",
+            name=f"Discussion: {d.title}",
+            summary=d.body[:200] if d.body else f"Discussion in {d.category}",
+            metadata={"discussion_id": d.id, "category": d.category},
+        )
+        node_count += 1
+
+        import re
+        task_uuid_match = re.search(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', f"{d.title} {d.body}")
+        if task_uuid_match:
+            tid = task_uuid_match.group(0)
+            task_node = db.scalar(
+                select(KnowledgeNode).where(
+                    KnowledgeNode.repository_id == repo_id,
+                    KnowledgeNode.entity_type == "task",
+                    KnowledgeNode.metadata_json.contains(tid),
+                )
+            )
+            if task_node:
+                add_edge(
+                    db=db,
+                    source_node_id=disc_node.id,
+                    target_node_id=task_node.id,
+                    relationship_type="discussed_in",
+                )
+                edge_count += 1
+
+    db.flush()
+    return {"nodes": node_count, "edges": edge_count}
+
+
+def get_file_context(
+    db: Session,
+    repository_id: str,
+    file_path: str,
+) -> dict:
+    """
+    Retrieves full engineering context for a file:
+    defined symbols, historical changes, producing tasks, and modifying commits.
+    """
+    file_node = db.scalar(
+        select(KnowledgeNode).where(
+            KnowledgeNode.repository_id == repository_id,
+            KnowledgeNode.entity_type == "file",
+            KnowledgeNode.name == file_path,
+        )
+    )
+    if not file_node:
+        return {"file": file_path, "symbols": [], "related_entities": []}
+
+    sub = get_subgraph(db, file_node.id)
+    symbols = []
+    related = []
+    if sub:
+        for nid, neighbor in sub["neighbors"].items():
+            if neighbor.entity_type in ("function", "class", "module"):
+                symbols.append({"name": neighbor.name, "type": neighbor.entity_type})
+            else:
+                related.append({"name": neighbor.name, "type": neighbor.entity_type, "summary": neighbor.summary})
+
+    return {
+        "file": file_path,
+        "symbols": symbols,
+        "related_entities": related,
+    }
+
+

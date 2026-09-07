@@ -1,4 +1,5 @@
-﻿import base64
+from urllib import response
+import base64
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 import httpx
@@ -12,10 +13,14 @@ from app.providers.base import (
     ProviderDiffStat,
     ProviderPullRequest,
     ProviderMergeResult,
+    ProviderIssue,
+    ProviderIssueComment,
 )
 from app.providers.github.auth import GitHubAppAuthService
 
 logger = logging.getLogger("sutra.providers.github.repo")
+
+
 
 
 class GitHubRepositoryProvider(RepositoryProvider):
@@ -47,14 +52,37 @@ class GitHubRepositoryProvider(RepositoryProvider):
         token_data = self.auth_service.create_installation_token(
             installation_id=inst_id,
             repositories=[name],
-            permissions={"contents": "write", "pull_requests": "write", "metadata": "read"},
+            permissions={"contents": "write", "pull_requests": "write", "checks": "write", "metadata": "read"},
         )
         return {
             "Authorization": f"Bearer {token_data['token']}",
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
         }
+    def _get_issue_headers(
+        self,
+        owner: str,
+        name: str,
+    ) -> Dict[str, str]:
+        inst_id = self.auth_service.get_installation_id(
+            owner,
+            name,
+        )
 
+        token_data = self.auth_service.create_installation_token(
+            installation_id=inst_id,
+            repositories=[name],
+            permissions={
+                "issues": "write",
+                "metadata": "read",
+            },
+        )
+
+        return {
+            "Authorization": f"Bearer {token_data['token']}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
     def get_repository_metadata(self, owner: str, name: str) -> ProviderRepoMetadata:
         headers = self._get_installation_headers(owner, name)
         res = self._client.get(f"/repos/{owner}/{name}", headers=headers)
@@ -109,7 +137,75 @@ class GitHubRepositoryProvider(RepositoryProvider):
                 is_protected=b.get("protected", False),
             )
             for b in data
+
         ]
+    def list_commits(
+        self,
+        owner: str,
+        name: str,
+        ref: str,
+        limit: int = 30,
+    ) -> List[ProviderCommit]:
+        headers = self._get_installation_headers(owner, name)
+
+        safe_limit = max(1, min(int(limit), 100))
+
+        res = self._client.get(
+            f"/repos/{owner}/{name}/commits",
+            headers=headers,
+            params={
+                "sha": ref,
+                "per_page": safe_limit,
+            },
+        )
+        res.raise_for_status()
+
+        data = res.json()
+
+        commits: List[ProviderCommit] = []
+
+        for item in data:
+            commit_data = item.get("commit", {})
+
+            author = commit_data.get("author") or {}
+            author_name = author.get("name", "Unknown")
+            author_email = author.get("email", "")
+            committed_date_str = author.get("date")
+
+            try:
+                committed_at = (
+                    datetime.fromisoformat(
+                        committed_date_str.replace("Z", "+00:00")
+                    )
+                    if committed_date_str
+                    else datetime.now(timezone.utc)
+                )
+            except Exception:
+                committed_at = datetime.now(timezone.utc)
+
+            parents = [
+                parent.get("sha")
+                for parent in item.get("parents", [])
+                if parent.get("sha")
+            ]
+
+            tree_sha = (
+                commit_data.get("tree", {}).get("sha", "")
+            )
+
+            commits.append(
+                ProviderCommit(
+                    sha=item["sha"],
+                    message=commit_data.get("message", ""),
+                    author_name=author_name,
+                    author_email=author_email,
+                    committed_at=committed_at,
+                    parent_shas=parents,
+                    tree_sha=tree_sha,
+                )
+            )
+
+        return commits
 
     def get_commit(self, owner: str, name: str, sha: str) -> Optional[ProviderCommit]:
         headers = self._get_installation_headers(owner, name)
@@ -140,7 +236,472 @@ class GitHubRepositoryProvider(RepositoryProvider):
             parent_shas=parents,
             tree_sha=tree_sha,
         )
+    def get_commit_detail(
+        self,
+        owner: str,
+        name: str,
+        sha: str,
+    ) -> dict[str, Any]:
+        headers = self._get_installation_headers(owner, name)
 
+        res = self._client.get(
+            f"/repos/{owner}/{name}/commits/{sha}",
+            headers=headers,
+        )
+
+        if res.status_code == 404:
+            raise ValueError("Commit not found")
+
+        res.raise_for_status()
+        return res.json()
+    def get_file_blame(
+        self,
+        owner: str,
+        name: str,
+        path: str,
+        ref: str,
+    ) -> List[Dict[str, Any]]:
+        """
+        Return GitHub blame ranges for a file at a specific branch/ref.
+
+        Each range identifies:
+        - starting_line
+        - ending_line
+        - responsible commit
+        - commit author
+        - authored date
+        - commit subject
+        """
+
+        # GitHub's REST API does not provide a direct blame endpoint.
+        # Use the GraphQL API with the same GitHub App installation token.
+        headers = self._get_installation_headers(owner, name)
+
+        query = """
+        query FileBlame(
+            $owner: String!,
+            $name: String!,
+            $ref: String!,
+            $path: String!
+        ) {
+            repository(owner: $owner, name: $name) {
+                ref(qualifiedName: $ref) {
+                    target {
+                        ... on Commit {
+                            oid
+                            blame(path: $path) {
+                                ranges {
+                                    startingLine
+                                    endingLine
+                                    age
+                                    commit {
+                                        oid
+                                        abbreviatedOid
+                                        messageHeadline
+                                        authoredDate
+                                        author {
+                                            name
+                                            email
+                                            user {
+                                                login
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        """
+
+        response = self._client.post(
+            "/graphql",
+            headers=headers,
+            json={
+                "query": query,
+                "variables": {
+                    "owner": owner,
+                    "name": name,
+                    "ref": (
+                        ref
+                        if ref.startswith("refs/")
+                        else f"refs/heads/{ref}"
+                    ),
+                    "path": path.lstrip("/"),
+                },
+            },
+        )
+
+        response.raise_for_status()
+
+        payload = response.json()
+
+        # GraphQL can return HTTP 200 with an errors array.
+        errors = payload.get("errors") or []
+        if errors:
+            message = errors[0].get(
+                "message",
+                "GitHub GraphQL blame request failed",
+            )
+            raise ValueError(message)
+
+        repository = payload.get("data", {}).get("repository")
+        if not repository:
+            raise ValueError("GitHub repository not found")
+
+        ref_data = repository.get("ref")
+        if not ref_data:
+            raise ValueError(
+                f"GitHub branch/ref '{ref}' not found"
+            )
+
+        target = ref_data.get("target")
+        if not target:
+            raise ValueError(
+                f"GitHub ref '{ref}' has no commit target"
+            )
+
+        blame = target.get("blame")
+        if not blame:
+            return []
+
+        ranges: List[Dict[str, Any]] = []
+
+        for item in blame.get("ranges", []):
+            commit = item.get("commit") or {}
+            author = commit.get("author") or {}
+            user = author.get("user") or {}
+
+            ranges.append(
+                {
+                    "start_line": item.get("startingLine"),
+                    "end_line": item.get("endingLine"),
+                    "age": item.get("age"),
+                    "commit": commit.get("oid"),
+                    "short_commit": commit.get(
+                        "abbreviatedOid"
+                    ),
+                    "subject": commit.get(
+                        "messageHeadline",
+                        "",
+                    ),
+                    "author_name": author.get(
+                        "name",
+                        "Unknown",
+                    ),
+                    "author_email": author.get(
+                        "email",
+                        "",
+                    ),
+                    "github_login": user.get("login"),
+                    "authored_at": commit.get(
+                        "authoredDate"
+                    ),
+                }
+            )
+
+        return ranges
+        # ============================================================
+    # GITHUB ISSUES
+    # ============================================================
+
+    def list_issues(
+        self,
+        owner: str,
+        name: str,
+        state: str = "all",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[ProviderIssue]:
+        headers = self._get_issue_headers(owner, name)
+
+        safe_state = state if state in {"open", "closed", "all"} else "all"
+        safe_limit = max(1, min(int(limit), 100))
+        safe_offset = max(0, int(offset))
+
+        # GitHub pagination is page-based.
+        page = (safe_offset // safe_limit) + 1
+
+        response = self._client.get(
+            f"/repos/{owner}/{name}/issues",
+            headers=headers,
+            params={
+                "state": safe_state,
+                "per_page": safe_limit,
+                "page": page,
+            },
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        # GitHub's Issues endpoint can also return pull requests.
+        # SUTRA's Issues view should contain actual issues only.
+        issues: List[ProviderIssue] = []
+
+        for item in data:
+            if "pull_request" in item:
+                continue
+
+            issues.append(
+                self._map_github_issue(item)
+            )
+
+        return issues
+
+
+    def get_issue(
+        self,
+        owner: str,
+        name: str,
+        issue_number: int,
+    ) -> Optional[ProviderIssue]:
+        headers = self._get_issue_headers(owner, name)
+
+        response = self._client.get(
+            f"/repos/{owner}/{name}/issues/{issue_number}",
+            headers=headers,
+        )
+
+        if response.status_code == 404:
+            return None
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        # Defensive check: issue endpoint should not normally return a PR,
+        # but GitHub represents PRs through the issues API.
+        if "pull_request" in data:
+            return None
+
+        return self._map_github_issue(data)
+
+
+    def create_issue(
+        self,
+        owner: str,
+        name: str,
+        title: str,
+        body: str,
+    ) -> ProviderIssue:
+        headers = self._get_issue_headers(owner, name)
+
+        response = self._client.post(
+            f"/repos/{owner}/{name}/issues",
+            headers=headers,
+            json={
+                "title": title,
+                "body": body,
+            },
+        )
+
+        response.raise_for_status()
+
+        return self._map_github_issue(response.json())
+
+
+    def list_issue_comments(
+        self,
+        owner: str,
+        name: str,
+        issue_number: int,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[ProviderIssueComment]:
+        headers = self._get_issue_headers(owner, name)
+
+        safe_limit = max(1, min(int(limit), 100))
+        safe_offset = max(0, int(offset))
+
+        page = (safe_offset // safe_limit) + 1
+
+        response = self._client.get(
+            f"/repos/{owner}/{name}/issues/{issue_number}/comments",
+            headers=headers,
+            params={
+                "per_page": safe_limit,
+                "page": page,
+            },
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        return [
+            self._map_github_issue_comment(
+                item,
+                issue_number=issue_number,
+            )
+            for item in data
+        ]
+
+
+    def create_issue_comment(
+        self,
+        owner: str,
+        name: str,
+        issue_number: int,
+        body: str,
+    ) -> ProviderIssueComment:
+        headers = self._get_issue_headers(owner, name)
+
+        response = self._client.post(
+            f"/repos/{owner}/{name}/issues/{issue_number}/comments",
+            headers=headers,
+            json={
+                "body": body,
+            },
+        )
+
+        response.raise_for_status()
+
+        return self._map_github_issue_comment(
+            response.json(),
+            issue_number=issue_number,
+        )
+
+
+    def close_issue(
+        self,
+        owner: str,
+        name: str,
+        issue_number: int,
+    ) -> ProviderIssue:
+        return self._update_issue_state(
+            owner=owner,
+            name=name,
+            issue_number=issue_number,
+            state="closed",
+        )
+
+
+    def reopen_issue(
+        self,
+        owner: str,
+        name: str,
+        issue_number: int,
+    ) -> ProviderIssue:
+        return self._update_issue_state(
+            owner=owner,
+            name=name,
+            issue_number=issue_number,
+            state="open",
+        )
+
+
+    def _update_issue_state(
+        self,
+        owner: str,
+        name: str,
+        issue_number: int,
+        state: str,
+    ) -> ProviderIssue:
+        headers = self._get_issue_headers(owner, name)
+
+        response = self._client.request(
+            method="PATCH",
+            url=f"/repos/{owner}/{name}/issues/{issue_number}",
+            headers=headers,
+            json={
+                "state": state,
+            },
+        )
+
+        if response.status_code >= 400:
+            raise RuntimeError(
+                "GitHub issue state update failed: "
+                f"HTTP {response.status_code}; "
+                f"headers={dict(response.headers)}; "
+                f"body={response.text!r}"
+            )
+        
+        response.raise_for_status()
+
+        return self._map_github_issue(response.json())
+
+
+    @staticmethod
+    def _map_github_issue(
+        item: Dict[str, Any],
+    ) -> ProviderIssue:
+        author = item.get("user") or {}
+
+        created_at_raw = item.get("created_at")
+        updated_at_raw = item.get("updated_at")
+        closed_at_raw = item.get("closed_at")
+
+        def parse_dt(value: Optional[str]) -> datetime:
+            if not value:
+                return datetime.now(timezone.utc)
+
+            try:
+                return datetime.fromisoformat(
+                    value.replace("Z", "+00:00")
+                )
+            except Exception:
+                return datetime.now(timezone.utc)
+
+        return ProviderIssue(
+            id=str(item["id"]),
+            number=int(item["number"]),
+            title=item.get("title", ""),
+            body=item.get("body"),
+            state=item.get("state", "open"),
+            author_login=author.get("login"),
+            author_name=author.get("name") or author.get("login"),
+            created_at=parse_dt(created_at_raw),
+            updated_at=parse_dt(updated_at_raw),
+            closed_at=(
+                parse_dt(closed_at_raw)
+                if closed_at_raw
+                else None
+            ),
+            html_url=item.get("html_url", ""),
+            labels=[
+                label.get("name", "")
+                for label in item.get("labels", [])
+                if label.get("name")
+            ],
+        )
+
+
+    @staticmethod
+    def _map_github_issue_comment(
+        item: Dict[str, Any],
+        issue_number: int,
+    ) -> ProviderIssueComment:
+        author = item.get("user") or {}
+
+        created_at_raw = item.get("created_at")
+        updated_at_raw = item.get("updated_at")
+
+        def parse_dt(value: Optional[str]) -> datetime:
+            if not value:
+                return datetime.now(timezone.utc)
+
+            try:
+                return datetime.fromisoformat(
+                    value.replace("Z", "+00:00")
+                )
+            except Exception:
+                return datetime.now(timezone.utc)
+
+        return ProviderIssueComment(
+            id=str(item["id"]),
+            issue_number=issue_number,
+            body=item.get("body", ""),
+            author_login=author.get("login"),
+            author_name=author.get("name") or author.get("login"),
+            created_at=parse_dt(created_at_raw),
+            updated_at=parse_dt(updated_at_raw),
+            html_url=item.get("html_url", ""),
+        )
+        
     def commit_exists(self, owner: str, name: str, sha: str) -> bool:
         headers = self._get_installation_headers(owner, name)
         res = self._client.get(f"/repos/{owner}/{name}/commits/{sha}", headers=headers)
@@ -205,6 +766,26 @@ class GitHubRepositoryProvider(RepositoryProvider):
                 })
         return items
 
+    def create_or_update_file(
+        self,
+        owner: str,
+        name: str,
+        path: str,
+        message: str,
+        content: bytes,
+        branch: str,
+    ) -> Dict[str, Any]:
+        headers = self._get_installation_headers(owner, name)
+        clean_path = path.lstrip("/")
+        payload = {
+            "message": message,
+            "content": base64.b64encode(content).decode("ascii"),
+            "branch": branch,
+        }
+        res = self._client.put(f"/repos/{owner}/{name}/contents/{clean_path}", headers=headers, json=payload)
+        res.raise_for_status()
+        return res.json()
+
     def create_pull_request(
         self,
         owner: str,
@@ -259,6 +840,256 @@ class GitHubRepositoryProvider(RepositoryProvider):
             html_url=data.get("html_url", ""),
         )
 
+    def create_branch(
+        self,
+        owner: str,
+        name: str,
+        branch: str,
+        commit_sha: str,
+    ) -> ProviderBranch:
+        headers = self._get_installation_headers(owner, name)
+        ref = f"refs/heads/{branch}"
+        payload = {
+            "ref": ref,
+            "sha": commit_sha,
+        }
+        res = self._client.post(f"/repos/{owner}/{name}/git/refs", headers=headers, json=payload)
+        res.raise_for_status()
+        return ProviderBranch(
+            name=branch,
+            commit_sha=commit_sha,
+            is_protected=False,
+        )
+
+    def delete_branch(
+        self,
+        owner: str,
+        name: str,
+        branch: str,
+    ) -> bool:
+        headers = self._get_installation_headers(owner, name)
+        res = self._client.delete(f"/repos/{owner}/{name}/git/refs/heads/{branch}", headers=headers)
+        if res.status_code in (200, 204, 404):
+            return True
+        res.raise_for_status()
+        return True
+
+    def close_pull_request(
+        self,
+        owner: str,
+        name: str,
+        pr_number: int,
+    ) -> Optional[ProviderPullRequest]:
+        headers = self._get_installation_headers(owner, name)
+        res = self._client.patch(
+            f"/repos/{owner}/{name}/pulls/{pr_number}",
+            headers=headers,
+            json={"state": "closed"},
+        )
+        if res.status_code == 404:
+            return None
+        res.raise_for_status()
+        data = res.json()
+        return ProviderPullRequest(
+            number=data["number"],
+            title=data["title"],
+            body=data.get("body"),
+            head_ref=data["head"]["ref"],
+            head_sha=data["head"]["sha"],
+            base_ref=data["base"]["ref"],
+            base_sha=data["base"]["sha"],
+            is_merged=data.get("merged", False),
+            is_closed=data.get("state") == "closed",
+            mergeable=data.get("mergeable"),
+            html_url=data.get("html_url", ""),
+        )
+
+    def revert_commit(
+        self,
+        owner: str,
+        name: str,
+        commit_sha: str,
+        branch: str,
+        author_name: str,
+        author_email: str,
+    ) -> Dict[str, Any]:
+        """
+        Create a new commit that restores the tree from the selected
+        commit's first parent, then advance the target branch to it.
+
+        This mirrors SUTRA's current local rollback semantics.
+        """
+
+        headers = self._get_installation_headers(owner, name)
+
+        # ---------------------------------------------------------
+        # 1. Get the selected commit
+        # ---------------------------------------------------------
+        commit_res = self._client.get(
+            f"/repos/{owner}/{name}/commits/{commit_sha}",
+            headers=headers,
+        )
+
+        if commit_res.status_code == 404:
+            raise ValueError("Commit not found")
+
+        commit_res.raise_for_status()
+
+        commit_data = commit_res.json()
+
+        parents = commit_data.get("parents", [])
+
+        if not parents:
+            raise ValueError(
+                "Cannot revert initial commit because it has no parent"
+            )
+
+        parent_sha = parents[0]["sha"]
+
+        parent_commit_res = self._client.get(
+            f"/repos/{owner}/{name}/commits/{parent_sha}",
+            headers=headers,
+        )
+        parent_commit_res.raise_for_status()
+
+        parent_commit_data = parent_commit_res.json()
+
+        parent_tree_sha = (
+            parent_commit_data
+            .get("commit", {})
+            .get("tree", {})
+            .get("sha")
+        )
+
+        if not parent_tree_sha:
+            raise ValueError(
+                "Unable to resolve parent commit tree"
+            )
+
+        # ---------------------------------------------------------
+        # 2. Read current branch HEAD
+        # ---------------------------------------------------------
+        branch_res = self._client.get(
+            f"/repos/{owner}/{name}/git/ref/heads/{branch}",
+            headers=headers,
+        )
+
+        if branch_res.status_code == 404:
+            raise ValueError(
+                f"Branch '{branch}' not found"
+            )
+
+        branch_res.raise_for_status()
+
+        branch_data = branch_res.json()
+
+        current_head = (
+            branch_data
+            .get("object", {})
+            .get("sha")
+        )
+
+        if not current_head:
+            raise ValueError(
+                f"Unable to resolve HEAD for branch '{branch}'"
+            )
+
+        # ---------------------------------------------------------
+        # 3. Create a new tree based on the reverted commit's tree
+        #
+        # No file entries are needed because we want the complete
+        # parent tree as the snapshot.
+        # ---------------------------------------------------------
+        tree_res = self._client.post(
+            f"/repos/{owner}/{name}/git/trees",
+            headers=headers,
+            json={
+                "base_tree": parent_tree_sha,
+                "tree": [],
+            },
+        )
+
+        tree_res.raise_for_status()
+
+        new_tree_sha = (
+            tree_res.json()
+            .get("sha")
+        )
+
+        if not new_tree_sha:
+            raise ValueError(
+                "GitHub did not return a tree SHA"
+            )
+
+        # ---------------------------------------------------------
+        # 4. Create rollback commit
+        # ---------------------------------------------------------
+        message = (
+            f'Revert "{commit_sha[:7]}" via SUTRA'
+        )
+
+        commit_res = self._client.post(
+            f"/repos/{owner}/{name}/git/commits",
+            headers=headers,
+            json={
+                "message": message,
+                "tree": new_tree_sha,
+                "parents": [current_head],
+                "author": {
+                    "name": author_name,
+                    "email": author_email,
+                },
+                "committer": {
+                    "name": author_name,
+                    "email": author_email,
+                },
+            },
+        )
+
+        commit_res.raise_for_status()
+
+        new_commit_sha = (
+            commit_res.json()
+            .get("sha")
+        )
+
+        if not new_commit_sha:
+            raise ValueError(
+                "GitHub did not return the rollback commit SHA"
+            )
+
+        # ---------------------------------------------------------
+        # 5. Advance branch WITHOUT force
+        #
+        # Because new_commit_sha has current_head as its parent,
+        # this should be a fast-forward update.
+        # ---------------------------------------------------------
+        update_res = self._client.patch(
+            f"/repos/{owner}/{name}/git/refs/heads/{branch}",
+            headers=headers,
+            json={
+                "sha": new_commit_sha,
+                "force": False,
+            },
+        )
+
+        if update_res.status_code == 409:
+            raise ValueError(
+                "Rollback lost a branch race: branch changed "
+                "while the rollback was being created"
+            )
+
+        update_res.raise_for_status()
+
+        return {
+            "reverted": commit_sha,
+            "parent_sha": parent_sha,
+            "branch": branch,
+            "new_commit": new_commit_sha,
+            "message": (
+                f"Reverted {commit_sha[:7]} successfully"
+            ),
+        }
     def merge_pull_request(
         self,
         owner: str,
@@ -303,3 +1134,82 @@ class GitHubRepositoryProvider(RepositoryProvider):
                 merge_commit_sha=None,
                 message=f"GitHub merge failed with HTTP {res.status_code}: {res.text}",
             )
+
+    def list_check_runs(
+        self,
+        owner: str,
+        name: str,
+        ref: str,
+    ) -> List[Dict[str, Any]]:
+        """List check runs for a commit ref/SHA on GitHub."""
+        headers = self._get_installation_headers(owner, name)
+        url = f"/repos/{owner}/{name}/commits/{ref}/check-runs"
+        res = self._client.get(url, headers=headers)
+        if res.status_code == 404:
+            return []
+        res.raise_for_status()
+        data = res.json()
+        return data.get("check_runs", [])
+
+    def create_check_run(
+        self,
+        owner: str,
+        name: str,
+        check_name: str,
+        head_sha: str,
+        status: str = "completed",
+        conclusion: Optional[str] = "success",
+        title: Optional[str] = None,
+        summary: Optional[str] = None,
+        details_url: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create or update a check run on GitHub."""
+        headers = self._get_installation_headers(owner, name)
+        url = f"/repos/{owner}/{name}/check-runs"
+        body: Dict[str, Any] = {
+            "name": check_name,
+            "head_sha": head_sha,
+            "status": status,
+        }
+        if conclusion and status == "completed":
+            body["conclusion"] = conclusion
+        if title or summary:
+            body["output"] = {
+                "title": title or check_name,
+                "summary": summary or f"Check run {check_name}: {conclusion or status}",
+            }
+        if details_url:
+            body["details_url"] = details_url
+        res = self._client.post(url, headers=headers, json=body)
+        res.raise_for_status()
+        return res.json()
+
+    def update_check_run(
+        self,
+        owner: str,
+        name: str,
+        check_run_id: int,
+        status: str = "completed",
+        conclusion: Optional[str] = "success",
+        title: Optional[str] = None,
+        summary: Optional[str] = None,
+        details_url: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update an existing check run on GitHub."""
+        headers = self._get_installation_headers(owner, name)
+        url = f"/repos/{owner}/{name}/check-runs/{check_run_id}"
+        body: Dict[str, Any] = {
+            "status": status,
+        }
+        if conclusion and status == "completed":
+            body["conclusion"] = conclusion
+        if title or summary:
+            body["output"] = {
+                "title": title or f"Check {check_run_id}",
+                "summary": summary or f"Check run {check_run_id}: {conclusion or status}",
+            }
+        if details_url:
+            body["details_url"] = details_url
+        res = self._client.patch(url, headers=headers, json=body)
+        res.raise_for_status()
+        return res.json()

@@ -1,219 +1,110 @@
-﻿# SUTRA External Agent Integration Guide
+# SUTRA External Agent Integration Guide
 
-> **Version**: 0.2.0
-> **Source of Truth**: This document reflects the current SUTRA API implementation.
-> **Do not invent endpoints, token formats, or capabilities not described here.**
+> **Version**: 0.4.0 (Private Beta)  
+> **Source of Truth**: This document reflects the current SUTRA API implementation and verified control-plane boundaries.
 
 ---
 
-## Overview
+## 1. Overview & Fundamental Contract
 
-SUTRA is a Git-compatible engineering platform with a policy-enforced change management system.
-External coding agents interact with SUTRA through its HTTP API and Git Smart HTTP transport.
+SUTRA is an AI-Native Engineering Control Plane. External coding agents interact with SUTRA through its REST API and receive scoped Git credentials to push code to the external code substrate (such as GitHub).
 
 **The fundamental contract:**
-- An agent performs engineering work.
-- The work is reviewed by a human.
-- The human approves or rejects.
-- SUTRA enforces this boundary — agents cannot self-approve.
+- An agent performs engineering work under a short-lived, task-bound `AgentSession`.
+- SUTRA tracks commit provenance, links the work to a Change and Pull Request, and ingests CI results.
+- SUTRA evaluates multi-pillar governance.
+- A human reviews and approves the change.
+- SUTRA authorizes the governed merge executed on the substrate.
+- **Agents cannot self-approve, bypass governance, or merge.**
 
-**API base path**: `/v1/...`
-**Git base path**: `/git/{owner}/{repo}.git/...`
-**OpenAPI docs**: `GET /docs`
-**Agent info**: `GET /v1/agent-info`
+**API base path**: `/v1/...`  
+**OpenAPI docs**: `GET /docs`  
+**Agent info**: `GET /v1/agent-info`  
 **Protocol handshake**: `POST /v1/agent-protocol/handshake`
 
 ---
 
-## Credential Types
+## 2. Core Engineering Lifecycle
 
-There are four distinct credential types. Using the wrong credential results in 401 or 403.
+All agents interact with SUTRA along the canonical core engineering lifecycle:
+
+```
+Task
+ ├──► AgentSession
+       ├──► Issue
+             ├──► Change
+                   ├──► Commit + Provenance
+                         ├──► GitHub PR
+                               ├──► Checks / CI
+                                     ├──► Governance
+                                           ├──► Human Approval
+                                                 ├──► Governed Merge
+                                                       └──► Task Completion
+```
+
+---
+
+## 3. Credential Types
+
+There are three primary credential types. Using the wrong credential results in `401 Unauthorized` or `403 Forbidden`.
 
 ### A. Human JWT
 | Property | Value |
 |---|---|
 | Format | Opaque string |
 | How obtained | `POST /v1/auth/login` |
-| Used for | All human API endpoints (`Authorization: Bearer <jwt>`) |
-| NOT accepted by | Git HTTP or agent session endpoints |
+| Used for | Human-facing API endpoints (`Authorization: Bearer <jwt>`) |
 | Expiration | 60 minutes |
+| Required for | Agent registration approval, task assignment, review approval, governed merge |
 
 ### B. Agent Permanent Token
 | Property | Value |
 |---|---|
 | Format | `sutra_agent_<random>` |
 | How obtained | `POST /v1/agents` (human creates) OR registration approval |
-| Used for | **Only** `POST /v1/agents/session` to create an AgentSession |
-| NOT accepted by | API endpoints as a session Bearer token |
-| NOT accepted by | Git HTTP endpoints |
-| Expiration | Never (until revoked by owner) |
-| Single use? | No — creates new sessions each time |
+| Used for | **Only** `POST /v1/agents/session` to acquire an `AgentSession` |
+| NOT accepted by | Standard API endpoints as a session Bearer token |
+| Expiration | Never (until revoked by human owner) |
 
-> **Important**: The permanent token is a credential, not a session. Every agent API call requires
-> an active AgentSession obtained by exchanging this permanent token.
+> **Important**: The permanent token is an enrollment credential, not an operational session. Every agent operation requires an active `AgentSession` obtained by exchanging this token.
 
 ### C. AgentSession Token
 | Property | Value |
 |---|---|
 | Format | `sutra_session_<random>` |
 | How obtained | `POST /v1/agents/session` |
-| Used for | Agent API endpoints AND Git HTTP password |
+| Used for | Agent API endpoints (`Authorization: Bearer sutra_session_...`) |
 | Expiration — absolute | 15 minutes from creation |
-| Expiration — idle | 120 seconds without any authenticated request |
-| Revocation | `POST /v1/agents/session/revoke` |
-| On expiry | Create new session with permanent token; retry operation |
-
-> **Critical**: The AgentSession token is the operative credential for all agent work.
-
-### D. Temporary Push Token
-| Property | Value |
-|---|---|
-| Format | `sutra_temp_push_<random>` |
-| How obtained | `POST /v1/agents/register` (before approval) |
-| Used for | Single-use Git push during pre-approval registration flow only |
-| Expiration | 1 hour |
-| Single use? | **Yes — consumed on first use. Cannot be reused.** |
-| NOT accepted by | Any API endpoint |
+| Expiration — idle | 120 seconds without an authenticated request |
+| Keepalive | `POST /v1/agents/heartbeat` (send every 30-60s) |
 
 ---
 
-## Capability Model
+## 4. Capability Model
 
-### Available Capabilities (Verified)
+Capabilities are repository-scoped and must be explicitly granted by the repository owner (`POST /v1/repositories/{owner}/{repo}/agents`).
 
 | Capability | Allows | Does NOT Allow |
 |---|---|---|
-| `repository.read` | `git clone`, `git fetch`, read API | `git push` |
-| `repository.write` | `git push` | Merging, approving reviews |
-| `change.create` | `POST /v1/changes/agent` | Approving or finalizing the change |
-| `change.commit` | `POST /v1/changes/{id}/agent-commit` | Approving the commit |
-| `change.conflict.read` | Read conflict detection API | Resolving conflicts |
-| `knowledge_graph.read` | `GET /v1/knowledge-graph` | Modifying the graph |
-| `knowledge_graph.write` | Modifying knowledge graph entries | Repository operations |
+| `repository.read` | Browse code, fetch Git refs, read file trees | Push code |
+| `repository.write` | Push commits to feature branches | Merge PRs, push to main |
+| `change.create` | Create Change records | Approve changes |
+| `change.commit` | Record commit SHA evidence | Bypass review gates |
+| `change.conflict.read` | Inspect branch conflict analysis | Force-merge |
+| `knowledge_graph.read` | Query semantic entities and relationships | Arbitrary modifications |
+| `knowledge_graph.write`| Update semantic entity metadata | Overwrite governance records |
 
-### Authorization Rules
-
-1. **Explicit grants required**: Once an agent has ANY `AgentRepositoryAccess` record, access to ALL
-   repositories (including public ones) requires an explicit enabled grant.
-2. **Public visibility bypasses nothing for agents.**
-3. **Same-owner bypasses nothing** once any grants exist.
-4. **An agent cannot grant itself access** — only the human repository owner can.
-5. **Capabilities are repository-scoped** — `repository.write` on repo A does not grant it on repo B.
+### Authorization Invariants
+1. **Explicit grants required**: Once an agent has any `AgentRepositoryAccess` record, access to all repositories requires an explicit enabled grant.
+2. **Public visibility bypasses nothing**: Agent capability enforcement applies equally to public and private repositories.
+3. **Self-approval prohibited**: An agent cannot approve its own review, approve PRs, or authorize merges.
 
 ---
 
-## Step 1 — Human Authentication
+## 5. End-to-End Agent Execution Flow
 
-```http
-POST /v1/auth/register
-Content-Type: application/json
-
-{"username": "developer", "email": "dev@example.com", "password": "secure-password"}
-```
-
-After email verification:
-
-```http
-POST /v1/auth/login
-Content-Type: application/json
-
-{"login": "developer", "password": "secure-password"}
-```
-
-Response: `{"access_token": "<HUMAN_JWT>", "token_type": "bearer"}`
-
-Use `Authorization: Bearer <HUMAN_JWT>` for all human-facing operations.
-
----
-
-## Step 2 — Agent Registration
-
-### Path A: Human Creates Agent Directly (Recommended)
-
-```http
-POST /v1/agents
-Authorization: Bearer <HUMAN_JWT>
-Content-Type: application/json
-
-{"name": "my-coding-agent", "description": "Automated coding assistant", "provider": "anthropic", "model": "claude-3-5-sonnet"}
-```
-
-Response returns `"token": "sutra_agent_<random>"` **once only** — store it securely.
-
-### Path B: Agent Self-Registration (External Agent Flow)
-
-```http
-POST /v1/agents/register
-Content-Type: application/json
-
-{
-  "agent_name": "external-agent",
-  "owner_username": "developer",
-  "repo_name": "my-project",
-  "new_repo": false,
-  "requested_capabilities": ["repository.read","repository.write","change.create","change.commit"]
-}
-```
-
-Response: `{"id": "<REGISTRATION_ID>", "polling_token": "<POLLING_TOKEN>", "expires_at": "...", "temporary_push_token": "sutra_temp_push_..."}`
-
-Poll for approval:
-```http
-GET /v1/agents/register/<REGISTRATION_ID>/status?polling_token=<POLLING_TOKEN>
-```
-
-- Pending: `{"status": "pending", "permanent_token": null}`
-- Approved: `{"status": "approved", "permanent_token": "sutra_agent_<random>"}`
-
-**The human must approve. The agent cannot approve itself.**
-
-Human approves via:
-```http
-POST /v1/agents/registrations/<REGISTRATION_ID>/approve
-Authorization: Bearer <HUMAN_JWT>
-```
-
----
-
-## Step 3 — AgentSession Creation (CRITICAL)
-
-Every agent API call and Git operation requires an active AgentSession.
-
-```http
-POST /v1/agents/session
-Content-Type: application/json
-
-{"token": "sutra_agent_<random>"}
-```
-
-Response:
-```json
-{
-  "session_id": "<SESSION_ID>",
-  "agent_id": "<AGENT_ID>",
-  "token": "sutra_session_<random>",
-  "token_prefix": "sutra_session_xxxx",
-  "status": "active",
-  "expires_at": "2026-01-01T00:15:00Z",
-  "last_seen_at": "2026-01-01T00:00:00Z"
-}
-```
-
-Use `Authorization: Bearer sutra_session_<random>` for all agent API calls.
-
-| Property | Value |
-|---|---|
-| Absolute TTL | 15 minutes from creation |
-| Idle TTL | 120 seconds without any authenticated request |
-| Extension | `POST /v1/agents/heartbeat` every 30-60s |
-| On 401 | Create new session with permanent token; retry |
-
----
-
-## Step 4 — Repository Authorization
-
-**The human repository owner must grant the agent access. The agent cannot do this itself.**
-
+### Step 1: Human Grants Access
+A human owner grants the agent access to the target repository:
 ```http
 POST /v1/repositories/{owner}/{repo}/agents
 Authorization: Bearer <HUMAN_JWT>
@@ -221,205 +112,149 @@ Content-Type: application/json
 
 {
   "agent_id": "<AGENT_ID>",
-  "permissions": ["repository.read","repository.write","change.create","change.commit"],
+  "permissions": ["repository.read", "repository.write", "change.create", "change.commit"],
   "enabled": true
 }
 ```
 
-**If the agent gets 403 on any repository operation, it MUST inform the human:**
-> "I need access to {owner}/{repo}. Please grant me access via
-> `POST /v1/repositories/{owner}/{repo}/agents` with agent_id={AGENT_ID}
-> and the required permissions."
-
----
-
-## Step 5 — Git Operations
-
-### Git Authentication Format
-
-```
-Username: <token_prefix>       (first 16 chars of permanent agent token: "sutra_agent_AbCd")
-Password: <sutra_session_...>  (full AgentSession token)
-```
-
-> **Critical**: Git username = permanent token prefix. Git password = AgentSession token.
-> Do not swap these.
-
-### Clone and push:
-
-```bash
-git clone https://<token_prefix>:<sutra_session_token>@<sutra-host>/git/<owner>/<repo>.git
-# make changes
-git add . && git commit -m "feat: implement feature X"
-git push origin main  # requires repository.write capability
-```
-
-| Git Operation | Required Capability |
-|---|---|
-| `git clone` / `git fetch` | `repository.read` |
-| `git push` | `repository.write` |
-
-If the AgentSession expires during a push, the push fails with 401. Create a new session and retry.
-
----
-
-## Step 6 — Create a Change
-
-After pushing code, declare intent in SUTRA.
-
-**Prerequisites**: Active AgentSession. `change.create` capability on the repository.
-
+### Step 2: Agent Creates Session
+The agent exchanges its permanent token for an active `AgentSession`:
 ```http
-POST /v1/changes/agent
+POST /v1/agents/session
+Content-Type: application/json
+
+{
+  "token": "sutra_agent_sampletoken123456789"
+}
+```
+Response:
+```json
+{
+  "session_id": "sess_01234567-89ab-cdef-0123-456789abcdef",
+  "agent_id": "agnt_01234567-89ab-cdef-0123-456789abcdef",
+  "token": "sutra_session_sampletoken987654321",
+  "status": "active",
+  "expires_at": "2026-09-06T02:00:00Z"
+}
+```
+
+### Step 3: Agent Claims Task
+The agent claims an assigned or open task to acquire an exclusive execution lease:
+```http
+POST /v1/agent/tasks/{task_id}/claim
+Authorization: Bearer <AGENT_SESSION_TOKEN>
+```
+
+### Step 4: Agent (Optionally) Creates Substrate Issue
+The agent creates a tracked GitHub Issue linked to the task:
+```http
+POST /v1/agent/tasks/{task_id}/issues
 Authorization: Bearer <AGENT_SESSION_TOKEN>
 Content-Type: application/json
 
 {
-  "repository_id": "<REPOSITORY_ID>",
-  "intent": "Implement OAuth2 authentication for the login endpoint",
-  "base_commit": "abc1234",
+  "title": "Implement feature X specification",
+  "body": "Detailed technical implementation notes."
+}
+```
+
+### Step 5: Agent Pushes Code to Substrate
+The agent performs code modifications and pushes a feature branch (`agent/task-xxx`) to the substrate repository.
+
+### Step 6: Agent Creates Change in SUTRA
+The agent declares intent in the SUTRA change ledger:
+```http
+POST /v1/agent/tasks/{task_id}/changes
+Authorization: Bearer <AGENT_SESSION_TOKEN>
+Content-Type: application/json
+
+{
+  "intent": "Implement feature X specification",
+  "branch": "agent/feature-x",
+  "base_branch": "main",
   "risk_level": "medium"
 }
 ```
 
-Response: `{"id": "<CHANGE_ID>", "status": "proposed", "resulting_commit": null}`
-
-The Change starts `"proposed"`. It is not approved.
-
----
-
-## Step 7 — Record Commit Evidence
-
-**Prerequisites**: Active AgentSession. `change.commit` capability. Change in `"proposed"` status.
-
+### Step 7: Agent Records Commit Evidence
+The agent binds the resulting commit SHA to the Change under its active session:
 ```http
-POST /v1/changes/<CHANGE_ID>/agent-commit
-Authorization: Bearer <AGENT_SESSION_TOKEN>
-Content-Type: application/json
-
-{"resulting_commit": "def5678"}
-```
-
-> **IMPORTANT: This does NOT approve or finalize the Change.**
-> Recording a commit establishes evidence. The Change remains `"proposed"`.
-> Human review is still required.
-
----
-
-## Step 8 — Finalize the Change
-
-**Prerequisites**: Active AgentSession. `change.commit` capability. Change must have `resulting_commit`.
-
-```http
-POST /v1/changes/<CHANGE_ID>/agent-finalize
-Authorization: Bearer <AGENT_SESSION_TOKEN>
-```
-
-> **Finalization does NOT bypass human review.**
-> If policy requires review, the change awaits human approval regardless of finalization.
-
----
-
-## Step 9 — Create a Pull Request
-
-**Prerequisites**: Active AgentSession. Change must have `resulting_commit`. Target branch must exist.
-
-```http
-POST /v1/pull-requests/agent
+POST /v1/agent/tasks/{task_id}/commit
 Authorization: Bearer <AGENT_SESSION_TOKEN>
 Content-Type: application/json
 
 {
-  "repository_id": "<REPOSITORY_ID>",
-  "source_change_id": "<CHANGE_ID>",
-  "title": "feat: implement OAuth2 authentication",
-  "description": "Adds OAuth2 support to login endpoint.",
-  "target_branch": "main",
-  "is_draft": false
+  "resulting_commit": "a1b2c3d4e5f67890123456789abcdef012345678"
 }
 ```
 
-After creating the PR, **inform the human reviewer that the PR is ready for review**.
-
----
-
-## Step 10 — Human Review
-
-**The agent cannot approve its own PR or review.**
-
-Human requests review:
+### Step 8: Agent Creates Pull Request
+The agent requests SUTRA to create and link a substrate Pull Request:
 ```http
-POST /v1/changes/<CHANGE_ID>/reviews
-Authorization: Bearer <HUMAN_JWT>
-Content-Type: application/json
-
-{"reason": "Please review the OAuth2 implementation"}
-```
-
-A **different** human approves (requester != reviewer is enforced at API level):
-```http
-POST /v1/changes/<CHANGE_ID>/reviews/<REVIEW_ID>/approve
-Authorization: Bearer <DIFFERENT_HUMAN_JWT>
-Content-Type: application/json
-
-{"reason": "Implementation correct. Tests pass."}
-```
-
-> **Self-review is prohibited**. The human who requested the review cannot approve it.
-> Only human users (not agents) can approve via Human JWT.
-
----
-
-## Step 11 — Merge
-
-**The agent cannot initiate a merge. Merge is a human-only action.**
-
-```http
-POST /v1/pull-requests/<PULL_REQUEST_ID>/merge
-Authorization: Bearer <HUMAN_JWT>
-```
-
-Response: `{"status": "merged", "pull_request_id": "<ID>", "detail": "Pull request merged successfully"}`
-
----
-
-## Heartbeat and Session Maintenance
-
-Send every 30-60 seconds during active work:
-
-```http
-POST /v1/agents/heartbeat
+POST /v1/agent/tasks/{task_id}/pull-requests
 Authorization: Bearer <AGENT_SESSION_TOKEN>
+Content-Type: application/json
+
+{
+  "title": "feat: implement feature X",
+  "target_branch": "main",
+  "description": "Automated pull request generated under SUTRA AgentSession."
+}
 ```
 
+### Step 9: Governance & CI Evaluation
+GitHub Actions executes CI check runs on the substrate. SUTRA ingests check status via webhooks and computes the 4-pillar governance verdict:
+```http
+GET /v1/pull-requests/{pr_id}/governance
+Authorization: Bearer <HUMAN_JWT>
+```
+
+### Step 10: Human Approval
+A human reviewer reviews the change diffs and issues approval in SUTRA:
+```http
+POST /v1/pull-requests/{pr_id}/approve
+Authorization: Bearer <HUMAN_JWT>
+```
+*Note: If the agent pushes another commit, the approval is invalidated automatically.*
+
+### Step 11: Governed Merge
+Once governance verdict is `READY_FOR_MERGE`, a human triggers the governed merge:
+```http
+POST /v1/pull-requests/{pr_id}/merge
+Authorization: Bearer <HUMAN_JWT>
+```
+SUTRA calls the GitHub API to execute the merge, marks the originating Task as `completed`, and records an immutable audit log entry.
+
 ---
 
-## Human Permission Boundaries
+## 6. What Agents CAN and CANNOT Do
 
-### Agent MUST ask human when:
-- Registration is pending human approval
-- 403 on any repository operation (missing access/capability)
-- Review is pending human approval
-- PR is ready to merge
+### What an Agent CAN Do:
+- Work on its assigned Task.
+- Create governed GitHub-backed Issues.
+- Create Changes in SUTRA.
+- Record commit evidence with cryptographic provenance.
+- Create substrate Pull Requests.
+- Participate in Discussions where authorized.
+- Query the Knowledge Graph and AI Assistant.
 
-### Agent MUST NOT:
-- Grant itself repository access
-- Approve its own review or PR
-- Merge without human authorization
-- Reuse expired or revoked tokens
-- Use another user's credentials
-- Escalate capabilities beyond what is granted
+### What an Agent CANNOT Do:
+- Cannot self-approve its own reviews or pull requests.
+- Cannot approve reviews as a human.
+- Cannot authorize or execute merges.
+- Cannot bypass CI checks or governance verdicts.
+- Cannot access private repositories without explicit owner grants.
+- Cannot operate outside its assigned task and session lease.
 
 ---
 
-## Failure Handling
+## 7. Error Codes
 
-| Status | Meaning | Action |
+| Status | Meaning | Required Agent Action |
 |---|---|---|
-| `401` | Invalid/expired session | Create new AgentSession; retry |
-| `403` | Missing capability or access | Inform human; ask them to grant access |
-| `404` | Resource not found | Verify IDs |
-| `409` | Conflict (duplicate, policy block) | Check state; resolve before retrying |
-| `429` | Rate limited | Respect `Retry-After`; back off |
-| `503` | Security service unavailable | Back off exponentially; do not retry immediately |
-
+| `401 Unauthorized` | AgentSession expired or invalid token | Call `POST /v1/agents/session` to obtain a fresh session. |
+| `403 Forbidden` | Missing capability or lease mismatch | Inform human operator to grant required capability. |
+| `404 Not Found` | Task or repository ID does not exist | Verify IDs. |
+| `409 Conflict` | Task already claimed or commit duplicate | Inspect existing task state. |
+| `429 Too Many Requests` | Rate limit reached | Respect `Retry-After` header and back off. |
+| `502 Bad Gateway` | Substrate API error | Retry with exponential backoff. |

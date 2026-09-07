@@ -5,11 +5,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.agent_dependencies import get_current_agent
+from app.api.agent_dependencies import get_current_agent, get_current_agent_session
 from app.api.dependencies import get_current_user
 from app.db.session import get_db
 from app.models.actor import Actor
 from app.models.agent import Agent
+from app.models.agent_session import AgentSession
 from app.models.change import Change
 from app.models.change_event import ChangeEvent
 from app.models.change_file import ChangeFile
@@ -48,6 +49,10 @@ class CreateChangeRequest(BaseModel):
         pattern=r"^(unknown|low|medium|high|critical)$",
     )
 
+    task_id: str | None = None
+    branch: str | None = None
+    base_branch: str | None = None
+
 
 class AttachCommitRequest(BaseModel):
     resulting_commit: str = Field(
@@ -57,19 +62,52 @@ class AttachCommitRequest(BaseModel):
     )
 
 
+class CommitProvenanceResponse(BaseModel):
+    source: str = "sutra"
+    tracked: bool = True
+    identity_type: str = "human"
+    actor_id: str | None = None
+    actor_name: str | None = None
+    agent: dict | None = None
+    session: dict | None = None
+    task: dict | None = None
+
+
+class CommitDetailResponse(BaseModel):
+    sha: str
+    message: str | None = None
+    author_name: str | None = None
+    author_email: str | None = None
+    committed_at: str | None = None
+    provenance: CommitProvenanceResponse | None = None
+
+
 class ChangeResponse(BaseModel):
     id: str
     repository_id: str
+    repository_name: str | None = None
     actor_id: str
     actor_type: str
     actor_name: str
     intent: str
+    title: str | None = None
+    description: str | None = None
     base_commit: str | None
     resulting_commit: str | None
     status: str
     risk_level: str | None = "unknown"
+    branch: str | None = None
+    base_branch: str | None = None
+    task_id: str | None = None
+    task_title: str | None = None
+    agent_id: str | None = None
+    agent_name: str | None = None
+    agent_session_id: str | None = None
+    files_changed: int = 0
     additions: int = 0
     deletions: int = 0
+    commits: list[CommitDetailResponse] = []
+    checks: list[dict] = []
     created_at: datetime | None = None
     updated_at: datetime | None = None
     pull_request_id: str | None = None
@@ -99,27 +137,138 @@ class ChangeFileResponse(BaseModel):
     patch: str | None = None
 
 
-def _to_change_response(change: Change, actor: Actor, db: Session) -> ChangeResponse:
+def _to_change_response(change: Change, actor: Actor | None, db: Session) -> ChangeResponse:
+    import json
     from app.models.pull_request import PullRequest
+    from app.models.task import Task
+    from app.models.agent import Agent
+    from app.services.code_provenance_service import CodeProvenanceService
+
     files = db.scalars(
         select(ChangeFile).where(ChangeFile.change_id == change.id)
     ).all()
     pr = db.scalar(
         select(PullRequest).where(PullRequest.source_change_id == change.id)
     )
+    repo = db.scalar(
+        select(Repository).where(Repository.id == change.repository_id)
+    )
+
+    meta = {}
+    if change.metadata_json:
+        try:
+            meta = json.loads(change.metadata_json)
+        except Exception:
+            meta = {}
+
+    # Resolve task linkage
+    task = None
+    if meta.get("task_id"):
+        task = db.scalar(select(Task).where(Task.id == meta["task_id"]))
+    if not task:
+        task = db.scalar(
+            select(Task).where(
+                Task.repository_id == change.repository_id,
+                Task.resulting_change_id == change.id,
+            )
+        )
+    if not task:
+        task = db.scalar(
+            select(Task).where(Task.resulting_change_id == change.id)
+        )
+
+    # Actor details
+    if not actor:
+        actor = db.scalar(select(Actor).where(Actor.id == change.actor_id))
+
+    actor_id = actor.id if actor else change.actor_id
+    actor_type = actor.type if actor else "human"
+    actor_name = actor.name if actor else (meta.get("agent_name") or actor_id)
+
+    # Agent details
+    agent_id = meta.get("agent_id")
+    agent_name = meta.get("agent_name")
+    agent_session_id = meta.get("agent_session_id")
+
+    if task:
+        if not agent_id and task.assigned_agent_id:
+            agent_id = task.assigned_agent_id
+        if not agent_session_id and task.claimed_by_session_id:
+            agent_session_id = task.claimed_by_session_id
+
+    if agent_id and not agent_name:
+        agent_obj = db.scalar(select(Agent).where(Agent.id == agent_id))
+        if agent_obj:
+            agent_name = agent_obj.name
+
+    if actor_type == "agent" and not agent_name:
+        agent_name = actor_name
+
+    # Branch details
+    branch = meta.get("branch") or (pr.source_branch if pr else None)
+    base_branch = (
+        meta.get("base_branch")
+        or (pr.target_branch if pr else None)
+        or (getattr(repo, "default_branch", None) if repo else "main")
+    )
+
+    # Title & description
+    title = meta.get("title") or (change.intent.splitlines()[0] if change.intent else f"Change {change.id[:8]}")
+    description = meta.get("description") or change.intent
+
+    # Commits with authoritative SUTRA/GitHub provenance
+    commits: list[CommitDetailResponse] = []
+    if change.resulting_commit:
+        prov = CodeProvenanceService(db).resolve_commit(
+            repository_id=change.repository_id,
+            commit_sha=change.resulting_commit,
+        )
+        provenance_resp = CommitProvenanceResponse(
+            source=prov.get("source", "sutra"),
+            tracked=prov.get("tracked", True),
+            identity_type=prov.get("identity_type", "unknown"),
+            actor_id=prov.get("actor_id"),
+            actor_name=prov.get("actor_name"),
+            agent=prov.get("agent"),
+            session=prov.get("session"),
+            task=prov.get("task"),
+        )
+        commits.append(
+            CommitDetailResponse(
+                sha=change.resulting_commit,
+                message=change.intent,
+                author_name=actor_name,
+                committed_at=change.updated_at.isoformat() if change.updated_at else None,
+                provenance=provenance_resp,
+            )
+        )
+
     return ChangeResponse(
         id=change.id,
         repository_id=change.repository_id,
-        actor_id=actor.id,
-        actor_type=actor.type,
-        actor_name=actor.name,
+        repository_name=repo.name if repo else None,
+        actor_id=actor_id,
+        actor_type=actor_type,
+        actor_name=actor_name,
         intent=change.intent,
+        title=title,
+        description=description,
         base_commit=change.base_commit,
         resulting_commit=change.resulting_commit,
         status=change.status,
         risk_level=change.risk_level or "unknown",
+        branch=branch,
+        base_branch=base_branch,
+        task_id=task.id if task else None,
+        task_title=task.title if task else None,
+        agent_id=agent_id,
+        agent_name=agent_name,
+        agent_session_id=agent_session_id,
+        files_changed=len(files),
         additions=sum(f.additions for f in files),
         deletions=sum(f.deletions for f in files),
+        commits=commits,
+        checks=[],
         created_at=change.created_at,
         updated_at=change.updated_at,
         pull_request_id=pr.id if pr else None,
@@ -149,49 +298,44 @@ def list_changes(
             .join(Actor, Actor.id == Repository.owner_id)
             .where(
                 Actor.name == owner,
-                Repository.slug == repo.lower(),
+                (Repository.slug == repo.lower()) | (Repository.name == repo),
                 Repository.deleted_at.is_(None)
             )
         )
         if not repository:
+            # Fallback by slug/name/id directly
+            repository = db.scalar(
+                select(Repository).where(
+                    (Repository.slug == repo.lower()) | (Repository.name == repo) | (Repository.id == repo),
+                    Repository.deleted_at.is_(None)
+                )
+            )
+        if not repository:
             raise HTTPException(status_code=404, detail="Repository not found")
-        stmt = select(Change, Actor).join(Actor, Actor.id == Change.actor_id)
+
+        # Enforce private repository IDOR protection
+        if repository.visibility == "private" and repository.owner_id != current_user.id:
+            raise HTTPException(status_code=404, detail="Repository not found")
+
+        stmt = select(Change, Actor).join(Actor, Actor.id == Change.actor_id, isouter=True)
         stmt = stmt.where(Change.repository_id == repository.id)
     else:
-        stmt = select(Change, Actor).join(Actor, Actor.id == Change.actor_id)
+        # Scope global change listing to repositories owned by or visible to current_user
+        stmt = (
+            select(Change, Actor)
+            .join(Actor, Actor.id == Change.actor_id, isouter=True)
+            .join(Repository, Repository.id == Change.repository_id)
+            .where(
+                (Repository.owner_id == current_user.id) | (Repository.visibility == "public"),
+                Repository.deleted_at.is_(None),
+            )
+        )
 
     results = db.execute(stmt.order_by(Change.updated_at.desc())).all()
 
-    stats = db.execute(
-        select(
-            ChangeFile.change_id,
-            func.coalesce(func.sum(ChangeFile.additions), 0),
-            func.coalesce(func.sum(ChangeFile.deletions), 0),
-        ).group_by(ChangeFile.change_id)
-    ).all()
-    stats_map = {row[0]: (int(row[1]), int(row[2])) for row in stats}
-
     responses = []
     for change, actor in results:
-        adds, dels = stats_map.get(change.id, (0, 0))
-        responses.append(
-            ChangeResponse(
-                id=change.id,
-                repository_id=change.repository_id,
-                actor_id=actor.id,
-                actor_type=actor.type,
-                actor_name=actor.name,
-                intent=change.intent,
-                base_commit=change.base_commit,
-                resulting_commit=change.resulting_commit,
-                status=change.status,
-                risk_level=change.risk_level,
-                additions=adds,
-                deletions=dels,
-                created_at=change.created_at,
-                updated_at=change.updated_at,
-            )
-        )
+        responses.append(_to_change_response(change, actor, db))
     return responses
 
 
@@ -615,6 +759,9 @@ def create_agent_change(
     current_agent: Agent = Depends(get_current_agent),
     db: Session = Depends(get_db),
 ):
+    import json
+    from app.models.task import Task
+
     repository = db.scalar(
         select(Repository).where(
             Repository.id == payload.repository_id,
@@ -644,6 +791,28 @@ def create_agent_change(
         from app.api.agent_errors import raise_agent_inactive
         raise_agent_inactive()
 
+    # Enforce task governance if task_id is provided
+    task = None
+    agent_session_id = None
+    if payload.task_id:
+        task = db.scalar(select(Task).where(Task.id == payload.task_id))
+        if task is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Task not found",
+            )
+        if task.assigned_agent_id != current_agent.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Agent is not assigned to this task",
+            )
+        if task.repository_id != payload.repository_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Task repository does not match change repository",
+            )
+        agent_session_id = task.claimed_by_session_id
+
     try:
         AuthorizationService.require(
             actor=actor,
@@ -658,6 +827,22 @@ def create_agent_change(
             repository_slug=repository.slug if repository else "",
         )
 
+    clean_name = current_agent.name.lower().replace(" ", "-")
+    branch = payload.branch or (f"agent/{clean_name}/task-{task.id[:8]}" if task else f"agent/{clean_name}/change")
+    base_branch = payload.base_branch or getattr(repository, "default_branch", None) or "main"
+
+    meta = {
+        "source": "agent",
+        "agent_id": current_agent.id,
+        "agent_name": current_agent.name,
+        "agent_session_id": agent_session_id,
+        "branch": branch,
+        "base_branch": base_branch,
+    }
+    if task:
+        meta["task_id"] = task.id
+        meta["task_title"] = task.title
+
     change = Change(
         repository_id=repository.id,
         actor_id=actor.id,
@@ -665,11 +850,17 @@ def create_agent_change(
         base_commit=payload.base_commit,
         status="proposed",
         risk_level=payload.risk_level,
-        metadata_json="{}",
+        metadata_json=json.dumps(meta, sort_keys=True),
     )
 
     db.add(change)
     db.flush()
+
+    if task:
+        task.resulting_change_id = change.id
+        if task.status == Task.STATUS_ASSIGNED:
+            task.status = Task.STATUS_IN_PROGRESS
+        task.updated_at = datetime.now(timezone.utc)
 
     ChangeService(db).transition_change(
         change=change,
@@ -680,6 +871,9 @@ def create_agent_change(
         metadata={
             "intent": payload.intent,
             "risk_level": payload.risk_level,
+            "branch": branch,
+            "base_branch": base_branch,
+            **({"task_id": task.id} if task else {}),
         },
     )
 

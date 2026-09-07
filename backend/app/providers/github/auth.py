@@ -1,4 +1,5 @@
-﻿import time
+﻿from _pytest import fixtures
+import time
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
 import jwt
@@ -84,8 +85,19 @@ class GitHubAppAuthService:
             body["repositories"] = repositories
 
         url = f"/app/installations/{installation_id}/access_tokens"
-        res = self._client.post(url, headers=headers, json=body)
-        res.raise_for_status()
+        res = self._client.post(
+            url,
+            headers=headers,
+            json=body,
+        )
+
+        if res.status_code >= 400:
+            raise RuntimeError(
+                "GitHub installation token request failed: "
+                f"HTTP {res.status_code} - {res.text}"
+            )
+
+        data = res.json()
         data = res.json()
         return {
             "token": data["token"],

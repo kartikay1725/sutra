@@ -15,6 +15,7 @@ from app.api.agent_protocol import router as agent_protocol_router
 from app.api.agent_tasks import (
     router as agent_tasks_router,
 )
+from app.api.agent_issues import router as agent_issues_router
 from app.api.agent_sessions import (
     router as agent_sessions_router,
 )
@@ -55,7 +56,7 @@ from app.api.artifacts import router as artifacts_router
 from app.api.environments import router as environments_router
 from app.api.deployments import router as deployments_router
 from app.api.assistant import router as assistant_router
-from app.api.audit import router as audit_router
+from app.api.audit import router as audit_router, activity_router
 from app.api.sso import router as sso_router
 from app.api.governance import router as governance_router
 from app.api.packages import router as packages_router
@@ -520,6 +521,7 @@ app.include_router(environments_router)
 app.include_router(deployments_router)
 app.include_router(assistant_router)
 app.include_router(audit_router)
+app.include_router(activity_router)
 app.include_router(sso_router)
 app.include_router(governance_router)
 app.include_router(packages_router)
@@ -531,6 +533,7 @@ app.include_router(insights_router)
 app.include_router(security_router)
 app.include_router(releases_router)
 app.include_router(integrations_router)
+app.include_router(agent_issues_router)
 
 from app.api.webhooks.github import router as webhooks_router
 app.include_router(webhooks_router)

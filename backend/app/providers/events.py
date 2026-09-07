@@ -1,4 +1,4 @@
-﻿from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any, List, Union
 
@@ -31,6 +31,24 @@ class NormalizedPullRequestEvent:
     base_ref: str
     base_sha: str
     is_merged: bool = False
+    raw_payload: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class NormalizedCheckRunEvent:
+    provider_type: str  # "local" | "github"
+    repository_owner: str
+    repository_name: str
+    check_run_id: int
+    name: str
+    head_sha: str
+    status: str  # "queued" | "in_progress" | "completed"
+    conclusion: Optional[str]  # "success" | "failure" | "neutral" | "cancelled" | "skipped" | "timed_out" | "action_required" | None
+    html_url: Optional[str] = None
+    details_url: Optional[str] = None
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    pull_request_numbers: List[int] = field(default_factory=list)
     raw_payload: Dict[str, Any] = field(default_factory=dict)
 
 

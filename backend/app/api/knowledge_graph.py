@@ -303,6 +303,7 @@ class SubgraphResponse(BaseModel):
 
 class GraphDataResponse(BaseModel):
     nodes: list[NodeResponse]
+    edges: list[EdgeResponse] = []
 
 
 # ---------------------------------------------------------------------------
@@ -434,6 +435,10 @@ def add_edge_endpoint(
     "",
     response_model=GraphDataResponse,
 )
+@router.get(
+    "/data",
+    response_model=GraphDataResponse,
+)
 def get_graph_data(
     owner_name: str,
     repo_name: str,
@@ -463,6 +468,7 @@ def get_graph_data(
     )
 
     from app.models.knowledge_node import KnowledgeNode
+    from app.models.knowledge_edge import KnowledgeEdge
 
     nodes = db.scalars(
         select(KnowledgeNode)
@@ -472,11 +478,31 @@ def get_graph_data(
         .limit(limit)
     ).all()
 
+    node_ids = [node.id for node in nodes]
+    edges = []
+    if node_ids:
+        raw_edges = db.scalars(
+            select(KnowledgeEdge).where(
+                KnowledgeEdge.source_node_id.in_(node_ids) &
+                KnowledgeEdge.target_node_id.in_(node_ids)
+            )
+        ).all()
+        edges = [
+            EdgeResponse(
+                id=e.id,
+                source_node_id=e.source_node_id,
+                target_node_id=e.target_node_id,
+                relationship_type=e.relationship_type,
+            )
+            for e in raw_edges
+        ]
+
     return GraphDataResponse(
         nodes=[
             _format_node(node)
             for node in nodes
-        ]
+        ],
+        edges=edges,
     )
 
 
@@ -621,6 +647,36 @@ def get_node_subgraph(
     )
 
 
+@router.get(
+    "/context",
+)
+def get_file_engineering_context(
+    owner_name: str,
+    repo_name: str,
+    file_path: str = Query(..., min_length=1),
+    principal_data=Depends(get_graph_principal),
+    db: Session = Depends(get_db),
+):
+    """
+    Retrieves full engineering context for a file: defined symbols and connected tasks/changes/commits.
+    """
+    principal_type, principal = principal_data
+    repo = _get_repository(owner_name, repo_name, db)
+    _authorize_graph_access(
+        principal_type,
+        principal,
+        repo,
+        AuthorizationService.KNOWLEDGE_GRAPH_READ,
+        db,
+    )
+
+    return knowledge_graph_service.get_file_context(
+        db=db,
+        repository_id=repo.id,
+        file_path=file_path,
+    )
+
+
 @router.post(
     "/index",
     status_code=status.HTTP_200_OK,
@@ -628,30 +684,43 @@ def get_node_subgraph(
 def index_repository_graph(
     owner_name: str,
     repo_name: str,
-    principal: tuple[str, Union[User, Agent]] = Depends(
+    principal_data=Depends(
         get_graph_principal,
     ),
     db: Session = Depends(get_db),
 ):
     """
-    Explicitly indexes repository source files into KnowledgeNodes and KnowledgeEdges.
+    Explicitly indexes repository source files and engineering lifecycle entities into KnowledgeNodes and KnowledgeEdges.
     """
-    repo = resolve_authorized_repository(
-        owner_name=owner_name,
-        repo_name=repo_name,
-        principal=principal,
-        db=db,
+    principal_type, principal = principal_data
+    repo = _get_repository(
+        owner_name,
+        repo_name,
+        db,
+    )
+    _authorize_graph_access(
+        principal_type,
+        principal,
+        repo,
+        AuthorizationService.KNOWLEDGE_GRAPH_WRITE,
+        db,
     )
 
-    indexed_count = knowledge_graph_service.index_repository_files(
+    file_count = knowledge_graph_service.index_repository_files(
         db=db,
         repository=repo,
         commit_sha=repo.default_branch or "HEAD",
+    )
+    lifecycle_count = knowledge_graph_service.index_engineering_lifecycle(
+        db=db,
+        repository=repo,
     )
     db.commit()
 
     return {
         "status": "indexed",
         "repository_id": repo.id,
-        "indexed_nodes_count": indexed_count,
+        "indexed_nodes_count": file_count + lifecycle_count,
+        "indexed_files_count": file_count,
+        "indexed_lifecycle_count": lifecycle_count,
     }

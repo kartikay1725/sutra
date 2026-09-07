@@ -84,6 +84,42 @@ const ENTITY_COLORS: Record<
     text: "#fbbf24",
     icon: <I.Package size={14} />,
   },
+  task: {
+    bg: "rgba(59,130,246,0.1)",
+    border: "rgba(59,130,246,0.3)",
+    text: "#3b82f6",
+    icon: <I.CheckSquare size={14} />,
+  },
+  change: {
+    bg: "rgba(249,115,22,0.1)",
+    border: "rgba(249,115,22,0.3)",
+    text: "#f97316",
+    icon: <I.GitCommit size={14} />,
+  },
+  commit: {
+    bg: "rgba(236,72,153,0.1)",
+    border: "rgba(236,72,153,0.3)",
+    text: "#ec4899",
+    icon: <I.GitBranch size={14} />,
+  },
+  pull_request: {
+    bg: "rgba(139,92,246,0.1)",
+    border: "rgba(139,92,246,0.3)",
+    text: "#8b5cf6",
+    icon: <I.GitPullRequest size={14} />,
+  },
+  agent: {
+    bg: "rgba(16,185,129,0.15)",
+    border: "rgba(16,185,129,0.4)",
+    text: "#10b981",
+    icon: <I.Bot size={14} />,
+  },
+  discussion: {
+    bg: "rgba(6,182,212,0.1)",
+    border: "rgba(6,182,212,0.3)",
+    text: "#06b6d4",
+    icon: <I.MessageSquare size={14} />,
+  },
   default: {
     bg: "rgba(99,102,241,0.1)",
     border: "rgba(99,102,241,0.3)",

@@ -14,6 +14,7 @@ import * as I from "lucide-react";
 
 type Tab =
   | "Overview"
+  | "Commits"
   | "Changes"
   | "Checks"
   | "Review"
@@ -287,6 +288,7 @@ export default function ChangeDetailPage({
                 {(
                   [
                     "Overview",
+                    "Commits",
                     "Changes",
                     "Checks",
                     "Review",
@@ -313,6 +315,20 @@ export default function ChangeDetailPage({
                     }}
                   >
                     {tab}
+                    {tab === "Commits" && (change.commits?.length ?? 0) > 0 && (
+                      <span
+                        style={{
+                          marginLeft: 6,
+                          fontSize: 11,
+                          padding: "2px 6px",
+                          borderRadius: 10,
+                          background: "rgba(6,182,212,0.15)",
+                          color: "var(--cyan)",
+                        }}
+                      >
+                        {change.commits?.length}
+                      </span>
+                    )}
                     {tab === "Checks" && ciJobs.length > 0 && (
                       <span
                         style={{
@@ -445,6 +461,140 @@ export default function ChangeDetailPage({
                         />
                       )}
                     </div>
+                  </div>
+                )}
+
+                {/* Commits */}
+                {activeTab === "Commits" && (
+                  <div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: 16,
+                      }}
+                    >
+                      <div className="h2">Commits with Provenance</div>
+                      <div className="meta">
+                        {change.commits?.length || 0} commit{change.commits?.length === 1 ? "" : "s"}
+                      </div>
+                    </div>
+
+                    {(!change.commits || change.commits.length === 0) ? (
+                      <div className="card-pad" style={{ textAlign: "center", padding: "36px 16px" }}>
+                        <I.GitCommit size={28} className="muted" style={{ marginBottom: 10 }} />
+                        <div className="title-sm">No Commits Recorded Yet</div>
+                        <div className="sub" style={{ maxWidth: 460, margin: "6px auto 0", lineHeight: 1.6 }}>
+                          {change.status === "proposed"
+                            ? "This change is currently proposed. When commits are pushed under a governed lease session, they will appear here with cryptographic provenance."
+                            : "No substrate commits are linked to this change."}
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                        {change.commits.map((commit, idx) => {
+                          const prov = commit.provenance;
+                          const isAgent = prov?.identity_type === "agent";
+                          const isHuman = prov?.identity_type === "human";
+                          const isExternal = prov?.identity_type === "external";
+
+                          return (
+                            <Card
+                              key={commit.sha || idx}
+                              style={{
+                                border: isAgent ? "1px solid rgba(16, 185, 129, 0.3)" : "1px solid var(--line)",
+                                background: isAgent ? "rgba(16, 185, 129, 0.03)" : "rgba(255, 255, 255, 0.01)",
+                                borderRadius: 10,
+                                padding: "16px 18px",
+                              }}
+                            >
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+                                <div>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <I.GitCommit size={15} color={isAgent ? "var(--green)" : "var(--cyan)"} />
+                                    <code style={{ fontSize: 13, fontWeight: 600 }}>{commit.sha.slice(0, 10)}</code>
+                                    {commit.sha === change.resulting_commit && (
+                                      <Badge tone="green">Head</Badge>
+                                    )}
+                                  </div>
+                                  <div className="title-sm" style={{ marginTop: 6, fontWeight: 600, fontSize: 14 }}>
+                                    {commit.message || "No commit message recorded."}
+                                  </div>
+                                  <div className="meta" style={{ marginTop: 4 }}>
+                                    Committed by {commit.author_name || commit.author_email || "Unknown"} · {commit.committed_at ? new Date(commit.committed_at).toLocaleString() : "—"}
+                                  </div>
+                                </div>
+
+                                <div>
+                                  {isAgent ? (
+                                    <Badge tone="green" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                      <I.Bot size={13} /> SUTRA Agent Provenance
+                                    </Badge>
+                                  ) : isHuman ? (
+                                    <Badge tone="violet" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                      <I.User size={13} /> Verified Human Commit
+                                    </Badge>
+                                  ) : isExternal ? (
+                                    <Badge tone="amber" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                      <I.GitCommit size={13} /> External Substrate Commit
+                                    </Badge>
+                                  ) : (
+                                    <Badge tone="aqua">Substrate Commit</Badge>
+                                  )}
+                                </div>
+                              </div>
+
+                              {prov && (
+                                <div
+                                  style={{
+                                    marginTop: 14,
+                                    padding: "10px 14px",
+                                    borderRadius: 8,
+                                    background: isAgent ? "rgba(16, 185, 129, 0.08)" : "rgba(255, 255, 255, 0.03)",
+                                    fontSize: 12,
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 6,
+                                  }}
+                                >
+                                  {isAgent && (
+                                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+                                      <span>
+                                        <strong>Agent:</strong> {prov.agent?.name || change.agent_name || "Autonomous Agent"}
+                                      </span>
+                                      {prov.session?.id && (
+                                        <span>
+                                          <strong>Session:</strong> #{prov.session.id.slice(0, 8)}
+                                        </span>
+                                      )}
+                                      {prov.task?.id && (
+                                        <span>
+                                          <strong>Task:</strong>{" "}
+                                          <a href={`/tasks/${prov.task.id}`} style={{ color: "var(--cyan)", textDecoration: "underline" }}>
+                                            #{prov.task.id.slice(0, 8)} {prov.task.title ? `(${prov.task.title})` : ""}
+                                          </a>
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                  {isHuman && (
+                                    <div>
+                                      <strong>Actor:</strong> {prov.actor_name || commit.author_name || "SUTRA Operator"}
+                                    </div>
+                                  )}
+                                  {isExternal && (
+                                    <div style={{ color: "var(--amber)" }}>
+                                      Commit was pushed directly to the substrate branch outside SUTRA session governance.
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
 
