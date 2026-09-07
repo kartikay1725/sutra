@@ -629,9 +629,6 @@ export function AboutPage() {
             <Link href="/docs" style={{ color: "#60A5FA", textDecoration: "none", fontWeight: 600 }}>
               Docs
             </Link>
-            <Link href="/enterprise" style={{ color: "#A8B1BD", textDecoration: "none" }}>
-              Enterprise
-            </Link>
             <Link href="/security" style={{ color: "#A8B1BD", textDecoration: "none" }}>
               Security
             </Link>

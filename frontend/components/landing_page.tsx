@@ -274,9 +274,6 @@ export function LandingPage() {
             <Link href="/about" style={{ fontSize: 14, color: "#A8B1BD", textDecoration: "none", fontWeight: 500 }}>
               About
             </Link>
-            <Link href="/enterprise" style={{ fontSize: 14, color: "#A8B1BD", textDecoration: "none", fontWeight: 500 }}>
-              Enterprise
-            </Link>
             <Link
               href="/docs"
               style={{
@@ -1390,9 +1387,6 @@ export function LandingPage() {
             </Link>
             <Link href="/docs" style={{ color: "#60A5FA", textDecoration: "none", fontWeight: 600 }}>
               Docs
-            </Link>
-            <Link href="/enterprise" style={{ color: "#A8B1BD", textDecoration: "none" }}>
-              Enterprise
             </Link>
             <Link href="/security" style={{ color: "#A8B1BD", textDecoration: "none" }}>
               Security
