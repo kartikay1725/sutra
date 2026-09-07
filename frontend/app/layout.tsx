@@ -1,40 +1,67 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { GoogleAnalytics } from "@/components/analytics";
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://sutra.sudarshanai.com";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://sutra.dev"),
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: "SUTRA — AI agents that can actually ship software",
+    default: "SUTRA — AI-Native Engineering Control Plane",
     template: "%s | SUTRA",
   },
   description:
-    "SUTRA gives AI agents controlled identity, repository-scoped access, real Git workflows, verification, and human review.",
+    "SUTRA is an AI-native engineering control plane by Sudarshan Harness for governed autonomous software engineering, repository access, and human review.",
+  applicationName: "SUTRA",
+  authors: [{ name: "Sudarshan Harness", url: "https://sudarshanai.com" }],
+  creator: "Sudarshan Harness",
+  publisher: "Sudarshan Harness",
+  category: "technology",
+  keywords: [
+    "SUTRA",
+    "AI-native engineering control plane",
+    "governed autonomous software engineering",
+    "AI agents",
+    "software engineering governance",
+    "Sudarshan Harness",
+    "Git automation",
+    "human review",
+    "code verification",
+  ],
   alternates: {
     canonical: "/",
   },
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/icon.png",
+  },
   openGraph: {
-    title: "SUTRA — AI agents that can actually ship software",
+    title: "SUTRA — AI-Native Engineering Control Plane",
     description:
-      "SUTRA gives AI agents controlled identity, repository-scoped access, real Git workflows, verification, and human review.",
+      "SUTRA is an AI-native engineering control plane by Sudarshan Harness for governed autonomous software engineering, repository access, and human review.",
     url: "/",
     siteName: "SUTRA",
     locale: "en_US",
     type: "website",
     images: [
       {
-        url: "/logo-s.png",
-        width: 512,
-        height: 512,
-        alt: "SUTRA — AI Agent Engineering Infrastructure",
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "SUTRA — AI-Native Engineering Control Plane by Sudarshan Harness",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "SUTRA — AI agents that can actually ship software",
+    title: "SUTRA — AI-Native Engineering Control Plane",
     description:
-      "SUTRA gives AI agents controlled identity, repository-scoped access, real Git workflows, verification, and human review.",
-    images: ["/logo-s.png"],
+      "SUTRA is an AI-native engineering control plane by Sudarshan Harness for governed autonomous software engineering, repository access, and human review.",
+    images: ["/og-image.png"],
   },
   robots: {
     index: true,
@@ -42,8 +69,16 @@ export const metadata: Metadata = {
     googleBot: {
       index: true,
       follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
     },
   },
+  verification: process.env.GOOGLE_SITE_VERIFICATION
+    ? {
+        google: process.env.GOOGLE_SITE_VERIFICATION,
+      }
+    : undefined,
 };
 
 export default function RootLayout({
@@ -53,7 +88,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body>{children}</body>
+      <body>
+        <GoogleAnalytics />
+        {children}
+      </body>
     </html>
   );
 }

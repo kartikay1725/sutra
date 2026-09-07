@@ -20,6 +20,7 @@ import {
   BookOpen
 } from "lucide-react";
 import { SpotlightCard, ShimmerButton, GridBackground } from "./ui/aceternity";
+import { trackEvent } from "./analytics";
 
 export function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -30,42 +31,91 @@ export function LandingPage() {
     "@graph": [
       {
         "@type": "Organization",
-        "@id": "https://sutra.dev/#organization",
+        "@id": "https://sutra.sudarshanai.com/#organization",
+        "name": "Sudarshan Harness",
+        "url": "https://sudarshanai.com",
+        "logo": "https://sutra.sudarshanai.com/og-image.png",
+        "description": "Provider of engineering harness systems and governed autonomous software engineering platforms."
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://sutra.sudarshanai.com/#software",
         "name": "SUTRA",
-        "url": "https://sutra.dev",
-        "logo": "https://sutra.dev/logo-s.png",
-        "description": "AI agent engineering infrastructure that gives AI agents controlled identity, repository-scoped access, real Git workflows, automated verification, and human review.",
-        "sameAs": []
+        "url": "https://sutra.sudarshanai.com",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Cloud, Linux, macOS, Windows",
+        "description": "SUTRA is an AI-native engineering control plane for governed autonomous software engineering with bounded authority, real Git workflows, and human review.",
+        "creator": {
+          "@id": "https://sutra.sudarshanai.com/#organization"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD",
+          "availability": "https://schema.org/PreOrder"
+        }
       },
       {
         "@type": "WebSite",
-        "@id": "https://sutra.dev/#website",
-        "url": "https://sutra.dev",
-        "name": "SUTRA",
+        "@id": "https://sutra.sudarshanai.com/#website",
+        "url": "https://sutra.sudarshanai.com",
+        "name": "SUTRA — AI-Native Engineering Control Plane",
         "publisher": {
-          "@id": "https://sutra.dev/#organization"
+          "@id": "https://sutra.sudarshanai.com/#organization"
         }
       },
       {
         "@type": "WebPage",
-        "@id": "https://sutra.dev/#webpage",
-        "url": "https://sutra.dev",
-        "name": "SUTRA — AI agents that can actually ship software",
-        "description": "SUTRA gives AI agents controlled identity, repository-scoped access, real Git workflows, verification, and human review.",
+        "@id": "https://sutra.sudarshanai.com/#webpage",
+        "url": "https://sutra.sudarshanai.com",
+        "name": "SUTRA — AI-Native Engineering Control Plane",
+        "description": "SUTRA is an AI-native engineering control plane by Sudarshan Harness for governed autonomous software engineering.",
         "isPartOf": {
-          "@id": "https://sutra.dev/#website"
+          "@id": "https://sutra.sudarshanai.com/#website"
         }
       },
       {
         "@type": "FAQPage",
-        "@id": "https://sutra.dev/#faq",
+        "@id": "https://sutra.sudarshanai.com/#faq",
         "mainEntity": [
           {
             "@type": "Question",
             "name": "What is SUTRA?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "SUTRA is an infrastructure layer for AI software agents that gives them controlled identity, repository-scoped access, real Git workflows, verification, and human oversight."
+              "text": "SUTRA is an AI-native engineering control plane built by Sudarshan Harness. It provides governed autonomous software engineering by combining scoped agent identity, cryptographic event verification, real Git lifecycles, and mandatory human review."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Who makes SUTRA?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "SUTRA is developed by Sudarshan Harness (sudarshanai.com) as the control plane for autonomous software engineering."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How is SUTRA different from GitHub?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "GitHub serves as the authoritative repository substrate for branches, commits, PRs, and CI. SUTRA serves as the control plane that enforces agent capabilities, temporary session leases, change provenance, and governed human approval before merges."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What is an AI-native engineering control plane?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "An AI-native engineering control plane is an orchestration and governance system designed specifically for autonomous AI agents. It ensures agents operate with bounded permissions, traceable commits, and clear separation of execution from approval."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Can an AI agent approve its own work in SUTRA?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. SUTRA strictly separates execution from approval. AI agents can write code, propose changes, and run CI checks, but human approval is strictly required to merge governed changes."
             }
           },
           {
@@ -73,47 +123,7 @@ export function LandingPage() {
             "name": "How does SUTRA control AI agents?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "SUTRA gives agents explicit repository and capability permissions, short-lived sessions, and controlled engineering workflows."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "Can AI agents use Git with SUTRA?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "Yes. Authorized agents can use SUTRA's Git workflow to clone repositories, create branches, commit changes, and push through session-bound authentication."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "Can an AI agent approve its own work?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "No. SUTRA keeps human review and approval separate from agent execution."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "What happens when an AgentSession is revoked?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "The agent's authenticated access is rejected, including session-bound Git operations."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "How does SUTRA verify changes?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "SUTRA connects engineering changes to real Git commits, changed-file evidence, diff statistics, CI results, review state, and merge state."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "Is SUTRA publicly available?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "SUTRA is currently available as a private beta."
+              "text": "SUTRA enforces explicit repository capability grants, short-lived AgentSessions (15-minute absolute leases, 120-second idle timeouts), pre-receive Git hook validation, and immutable audit logs."
             }
           },
           {
@@ -121,7 +131,7 @@ export function LandingPage() {
             "name": "Who is SUTRA for?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "SUTRA is designed for teams experimenting with real-world AI-assisted software engineering workflows."
+              "text": "SUTRA is built for software engineering teams, enterprise organizations, and developers deploying autonomous coding agents who require enterprise governance, auditability, and safety."
             }
           }
         ]
@@ -132,35 +142,31 @@ export function LandingPage() {
   const faqs = [
     {
       q: "What is SUTRA?",
-      a: "SUTRA is an infrastructure layer for AI software agents that gives them controlled identity, repository-scoped access, real Git workflows, verification, and human oversight."
+      a: "SUTRA is an AI-native engineering control plane built by Sudarshan Harness. It enables governed autonomous software engineering with scoped agent identity, real Git workflows, and mandatory human review."
+    },
+    {
+      q: "Who makes SUTRA?",
+      a: "SUTRA is developed by Sudarshan Harness (sudarshanai.com) as the authoritative control plane for autonomous software engineering."
+    },
+    {
+      q: "How is SUTRA different from GitHub?",
+      a: "GitHub serves as the repository substrate for code and branches. SUTRA is the control plane governing agent permissions, AgentSession leases, cryptographic change provenance, and merge approval policies."
+    },
+    {
+      q: "What is an AI-native engineering control plane?",
+      a: "It is an orchestration layer built specifically for autonomous agents, enforcing lease-bound Git access, capability validation, and strict separation between agent code execution and human merge authorization."
+    },
+    {
+      q: "Can an AI agent approve its own work in SUTRA?",
+      a: "No. SUTRA strictly enforces that agents can propose changes and run CI, but human approval is mandatory to merge governed changes."
     },
     {
       q: "How does SUTRA control AI agents?",
-      a: "SUTRA gives agents explicit repository and capability permissions, short-lived sessions, and controlled engineering workflows."
-    },
-    {
-      q: "Can AI agents use Git with SUTRA?",
-      a: "Yes. Authorized agents can use SUTRA's Git workflow to clone repositories, create branches, commit changes, and push through session-bound authentication."
-    },
-    {
-      q: "Can an AI agent approve its own work?",
-      a: "No. SUTRA keeps human review and approval separate from agent execution."
-    },
-    {
-      q: "What happens when an AgentSession is revoked?",
-      a: "The agent's authenticated access is rejected, including session-bound Git operations."
-    },
-    {
-      q: "How does SUTRA verify changes?",
-      a: "SUTRA connects engineering changes to real Git commits, changed-file evidence, diff statistics, CI results, review state, and merge state."
-    },
-    {
-      q: "Is SUTRA publicly available?",
-      a: "SUTRA is currently available as a private beta."
+      a: "SUTRA uses capability-based access control, short-lived 15-minute AgentSessions, Git pre-receive validation hooks, and tamper-resistant audit logs."
     },
     {
       q: "Who is SUTRA for?",
-      a: "SUTRA is designed for teams experimenting with real-world AI-assisted software engineering workflows."
+      a: "Engineering teams and enterprise organizations adopting autonomous AI agents who require strict security, governance, and audit trails."
     }
   ];
 
@@ -225,9 +231,9 @@ export function LandingPage() {
               }}
             >
               <img
-                src="/logo-s.png"
+                src="/logo.svg"
                 alt="SUTRA Logo"
-                style={{ height: "100%", width: "auto", objectFit: "cover", objectPosition: "9% center", transform: "scale(1.2)" }}
+                style={{ height: "100%", width: "100%", objectFit: "contain" }}
               />
             </div>
             <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: "0.04em", color: "#F2F5F8" }}>
@@ -268,6 +274,9 @@ export function LandingPage() {
             <Link href="/about" style={{ fontSize: 14, color: "#A8B1BD", textDecoration: "none", fontWeight: 500 }}>
               About
             </Link>
+            <Link href="/enterprise" style={{ fontSize: 14, color: "#A8B1BD", textDecoration: "none", fontWeight: 500 }}>
+              Enterprise
+            </Link>
             <Link
               href="/docs"
               style={{
@@ -293,6 +302,7 @@ export function LandingPage() {
           <div style={{ display: "none", alignItems: "center", gap: 14 }} className="desktop-nav">
             <Link
               href="/login"
+              onClick={() => trackEvent("click_login", "navigation", "nav_sign_in")}
               style={{
                 fontSize: 13,
                 fontWeight: 600,
@@ -306,6 +316,7 @@ export function LandingPage() {
             <Link
               href="/register"
               className="btn primary"
+              onClick={() => trackEvent("click_cta", "navigation", "nav_join_private_beta")}
               style={{
                 padding: "8px 20px",
                 borderRadius: 999,
@@ -434,7 +445,7 @@ export function LandingPage() {
               marginBottom: 24,
             }}
           >
-            AI AGENT ENGINEERING INFRASTRUCTURE
+            AI-NATIVE ENGINEERING CONTROL PLANE · SUDARSHAN HARNESS
           </div>
 
           <h1
@@ -460,7 +471,7 @@ export function LandingPage() {
               margin: "0 auto 36px",
             }}
           >
-            SUTRA gives AI agents a controlled engineering identity, repository-scoped access, real Git workflows, automated verification, and human review — from task to merge.
+            SUTRA is an AI-native engineering control plane by Sudarshan Harness for governed autonomous software engineering — combining scoped agent identity, real Git lifecycles, and mandatory human review.
           </p>
 
           <div
@@ -473,7 +484,11 @@ export function LandingPage() {
               marginBottom: 64,
             }}
           >
-            <Link href="/register" style={{ textDecoration: "none" }}>
+            <Link
+              href="/register"
+              style={{ textDecoration: "none" }}
+              onClick={() => trackEvent("click_cta", "marketing", "hero_join_private_beta")}
+            >
               <ShimmerButton style={{ padding: "14px 34px", fontSize: 15 }}>
                 Join the Private Beta
                 <ArrowRight size={16} />
@@ -483,6 +498,7 @@ export function LandingPage() {
             <a
               href="#how-it-works"
               className="btn"
+              onClick={() => trackEvent("click_anchor", "marketing", "hero_how_it_works")}
               style={{
                 padding: "14px 28px",
                 borderRadius: 999,
@@ -500,6 +516,7 @@ export function LandingPage() {
             <Link
               href="/docs"
               className="btn guide"
+              onClick={() => trackEvent("click_docs", "marketing", "hero_docs")}
               style={{
                 padding: "14px 22px",
                 borderRadius: 999,
@@ -509,7 +526,7 @@ export function LandingPage() {
               }}
             >
               <BookOpen size={15} />
-              Read Architecture Guide
+              Read Documentation
             </Link>
           </div>
 
@@ -1352,7 +1369,7 @@ export function LandingPage() {
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
               <div style={{ width: 24, height: 24, borderRadius: 6, overflow: "hidden", background: "#000" }}>
-                <img src="/logo-s.png" alt="SUTRA Logo" style={{ height: "100%", width: "auto" }} />
+                <img src="/logo.svg" alt="SUTRA Logo" style={{ height: "100%", width: "100%", objectFit: "contain" }} />
               </div>
               <span style={{ fontSize: 16, fontWeight: 800, color: "#F2F5F8" }}>SUTRA</span>
             </div>
@@ -1372,7 +1389,13 @@ export function LandingPage() {
               About
             </Link>
             <Link href="/docs" style={{ color: "#60A5FA", textDecoration: "none", fontWeight: 600 }}>
-              Docs & Guides
+              Docs
+            </Link>
+            <Link href="/enterprise" style={{ color: "#A8B1BD", textDecoration: "none" }}>
+              Enterprise
+            </Link>
+            <Link href="/security" style={{ color: "#A8B1BD", textDecoration: "none" }}>
+              Security
             </Link>
             <Link href="/login" style={{ color: "#A8B1BD", textDecoration: "none" }}>
               Sign In
@@ -1398,8 +1421,8 @@ export function LandingPage() {
             gap: 12,
           }}
         >
-          <div>© {new Date().getFullYear()} SUTRA. Private Beta. All rights reserved.</div>
-          <div>AI Agent Engineering Infrastructure</div>
+          <div>© {new Date().getFullYear()} SUTRA. A Sudarshan Harness Product. All rights reserved.</div>
+          <div>AI-Native Engineering Control Plane</div>
         </div>
       </footer>
 

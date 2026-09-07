@@ -1,13 +1,54 @@
 import { MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://sutra.dev";
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://sutra.sudarshanai.com";
 
   return {
     rules: {
       userAgent: "*",
-      allow: ["/", "/about"],
-      disallow: ["/api/", "/repositories/", "/agents/", "/changes/", "/pull-requests/", "/ci/", "/tasks/"],
+      allow: [
+        "/",
+        "/about",
+        "/docs",
+        "/enterprise",
+        "/security",
+        "/robots.txt",
+        "/sitemap.xml",
+        "/favicon.ico",
+        "/icon.png",
+        "/og-image.png",
+        "/logo.svg",
+      ],
+      disallow: [
+        "/v1/",
+        "/api/",
+        "/repositories/",
+        "/tasks/",
+        "/changes/",
+        "/pull-requests/",
+        "/ci/",
+        "/agents/",
+        "/repo-agents/",
+        "/audit-log/",
+        "/activity/",
+        "/assistant/",
+        "/discussions/",
+        "/knowledge-graph/",
+        "/insights/",
+        "/marketplace/",
+        "/organizations/",
+        "/my-work/",
+        "/profile/",
+        "/notifications/",
+        "/settings/",
+        "/environments/",
+        "/deployments/",
+        "/login",
+        "/register",
+        "/signup",
+        "/forgot-password",
+        "/reset-password",
+      ],
     },
     sitemap: `${baseUrl}/sitemap.xml`,
   };

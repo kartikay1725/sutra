@@ -1,14 +1,14 @@
 function getApiUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, "");
+  }
   if (typeof window !== "undefined") {
-    if (process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.includes("localhost")) {
-      return process.env.NEXT_PUBLIC_API_URL;
-    }
     if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-      return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      return "http://localhost:8000";
     }
     return "";
   }
-  return process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+  return "http://127.0.0.1:8000";
 }
 
 export class SutraAPIError extends Error {

@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
-import { Signup } from "@/components/auth";
 import { noIndexMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "Create Account — SUTRA",
+  title: "Tasks — SUTRA",
   ...noIndexMetadata,
 };
 
-export default function Page() {
-  return <Signup />;
+export default function TasksLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return <>{children}</>;
 }

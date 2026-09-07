@@ -17,19 +17,19 @@ export function AboutPage() {
     "@graph": [
       {
         "@type": "AboutPage",
-        "@id": "https://sutra.dev/about/#webpage",
-        "url": "https://sutra.dev/about",
-        "name": "About SUTRA — AI Agent Engineering Infrastructure",
-        "description": "SUTRA is building the control layer for AI software agents to perform real engineering work with bounded authority and human oversight.",
+        "@id": "https://sutra.sudarshanai.com/about/#webpage",
+        "url": "https://sutra.sudarshanai.com/about",
+        "name": "About SUTRA — AI-Native Engineering Control Plane",
+        "description": "Learn about SUTRA by Sudarshan Harness: an AI-native engineering control plane providing bounded authority, real Git workflows, and human review for autonomous engineering.",
         "isPartOf": {
           "@type": "WebSite",
-          "name": "SUTRA",
-          "url": "https://sutra.dev"
+          "name": "SUTRA — AI-Native Engineering Control Plane",
+          "url": "https://sutra.sudarshanai.com"
         },
         "about": {
-          "@type": "Organization",
+          "@type": "SoftwareApplication",
           "name": "SUTRA",
-          "description": "AI agent engineering infrastructure"
+          "description": "AI-native engineering control plane by Sudarshan Harness"
         }
       }
     ]
@@ -80,9 +80,9 @@ export function AboutPage() {
               }}
             >
               <img
-                src="/logo-s.png"
+                src="/logo.svg"
                 alt="SUTRA Logo"
-                style={{ height: "100%", width: "auto", objectFit: "cover", objectPosition: "9% center", transform: "scale(1.2)" }}
+                style={{ height: "100%", width: "100%", objectFit: "contain" }}
               />
             </div>
             <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: "0.04em", color: "#F2F5F8" }}>
@@ -607,7 +607,7 @@ export function AboutPage() {
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
               <div style={{ width: 24, height: 24, borderRadius: 6, overflow: "hidden", background: "#000" }}>
-                <img src="/logo-s.png" alt="SUTRA Logo" style={{ height: "100%", width: "auto" }} />
+                <img src="/logo.svg" alt="SUTRA Logo" style={{ height: "100%", width: "100%", objectFit: "contain" }} />
               </div>
               <span style={{ fontSize: 16, fontWeight: 800, color: "#F2F5F8" }}>SUTRA</span>
             </div>
@@ -627,7 +627,13 @@ export function AboutPage() {
               About
             </Link>
             <Link href="/docs" style={{ color: "#60A5FA", textDecoration: "none", fontWeight: 600 }}>
-              Docs & Guides
+              Docs
+            </Link>
+            <Link href="/enterprise" style={{ color: "#A8B1BD", textDecoration: "none" }}>
+              Enterprise
+            </Link>
+            <Link href="/security" style={{ color: "#A8B1BD", textDecoration: "none" }}>
+              Security
             </Link>
             <Link href="/login" style={{ color: "#A8B1BD", textDecoration: "none" }}>
               Sign In
@@ -653,8 +659,8 @@ export function AboutPage() {
             gap: 12,
           }}
         >
-          <div>© {new Date().getFullYear()} SUTRA. Private Beta. All rights reserved.</div>
-          <div>AI Agent Engineering Infrastructure</div>
+          <div>© {new Date().getFullYear()} SUTRA. A Sudarshan Harness Product. All rights reserved.</div>
+          <div>AI-Native Engineering Control Plane</div>
         </div>
       </footer>
 

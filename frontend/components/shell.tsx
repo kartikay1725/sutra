@@ -7,7 +7,21 @@ import { globalNav, repoNav } from "../lib/nav";
 import { authService, User } from "../lib/auth";
 import { I } from "../lib/icons";
 
-function Mark(){ return <div className="mark" aria-label="SUTRA mark" /> }
+function Mark(){
+  return (
+    <img
+      src="/logo.svg"
+      alt="SUTRA Mark"
+      className="mark"
+      style={{
+        width: 24,
+        height: 24,
+        objectFit: "contain",
+        borderRadius: 4,
+      }}
+    />
+  );
+}
 
 export function AppShell({children, isPublic = false}:{children:React.ReactNode, isPublic?: boolean}){
   const path = usePathname();

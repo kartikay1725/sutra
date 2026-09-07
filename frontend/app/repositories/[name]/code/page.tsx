@@ -10,7 +10,7 @@ import React, {
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authService } from "@/lib/auth";
-import { apiAuth } from "@/lib/api";
+import { apiAuth, API_URL } from "@/lib/api";
 import {
   GitBranch,
   GitCommit,
@@ -3315,27 +3315,23 @@ export default function CodePage({
                       }}
                     >
                       {`git clone ${
-                        typeof window !==
-                        "undefined"
-                          ? window.location.origin.replace(
-                              ":3000",
-                              ":8000",
-                            )
-                          : "http://localhost:8000"
+                        typeof window !== "undefined" && !API_URL.includes("localhost")
+                          ? API_URL
+                          : typeof window !== "undefined"
+                          ? window.location.origin.replace(":3000", ":8000")
+                          : API_URL
                       }/git/${owner}/${repoName}.git`}
                     </span>
 
                     <button
                       onClick={() => {
-                        const url = `${
-                          typeof window !==
-                          "undefined"
-                            ? window.location.origin.replace(
-                                ":3000",
-                                ":8000",
-                              )
-                            : "http://localhost:8000"
-                        }/git/${owner}/${repoName}.git`;
+                        const baseUrl =
+                          typeof window !== "undefined" && !API_URL.includes("localhost")
+                            ? API_URL
+                            : typeof window !== "undefined"
+                            ? window.location.origin.replace(":3000", ":8000")
+                            : API_URL;
+                        const url = `${baseUrl}/git/${owner}/${repoName}.git`;
 
                         void navigator.clipboard.writeText(
                           `git clone ${url}`,
