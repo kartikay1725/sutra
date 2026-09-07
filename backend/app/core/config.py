@@ -2,7 +2,7 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,6 +13,25 @@ class Settings(BaseSettings):
 
     database_url: str
     redis_url: str
+
+    @field_validator("database_url")
+    @classmethod
+    def normalize_database_url(cls, v: str) -> str:
+        """
+        Normalize PostgreSQL database URLs to use the Psycopg 3 dialect.
+
+        SQLAlchemy 2.x defaults 'postgresql://' to 'postgresql+psycopg2://'.
+        Cloud providers (Supabase, Railway, Render, Heroku) supply connection
+        strings starting with 'postgres://' or 'postgresql://'.
+        Since SUTRA declares psycopg 3 ('psycopg[binary]>=3.2,<4') rather than
+        psycopg2, normalize these schemes to 'postgresql+psycopg://' so
+        SQLAlchemy selects the Psycopg 3 DBAPI driver consistently.
+        """
+        if v.startswith("postgres://"):
+            return "postgresql+psycopg://" + v[len("postgres://"):]
+        if v.startswith("postgresql://"):
+            return "postgresql+psycopg://" + v[len("postgresql://"):]
+        return v
 
     jwt_secret: str
     jwt_algorithm: str = "HS256"

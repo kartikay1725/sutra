@@ -73,3 +73,81 @@ def test_production_config_redacts_secrets_in_repr():
     assert "[REDACTED]" in repr_str
     assert "super-secret-jwt-key" not in repr_str
     assert "pass@localhost" not in repr_str
+
+
+def test_database_url_normalization_to_psycopg3():
+    """
+    Ensure standard postgres:// and postgresql:// connection strings
+    (such as those provided by Supabase or Railway) are normalized to
+    postgresql+psycopg:// to use Psycopg 3 without requiring psycopg2.
+    """
+    # 1. postgres:// scheme (common Supabase default)
+    s1 = Settings(
+        app_env="production",
+        debug=False,
+        jwt_secret="a" * 32,
+        database_url="postgres://user:pass@db.supabase.co:5432/postgres",
+        redis_url="redis://localhost:6379",
+        event_integrity_key="b" * 32,
+    )
+    assert s1.database_url == "postgresql+psycopg://user:pass@db.supabase.co:5432/postgres"
+
+    # 2. postgresql:// scheme (SQLAlchemy defaults to psycopg2 without explicit driver)
+    s2 = Settings(
+        app_env="production",
+        debug=False,
+        jwt_secret="a" * 32,
+        database_url="postgresql://user:pass@db.supabase.co:5432/postgres",
+        redis_url="redis://localhost:6379",
+        event_integrity_key="b" * 32,
+    )
+    assert s2.database_url == "postgresql+psycopg://user:pass@db.supabase.co:5432/postgres"
+
+    # 3. postgresql+psycopg:// scheme (already explicit, should remain unchanged)
+    s3 = Settings(
+        app_env="production",
+        debug=False,
+        jwt_secret="a" * 32,
+        database_url="postgresql+psycopg://user:pass@localhost:5432/db",
+        redis_url="redis://localhost:6379",
+        event_integrity_key="b" * 32,
+    )
+    assert s3.database_url == "postgresql+psycopg://user:pass@localhost:5432/db"
+
+    # 4. sqlite schemes should remain untouched
+    s4 = Settings(
+        app_env="development",
+        debug=True,
+        jwt_secret="weak",
+        database_url="sqlite:///./test.db",
+        redis_url="redis://localhost:6379",
+        event_integrity_key="a" * 32,
+    )
+    assert s4.database_url == "sqlite:///./test.db"
+
+
+def test_postgresql_engine_resolves_psycopg3_driver(monkeypatch):
+    """
+    Verify that an engine constructed with a normalized database_url resolves
+    to dialect 'postgresql' with driver 'psycopg' (Psycopg 3), and functions
+    even when psycopg2 is completely missing/unimportable.
+    """
+    import sys
+    from sqlalchemy import create_engine
+
+    # Simulate an environment where psycopg2 is NOT installed (like the production container)
+    monkeypatch.setitem(sys.modules, "psycopg2", None)
+
+    s = Settings(
+        app_env="production",
+        debug=False,
+        jwt_secret="a" * 32,
+        database_url="postgresql://user:pass@db.railway.app:5432/railway",
+        redis_url="redis://localhost:6379",
+        event_integrity_key="b" * 32,
+    )
+
+    # Engine construction must succeed and resolve dialect driver to psycopg
+    engine = create_engine(s.database_url)
+    assert engine.dialect.name == "postgresql"
+    assert engine.dialect.driver == "psycopg"
