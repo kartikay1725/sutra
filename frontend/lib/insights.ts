@@ -15,5 +15,8 @@ export interface InsightsData {
 export const insightsService = {
   async getInsights(username: string, repo: string): Promise<InsightsData> {
     return apiAuth<InsightsData>(`/v1/repositories/${username}/${repo}/insights`);
+  },
+  async getGlobalInsights(): Promise<InsightsData> {
+    return apiAuth<InsightsData>("/v1/insights");
   }
 };

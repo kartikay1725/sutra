@@ -260,3 +260,167 @@ def get_insights(
         actionable_signal=actionable_signal,
         actionable_signal_details=actionable_signal_details,
     )
+
+
+global_router = APIRouter(
+    prefix="/v1/insights",
+    tags=["insights"],
+)
+
+
+@global_router.get("", response_model=InsightsResponse)
+def get_global_insights(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Aggregate engineering insights across all repositories owned by the current user."""
+    repo_ids = db.scalars(
+        select(Repository.id).where(
+            Repository.owner_id == current_user.id,
+            Repository.deleted_at.is_(None),
+        )
+    ).all()
+
+    now = datetime.now(timezone.utc)
+    window_start = now - timedelta(days=30)
+    week_start = now - timedelta(days=7)
+    previous_week_start = now - timedelta(days=14)
+
+    if not repo_ids:
+        return InsightsResponse(
+            deployments_per_week=0.0,
+            lead_time_minutes=0,
+            ci_pass_rate=0.0,
+            agent_changes_percent=0,
+            human_changes_percent=0,
+            agent_lead_time_minutes=0,
+            human_lead_time_minutes=0,
+            actionable_signal="No repositories configured yet.",
+            actionable_signal_details="Create or import repositories to begin tracking engineering signals.",
+        )
+
+    # Deployment frequency
+    successful_deployments = db.scalar(
+        select(func.count(Deployment.id)).where(
+            Deployment.repository_id.in_(repo_ids),
+            Deployment.status == Deployment.STATUS_SUCCESS,
+            Deployment.created_at >= window_start,
+            Deployment.created_at <= now,
+        )
+    ) or 0
+
+    deployments_per_week = round((successful_deployments / 30) * 7, 1)
+
+    # CI pass rate
+    terminal_ci = db.scalars(
+        select(CIJob).where(
+            CIJob.repository_id.in_(repo_ids),
+            CIJob.created_at >= window_start,
+            CIJob.created_at <= now,
+            CIJob.status.in_([CIJob.STATUS_PASSED, CIJob.STATUS_FAILED]),
+        )
+    ).all()
+
+    passed_ci = sum(job.status == CIJob.STATUS_PASSED for job in terminal_ci)
+    ci_pass_rate = round((passed_ci / len(terminal_ci)) * 100, 1) if terminal_ci else 0.0
+
+    # Merged rows + lead time
+    merged_rows = db.execute(
+        select(Change, PullRequest, Actor)
+        .join(PullRequest, PullRequest.source_change_id == Change.id)
+        .join(Actor, Actor.id == Change.actor_id)
+        .where(
+            Change.repository_id.in_(repo_ids),
+            PullRequest.status == PullRequest.STATUS_MERGED,
+            PullRequest.merged_at.is_not(None),
+            PullRequest.merged_at >= window_start,
+            PullRequest.merged_at <= now,
+        )
+    ).all()
+
+    agent_lead_times: list[timedelta] = []
+    human_lead_times: list[timedelta] = []
+    agent_changes = 0
+    human_changes = 0
+    all_lead_times: list[timedelta] = []
+
+    for change, pull_request, actor in merged_rows:
+        if not pull_request.merged_at or not change.created_at:
+            continue
+        lead_time = pull_request.merged_at - change.created_at
+        if lead_time.total_seconds() < 0:
+            continue
+        all_lead_times.append(lead_time)
+        if actor.type == "agent":
+            agent_changes += 1
+            agent_lead_times.append(lead_time)
+        else:
+            human_changes += 1
+            human_lead_times.append(lead_time)
+
+    total_changes = agent_changes + human_changes
+    agent_changes_percent = round((agent_changes / total_changes) * 100) if total_changes else 0
+    human_changes_percent = 100 - agent_changes_percent if total_changes else 0
+
+    # Actionable signals
+    current_week_failed_ci = db.scalar(
+        select(func.count(CIJob.id)).where(
+            CIJob.repository_id.in_(repo_ids),
+            CIJob.status == CIJob.STATUS_FAILED,
+            CIJob.created_at >= week_start,
+            CIJob.created_at <= now,
+        )
+    ) or 0
+
+    previous_week_failed_ci = db.scalar(
+        select(func.count(CIJob.id)).where(
+            CIJob.repository_id.in_(repo_ids),
+            CIJob.status == CIJob.STATUS_FAILED,
+            CIJob.created_at >= previous_week_start,
+            CIJob.created_at < week_start,
+        )
+    ) or 0
+
+    current_week_failed_deployments = db.scalar(
+        select(func.count(Deployment.id)).where(
+            Deployment.repository_id.in_(repo_ids),
+            Deployment.status.in_([Deployment.STATUS_FAILED, Deployment.STATUS_ROLLED_BACK]),
+            Deployment.created_at >= week_start,
+            Deployment.created_at <= now,
+        )
+    ) or 0
+
+    actionable_signal = "No actionable signal yet."
+    actionable_signal_details = "SUTRA does not have enough recent cross-repository activity to identify a meaningful trend."
+
+    if current_week_failed_ci > previous_week_failed_ci:
+        delta = current_week_failed_ci - previous_week_failed_ci
+        actionable_signal = "CI failures increased across repositories this week."
+        actionable_signal_details = (
+            f"{current_week_failed_ci} CI failures occurred across repositories in the last 7 days, "
+            f"up by {delta} from the previous period."
+        )
+    elif current_week_failed_deployments > 0:
+        actionable_signal = "Recent deployments need attention."
+        actionable_signal_details = (
+            f"{current_week_failed_deployments} deployment(s) failed or were rolled back across repositories."
+        )
+    elif all_lead_times and len(all_lead_times) >= 2:
+        actionable_signal = "Lead time is measurable from real merged changes."
+        actionable_signal_details = (
+            f"Cross-repository average lead time is {_avg_lead_time_minutes(all_lead_times)} minutes "
+            f"across {len(all_lead_times)} merged change(s) in the last 30 days."
+        )
+
+    return InsightsResponse(
+        deployments_per_week=deployments_per_week,
+        lead_time_minutes=_avg_lead_time_minutes(all_lead_times),
+        ci_pass_rate=ci_pass_rate,
+        agent_changes_percent=agent_changes_percent,
+        human_changes_percent=human_changes_percent,
+        agent_lead_time_minutes=_avg_lead_time_minutes(agent_lead_times),
+        human_lead_time_minutes=_avg_lead_time_minutes(human_lead_times),
+        actionable_signal=actionable_signal,
+        actionable_signal_details=actionable_signal_details,
+    )
+

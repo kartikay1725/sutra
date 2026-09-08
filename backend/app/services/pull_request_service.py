@@ -1190,6 +1190,14 @@ class PullRequestService:
 
         self.db.flush()
 
+        # Update Knowledge Graph with real lifecycle transition
+        try:
+            from app.services import knowledge_graph_service
+            knowledge_graph_service.index_engineering_lifecycle(self.db, repository)
+            self.db.flush()
+        except Exception:
+            pass
+
         NotificationService.create_notification(
             db=self.db,
             user_id=pr.author_id,

@@ -34,6 +34,10 @@ import {
   branchProtectionService,
   type BranchProtectionRule,
 } from "../lib/branch_protection";
+import {
+  insightsService,
+  type InsightsData,
+} from "../lib/insights";
 
 /* -------------------------------------------------------------------------- */
 /* Existing screen implementations                                            */
@@ -2264,6 +2268,7 @@ export function Issues() {
 
       const user =
         await authService.getCurrentUser();
+      setOwnerName(user.username);
 
       const data =
         await issueService.listIssues(
@@ -2351,15 +2356,17 @@ export function Issues() {
         "open") === "closed",
   ).length;
 
-  const openNewIssue = () => {
-    if (!repoName) {
-      return;
-    }
+  const [ownerName, setOwnerName] =
+    useState<string | null>(null);
 
-    window.location.href =
-      `/repositories/${encodeURIComponent(
-        repoName,
-      )}/issues/new`;
+  const openGitHubIssues = () => {
+    if (!repoName) return;
+    const targetOwner = ownerName || "github";
+    window.open(
+      `https://github.com/${encodeURIComponent(targetOwner)}/${encodeURIComponent(repoName)}/issues`,
+      "_blank",
+      "noopener,noreferrer"
+    );
   };
 
   const submitClose = async () => {
@@ -2482,10 +2489,10 @@ export function Issues() {
         action={
           <Btn
             primary
-            onClick={openNewIssue}
+            onClick={openGitHubIssues}
           >
-            <I.Plus size={14} />
-            New Issue
+            <I.ExternalLink size={14} />
+            Open on GitHub
           </Btn>
         }
       />
@@ -2650,10 +2657,10 @@ export function Issues() {
             {issues.length === 0 && (
               <Btn
                 primary
-                onClick={openNewIssue}
+                onClick={openGitHubIssues}
               >
-                <I.Plus size={14} />
-                Create your first issue
+                <I.ExternalLink size={14} />
+                Open on GitHub
               </Btn>
             )}
           </div>
@@ -7251,140 +7258,187 @@ export function KnowledgeGraph() {
 }
 
 export function Insights() {
+  const [data, setData] = useState<InsightsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    insightsService.getGlobalInsights()
+      .then((res) => {
+        if (mounted) {
+          setData(res);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (mounted) {
+          setError(err?.message || "Failed to load telemetry");
+          setLoading(false);
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const agentPct = data ? data.agent_changes_percent : 0;
+  const humanPct = data ? data.human_changes_percent : 0;
+  const leadTimeStr = data ? `${data.lead_time_minutes}m` : "—";
+  const deploymentsStr = data ? `${data.deployments_per_week} / wk` : "—";
+  const passRateStr = data ? `${data.ci_pass_rate}%` : "—";
+
   return (
     <>
       <PageHead
         eyebrow="Engineering intelligence"
         title="Insights"
-        sub="Signals that explain how your engineering system is behaving."
+        sub="Signals that explain how your engineering system is behaving across active repositories."
         action={
-          <Btn>
-            Last 30 days{" "}
-            <I.ChevronDown size={13} />
+          <Btn onClick={() => {
+            setLoading(true);
+            insightsService.getGlobalInsights()
+              .then(setData)
+              .catch(() => {})
+              .finally(() => setLoading(false));
+          }}>
+            <I.RefreshCw size={13} style={{ marginRight: 6 }} />
+            Refresh
           </Btn>
         }
       />
 
-      <div className="grid g4">
-        <Stat
-          label="Deployment frequency"
-          value="4.2 / day"
-          delta="+21%"
-        />
-
-        <Stat
-          label="Lead time"
-          value="22m"
-          delta="-18%"
-        />
-
-        <Stat
-          label="Change failure rate"
-          value="2.1%"
-          delta="-0.8%"
-        />
-
-        <Stat
-          label="Recovery time"
-          value="14m"
-          delta="-31%"
-        />
-      </div>
-
-      <div
-        className="grid g2"
-        style={{ marginTop: 14 }}
-      >
-        <Card>
-          <div className="card-head">
-            <div className="h2">
-              Agent vs human changes
-            </div>
-          </div>
-
-          <div className="card-pad">
-            <div
-              className="spark"
-              style={{ height: 160 }}
-            >
-              {[32, 46, 41, 58, 67, 55, 72, 78, 69, 84, 81, 92, 88, 95, 90, 97, 94, 100].map(
-                (h, i) => (
-                  <div
-                    className="bar"
-                    style={{
-                      height: `${h}%`,
-                    }}
-                    key={i}
-                  />
-                ),
-              )}
-            </div>
-
-            <div
-              className="row"
-              style={{
-                marginTop: 12,
-              }}
-            >
-              <span className="meta">
-                Human
-              </span>
-              <Badge tone="aqua">
-                39%
-              </Badge>
-
-              <span className="meta">
-                Agent
-              </span>
-              <Badge tone="violet">
-                61%
-              </Badge>
-            </div>
-          </div>
+      {loading ? (
+        <div style={{ padding: 48, textAlign: "center", color: "var(--muted)" }}>
+          <I.Loader size={20} className="spin" style={{ marginBottom: 12 }} />
+          <div>Aggregating repository telemetry...</div>
+        </div>
+      ) : error ? (
+        <Card style={{ padding: 24, textAlign: "center" }}>
+          <I.AlertCircle size={24} color="var(--red)" style={{ marginBottom: 8 }} />
+          <div style={{ color: "var(--fg)", fontWeight: 600 }}>Unable to load insights</div>
+          <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 4 }}>{error}</div>
         </Card>
+      ) : (
+        <>
+          <div className="grid g4">
+            <Stat
+              label="Deployment frequency"
+              value={deploymentsStr}
+              delta={data && data.deployments_per_week > 0 ? "Active" : "No deployments"}
+            />
 
-        <Card>
-          <div className="card-head">
-            <div className="h2">
-              Actionable signals
-            </div>
+            <Stat
+              label="Avg Lead time"
+              value={leadTimeStr}
+              delta={data && data.lead_time_minutes > 0 ? "From merged PRs" : "No merges"}
+            />
+
+            <Stat
+              label="CI pass rate"
+              value={passRateStr}
+              delta={data && data.ci_pass_rate > 0 ? "Terminal jobs" : "No CI jobs"}
+            />
+
+            <Stat
+              label="Agent Changes"
+              value={`${agentPct}%`}
+              delta={`${humanPct}% Human`}
+            />
           </div>
 
-          <div className="list">
-            {[
-              "CI failures cluster around integration tests",
-              "Agent changes need 11% fewer review comments",
-              "Deployments are fastest after 18:00 UTC",
-              "Two repositories have stale branch protection",
-            ].map((x, i) => (
-              <div
-                className="list-row"
-                key={x}
-              >
-                <I.AlertTriangle
-                  size={14}
-                  style={{
-                    color:
-                      i === 3
-                        ? "#ffd37b"
-                        : "#63e5e8",
-                  }}
-                />
+          <div
+            className="grid g2"
+            style={{ marginTop: 14 }}
+          >
+            <Card>
+              <div className="card-head">
+                <div className="h2">
+                  Agent vs human changes
+                </div>
+              </div>
 
-                <div>
-                  <div className="title-sm">
-                    {x}
+              <div className="card-pad">
+                <div
+                  style={{
+                    height: 120,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexDirection: "column",
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ display: "flex", gap: 8, width: "100%", height: 24, background: "rgba(255,255,255,0.06)", borderRadius: 6, overflow: "hidden", padding: 3 }}>
+                    <div
+                      style={{
+                        width: `${agentPct || 50}%`,
+                        background: "var(--purple)",
+                        borderRadius: 4,
+                        transition: "width 0.4s ease",
+                      }}
+                    />
+                    <div
+                      style={{
+                        width: `${humanPct || 50}%`,
+                        background: "var(--cyan)",
+                        borderRadius: 4,
+                        transition: "width 0.4s ease",
+                      }}
+                    />
                   </div>
-                  <div className="meta">
-                    Signal confidence{" "}
-                    {92 - i * 4}%
+
+                  <div
+                    className="row"
+                    style={{
+                      width: "100%",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span className="meta">Agent</span>
+                      <Badge tone="violet">{agentPct}%</Badge>
+                      {data && data.agent_lead_time_minutes > 0 && (
+                        <span style={{ fontSize: 11, color: "var(--muted)" }}>({data.agent_lead_time_minutes}m avg)</span>
+                      )}
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span className="meta">Human</span>
+                      <Badge tone="aqua">{humanPct}%</Badge>
+                      {data && data.human_lead_time_minutes > 0 && (
+                        <span style={{ fontSize: 11, color: "var(--muted)" }}>({data.human_lead_time_minutes}m avg)</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-            ))}
+            </Card>
+
+            <Card>
+              <div className="card-head">
+                <div className="h2">
+                  Actionable signals
+                </div>
+              </div>
+
+              <div className="card-pad">
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 0" }}>
+                  <I.Info size={18} color="var(--cyan)" style={{ marginTop: 2, flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 14, color: "var(--fg)" }}>
+                      {data?.actionable_signal || "Telemetry initialized"}
+                    </div>
+                    <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4, lineHeight: 1.5 }}>
+                      {data?.actionable_signal_details || "SUTRA is monitoring pull requests, changes, CI pipelines, and deployments across all connected repositories."}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
           </div>
-        </Card>
-      </div>
+        </>
+      )}
     </>
   );
 }

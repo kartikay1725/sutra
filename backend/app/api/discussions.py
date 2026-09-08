@@ -321,13 +321,16 @@ def create_discussion(
     body = payload.body
     author_id = principal.id
 
-    if principal_type == "agent":
-        _get_or_create_actor(principal.id, principal.name, "agent", db)
-        task_info = f"Task ID: {payload.task_id}" if payload.task_id else "Task ID: None"
-        header = f"[SUTRA Agent: {principal.name}]\nAgent ID: {principal.id}\nSession ID: {session.id}\n{task_info}\n\n"
-        body = header + body
-    else:
-        _get_or_create_actor(principal.id, principal.username, "human", db)
+    if principal_type != "agent":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Discussions must be created directly on GitHub. SUTRA is an observation and governance control plane.",
+        )
+
+    _get_or_create_actor(principal.id, principal.name, "agent", db)
+    task_info = f"Task ID: {payload.task_id}" if payload.task_id else "Task ID: None"
+    header = f"[SUTRA Agent: {principal.name}]\nAgent ID: {principal.id}\nSession ID: {session.id}\n{task_info}\n\n"
+    body = header + body
 
     if payload.task_id:
         task = db.scalar(select(Task).where(Task.id == payload.task_id, Task.repository_id == repo.id))

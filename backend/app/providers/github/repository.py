@@ -1123,10 +1123,23 @@ class GitHubRepositoryProvider(RepositoryProvider):
                 message=f"Merge conflict or SHA mismatch on GitHub (HTTP 409): {res.text}",
             )
         elif res.status_code == 405:
+            # If the repository disallows this specific merge_method (e.g. merge commit not allowed, only squash or rebase),
+            # attempt fallback to alternate methods if not explicitly specified by user
+            alt_methods = [m for m in ["squash", "merge", "rebase"] if m != method]
+            for alt in alt_methods:
+                payload["merge_method"] = alt
+                alt_res = self._client.put(f"/repos/{owner}/{name}/pulls/{pr_number}/merge", headers=headers, json=payload)
+                if alt_res.status_code == 200:
+                    alt_data = alt_res.json()
+                    return ProviderMergeResult(
+                        success=True,
+                        merge_commit_sha=alt_data.get("sha"),
+                        message=alt_data.get("message", f"Merged successfully using {alt}"),
+                    )
             return ProviderMergeResult(
                 success=False,
                 merge_commit_sha=None,
-                message=f"Pull request not mergeable or branch protection blocked merge (HTTP 405): {res.text}",
+                message=f"Pull request not mergeable or merge method blocked (HTTP 405): {res.text}",
             )
         else:
             return ProviderMergeResult(

@@ -62,7 +62,7 @@ from app.api.governance import router as governance_router
 from app.api.packages import router as packages_router
 from app.api.notifications import router as notifications_router
 from app.api.me import router as me_router
-from app.api.insights import router as insights_router
+from app.api.insights import router as insights_router, global_router as global_insights_router
 from app.api.security import router as security_router
 from app.api.releases import router as releases_router
 from app.api.integrations import router as integrations_router
@@ -530,6 +530,7 @@ app.include_router(inline_reviews_router)
 app.include_router(notifications_router)
 app.include_router(me_router)
 app.include_router(insights_router)
+app.include_router(global_insights_router)
 app.include_router(security_router)
 app.include_router(releases_router)
 app.include_router(integrations_router)

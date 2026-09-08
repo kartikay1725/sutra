@@ -160,23 +160,38 @@ class CodeProvenanceService:
             )
         )
 
+        # Fallback to change metadata_json if task link is stored there
+        meta = {}
+        if change.metadata_json:
+            try:
+                import json
+                meta = json.loads(change.metadata_json)
+            except Exception:
+                pass
+
+        if task is None and meta.get("task_id"):
+            task = self.db.scalar(
+                select(Task).where(Task.id == meta["task_id"])
+            )
+
         agent = None
         session = None
 
-        if task is not None and task.assigned_agent_id:
+        agent_id = task.assigned_agent_id if task else meta.get("agent_id") or actor.id
+        if agent_id:
             agent = self.db.scalar(
                 select(Agent)
                 .where(
-                    Agent.id == task.assigned_agent_id
+                    Agent.id == agent_id
                 )
             )
 
-        if task is not None and task.claimed_by_session_id:
+        session_id = task.claimed_by_session_id if task else meta.get("agent_session_id")
+        if session_id:
             session = self.db.scalar(
                 select(AgentSession)
                 .where(
-                    AgentSession.id
-                    == task.claimed_by_session_id
+                    AgentSession.id == session_id
                 )
             )
 

@@ -351,6 +351,13 @@ def create_issue(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # SUTRA IS NOT A GITHUB REPLACEMENT.
+    # Humans must create issues directly on GitHub. SUTRA is a read, observe, and governance control plane.
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Issues must be created directly on GitHub. SUTRA is an observation and governance control plane.",
+    )
+
     repository = get_repository_for_user(
         owner_name,
         repo_name,

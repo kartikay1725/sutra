@@ -117,8 +117,9 @@ export default function DiscussionsPage({ params }: { params: Promise<{ name: st
               <option value="newest" style={{ background: "var(--bg)" }}>Sort by: Latest activity</option>
               <option value="oldest" style={{ background: "var(--bg)" }}>Sort by: Oldest</option>
             </select>
-            <Btn primary onClick={() => window.location.href = `/repositories/${repoId}/discussions/new`}>
-              New discussion
+            <Btn primary onClick={() => window.open(`https://github.com/${encodeURIComponent(user?.username || "github")}/${encodeURIComponent(repoId)}/discussions`, "_blank", "noopener,noreferrer")}>
+              <I.ExternalLink size={14} style={{ marginRight: 6 }} />
+              Open on GitHub
             </Btn>
           </div>
 
@@ -131,7 +132,7 @@ export default function DiscussionsPage({ params }: { params: Promise<{ name: st
                 There are no matching discussions.
               </div>
               <div style={{ color: "var(--muted)", fontSize: "14px" }}>
-                You can open a <a href={`/repositories/${repoId}/discussions/new`} style={{ color: "var(--cyan)", textDecoration: "none" }}>new discussion</a> to ask questions or get help.
+                Discussions are authored directly on <a href={`https://github.com/${encodeURIComponent(user?.username || "github")}/${encodeURIComponent(repoId)}/discussions`} target="_blank" rel="noopener noreferrer" style={{ color: "var(--cyan)", textDecoration: "none" }}>GitHub Discussions</a> where autonomous agents observe and participate.
               </div>
             </div>
           ) : (

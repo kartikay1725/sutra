@@ -1,105 +1,97 @@
 "use client";
 
-import { AppShell, PageHead, Card, Btn, Badge } from "@/components/shell";
-import { Page } from "@/components/ui";
-import { use, useState } from "react";
+import { AppShell, PageHead, Card, Btn } from "@/components/shell";
+import { use, useEffect, useState } from "react";
 import { authService } from "@/lib/auth";
-import { issueService } from "@/lib/issues";
-import { Settings } from "lucide-react";
+import { ExternalLink, ArrowLeft, Info } from "lucide-react";
+import Link from "next/link";
 
 export default function NewIssueRoute({ params }: { params: Promise<{ name: string }> }) {
   const { name } = use(params);
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [owner, setOwner] = useState<string>("kartikay1725");
 
-  const handleCreate = async () => {
-    if (!title.trim() || !body.trim()) return alert("Title and description are required");
-    setSubmitting(true);
-    try {
-      const user = await authService.getCurrentUser();
-      await issueService.createIssue(user.username, name, { title, body });
-      window.location.href = `/repositories/${name}/issues`;
-    } catch (err: any) {
-      alert("Failed to create issue: " + err.message);
-      setSubmitting(false);
-    }
-  };
+  useEffect(() => {
+    authService.getCurrentUser().then(u => {
+      if (u?.username) setOwner(u.username);
+    }).catch(() => {});
+  }, []);
+
+  const githubIssuesUrl = `https://github.com/${owner}/${name}/issues/new`;
 
   return (
     <AppShell>
-      <div style={{ padding: "30px 40px", maxWidth: 1000, margin: "0 auto" }}>
-        
-        <div style={{ marginBottom: 24 }}>
-          <h1 style={{ margin: 0, fontSize: "20px", fontWeight: 600, color: "var(--fg)" }}>
-            Create new issue
-          </h1>
-        </div>
+      <div style={{ padding: "40px 20px", maxWidth: 720, margin: "0 auto" }}>
+        <PageHead
+          eyebrow={name}
+          title="Issues on GitHub"
+          sub="SUTRA is an AI-native engineering control plane, not a GitHub replacement."
+        />
 
-        <div style={{ display: "flex", gap: 30 }}>
-          {/* Main Content */}
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 20 }}>
-            <div>
-              <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8, color: "var(--fg)" }}>
-                Add a title <span style={{ color: "var(--red)" }}>*</span>
-              </label>
-              <input 
-                className="input" 
-                placeholder="Title"
-                value={title}
-                onChange={e => setTitle(e.target.value)}
-                style={{ width: "100%", fontSize: "15px", padding: "8px 12px", background: "var(--bg-subtle)", border: "1px solid var(--line)" }}
-              />
-            </div>
-            
-            <div>
-              <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8, color: "var(--fg)" }}>
-                Add a description
-              </label>
-              <Card style={{ padding: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 16, borderBottom: "1px solid var(--line)", padding: "8px 16px", background: "var(--bg-subtle)", fontSize: 13 }}>
-                  <div style={{ fontWeight: 600, borderBottom: "2px solid var(--cyan)", paddingBottom: 8, marginBottom: -9 }}>Write</div>
-                  <div className="muted" style={{ paddingBottom: 8, marginBottom: -9 }}>Preview</div>
-                  <div style={{ flex: 1 }}></div>
-                  <div className="muted" style={{ display: "flex", gap: 12, letterSpacing: 2 }}>
-                    <span>H B I </span>
-                    <span>&lt;&gt;</span>
-                  </div>
-                </div>
-                <div style={{ padding: 8 }}>
-                  <textarea 
-                    className="input" 
-                    placeholder="Type your description here..."
-                    value={body}
-                    onChange={e => setBody(e.target.value)}
-                    style={{ width: "100%", minHeight: "250px", padding: "8px", background: "transparent", border: "none", outline: "none", resize: "vertical", color: "var(--fg)" }}
-                  />
-                </div>
-              </Card>
+        <Card style={{ padding: 32, marginTop: 20 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
+            <div style={{
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              background: "rgba(114, 231, 231, 0.1)",
+              border: "1px solid rgba(114, 231, 231, 0.3)",
+              display: "grid",
+              placeItems: "center",
+              flexShrink: 0,
+            }}>
+              <Info size={22} color="var(--cyan)" />
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 16, marginTop: 10 }}>
-              <button 
-                className="btn" 
-                onClick={() => window.location.href = `/repositories/${name}/issues`}
-                style={{ background: "transparent", border: "1px solid var(--line)" }}
-              >
-                Cancel
-              </button>
-              <button 
-                className="btn primary" 
-                onClick={handleCreate} 
-                disabled={!title || submitting}
-                style={{ background: "var(--green)", borderColor: "var(--green)" }}
-              >
-                {submitting ? "Creating..." : "Create new issue"}
-              </button>
+            <div style={{ flex: 1 }}>
+              <h3 style={{ margin: "0 0 8px 0", fontSize: 17, color: "var(--fg)" }}>
+                Issues are Authored on GitHub
+              </h3>
+              <p style={{ margin: "0 0 16px 0", fontSize: 14, color: "var(--muted)", lineHeight: 1.6 }}>
+                Humans create and collaborate on issues directly in GitHub repository issues. 
+                SUTRA synchronizes and indexes these issues in real time into its unified Knowledge Graph,
+                allowing autonomous agents to execute governed tasks against them.
+              </p>
+
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <a
+                  href={githubIssuesUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn primary"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "10px 18px",
+                    borderRadius: 8,
+                    textDecoration: "none",
+                    fontWeight: 600,
+                  }}
+                >
+                  <ExternalLink size={15} />
+                  Open on GitHub
+                </a>
+
+                <Link
+                  href={`/repositories/${name}/issues`}
+                  className="btn"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "10px 16px",
+                    borderRadius: 8,
+                    textDecoration: "none",
+                    border: "1px solid var(--line)",
+                  }}
+                >
+                  <ArrowLeft size={14} />
+                  Back to Issues
+                </Link>
+              </div>
             </div>
           </div>
-
-
-        </div>
-
+        </Card>
       </div>
     </AppShell>
   );

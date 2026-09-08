@@ -711,16 +711,19 @@ def index_repository_graph(
         repository=repo,
         commit_sha=repo.default_branch or "HEAD",
     )
-    lifecycle_count = knowledge_graph_service.index_engineering_lifecycle(
+    lifecycle_res = knowledge_graph_service.index_engineering_lifecycle(
         db=db,
         repository=repo,
     )
     db.commit()
 
+    total_nodes = file_count + lifecycle_res.get("nodes", 0)
+
     return {
         "status": "indexed",
         "repository_id": repo.id,
-        "indexed_nodes_count": file_count + lifecycle_count,
+        "indexed_nodes_count": total_nodes,
         "indexed_files_count": file_count,
-        "indexed_lifecycle_count": lifecycle_count,
+        "indexed_lifecycle_count": lifecycle_res.get("nodes", 0),
+        "indexed_edges_count": lifecycle_res.get("edges", 0),
     }

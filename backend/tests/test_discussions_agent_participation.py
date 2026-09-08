@@ -99,7 +99,7 @@ def test_human_and_agent_discussions(client, db):
     user_token = login_resp.json()["access_token"]
     human_headers = {"Authorization": f"Bearer {user_token}"}
 
-    # 2. Human creates a discussion
+    # 2. Human tries to create a discussion via SUTRA -> Blocked with 403
     resp = client.post(
         f"/v1/repositories/{user.username}/{repo.name}/discussions",
         headers=human_headers,
@@ -109,12 +109,22 @@ def test_human_and_agent_discussions(client, db):
             "category": "Architecture",
         },
     )
-    assert resp.status_code == 201
-    disc_data = resp.json()
-    assert disc_data["title"] == "Architecture Question on Token Revocation"
-    assert disc_data["author_type"] == "human"
-    assert disc_data["author_name"] == user.username
-    discussion_id = disc_data["id"]
+    assert resp.status_code == 403
+    assert "Discussions must be created directly on GitHub" in resp.json()["detail"]
+
+    # Seed an existing GitHub-synced discussion in DB for agents to participate in
+    from app.models.discussion import Discussion
+    disc = Discussion(
+        id=str(uuid4()),
+        repository_id=repo.id,
+        author_id=user.id,
+        title="Architecture Question on Token Revocation",
+        body="Should we use Redis blocklist or DB flags?",
+        category="Architecture",
+    )
+    db.add(disc)
+    db.commit()
+    discussion_id = disc.id
 
     # 3. Agent replies to the discussion using AgentSession token
     agent_headers = {"Authorization": f"Bearer {session_token}"}

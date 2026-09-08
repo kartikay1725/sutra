@@ -60,11 +60,16 @@ export default function DiscussionsGlobalPage() {
           sub="Human discussions where agents can participate, learn context, and turn decisions into governed engineering work."
           action={
             selectedRepo ? (
-              <Link href={`/repositories/${encodeURIComponent(selectedRepo)}/discussions/new`}>
+              <a
+                href={`https://github.com/${encodeURIComponent(user?.username || "github")}/${encodeURIComponent(selectedRepo)}/discussions`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ textDecoration: "none" }}
+              >
                 <Btn primary>
-                  <I.Plus size={14} /> New discussion
+                  <I.ExternalLink size={14} /> Open on GitHub
                 </Btn>
-              </Link>
+              </a>
             ) : null
           }
         />

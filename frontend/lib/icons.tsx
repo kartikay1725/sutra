@@ -7,7 +7,7 @@ import {
   SlidersHorizontal, MoreHorizontal, ArrowUpRight, Clock3, AlertTriangle, XCircle,
   Check, Eye, GitMerge, UploadCloud, PanelLeft, Cpu, ScrollText, ChevronLeft, ListTodo, Settings,
   Clock, Book, GripVertical, Trash2, Folder, AlertCircle, CornerDownLeft, Loader, FileText, Share2, X, CheckSquare,
-  ExternalLink
+  ExternalLink, RefreshCw, Info
 } from "lucide-react";
 
 export const I = {
@@ -17,5 +17,5 @@ export const I = {
   Plus,Rocket,Search,Server,Settings,Settings2,ShieldCheck,Sparkles,Terminal,UserRound,Users,Workflow,
   Zap,Bell,SlidersHorizontal,MoreHorizontal,ArrowUpRight,Clock3,AlertTriangle,XCircle,Check,
   Eye,GitMerge,UploadCloud,PanelLeft,Cpu,ScrollText, ChevronLeft, ListTodo, Clock, Book, GripVertical, Trash2,
-  Folder, AlertCircle, CornerDownLeft, Loader, FileText, Share2, X, CheckSquare, ExternalLink
+  Folder, AlertCircle, CornerDownLeft, Loader, FileText, Share2, X, CheckSquare, ExternalLink, RefreshCw, Info
 };

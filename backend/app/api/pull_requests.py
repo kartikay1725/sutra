@@ -543,6 +543,13 @@ def create_pull_request(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # SUTRA IS NOT A GITHUB REPLACEMENT.
+    # Humans author PRs on GitHub directly; autonomous agents create PRs through SUTRA governance.
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Pull Requests must be authored directly on GitHub or created through autonomous agent task workflows. SUTRA is an observation and governance control plane.",
+    )
+
     svc = PullRequestService(db)
     try:
         pr = svc.create_pull_request(

@@ -225,3 +225,50 @@ def test_private_repository_insights_are_scoped_to_owner(
         app.dependency_overrides.pop(get_db, None)
 
     assert response.status_code == 404
+
+
+def test_global_insights_aggregates_across_user_repositories(
+    client: TestClient,
+    db: Session,
+):
+    user = User(
+        username="global-insights-user",
+        email="global-insights@example.com",
+        password_hash="dummy",
+    )
+    db.add(user)
+    db.commit()
+
+    repo1 = Repository(
+        owner_id=user.id,
+        name="repo-one",
+        slug="repo-one",
+        visibility="private",
+        storage_key="repo-one-storage",
+    )
+    repo2 = Repository(
+        owner_id=user.id,
+        name="repo-two",
+        slug="repo-two",
+        visibility="private",
+        storage_key="repo-two-storage",
+    )
+    db.add_all([repo1, repo2])
+    db.commit()
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_db] = lambda: db
+
+    try:
+        response = client.get("/v1/insights")
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_db, None)
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert "deployments_per_week" in payload
+    assert "ci_pass_rate" in payload
+    assert "agent_changes_percent" in payload
+    assert "actionable_signal" in payload
+

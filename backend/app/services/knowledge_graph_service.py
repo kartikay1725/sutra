@@ -356,7 +356,47 @@ def index_engineering_lifecycle(
                 )
                 edge_count += 1
 
-    # 5. Discussions
+    # 5. Issues
+    from app.models.issue import Issue
+    issues = db.scalars(
+        select(Issue).where(Issue.repository_id == repo_id)
+    ).all()
+
+    for iss in issues:
+        iss_node = upsert_node(
+            db=db,
+            repository_id=repo_id,
+            entity_type="issue",
+            name=f"Issue #{iss.github_issue_number or iss.id[:8]}: {iss.title}",
+            summary=iss.body[:200] if iss.body else f"Issue in status {iss.status}",
+            metadata={
+                "issue_id": iss.id,
+                "github_issue_number": iss.github_issue_number,
+                "status": iss.status,
+                "task_id": iss.task_id,
+                "agent_id": iss.agent_id,
+            },
+        )
+        node_count += 1
+
+        if iss.task_id:
+            t_node = db.scalar(
+                select(KnowledgeNode).where(
+                    KnowledgeNode.repository_id == repo_id,
+                    KnowledgeNode.entity_type == "task",
+                    KnowledgeNode.metadata_json.contains(iss.task_id),
+                )
+            )
+            if t_node:
+                add_edge(
+                    db=db,
+                    source_node_id=iss_node.id,
+                    target_node_id=t_node.id,
+                    relationship_type="tracks_task",
+                )
+                edge_count += 1
+
+    # 6. Discussions
     discussions = db.scalars(
         select(Discussion).where(Discussion.repository_id == repo_id)
     ).all()

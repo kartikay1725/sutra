@@ -39,6 +39,7 @@ function timeAgo(dateStr: string) {
 export default function PullRequestsPage({ params }: { params: Promise<{ name: string }> }) {
   const { name: repoName } = use(params);
   const router = useRouter();
+  const [owner, setOwner] = useState<string>("kartikay1725");
   const [prs, setPrs] = useState<PullRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("All");
@@ -49,6 +50,7 @@ export default function PullRequestsPage({ params }: { params: Promise<{ name: s
       setLoading(true);
       try {
         const user = await authService.getCurrentUser();
+        if (user?.username) setOwner(user.username);
         const repo = await repositoryService.getRepository(user.username, repoName);
         const data = await pullRequestService.listPRs(repo.id);
         setPrs(data);
@@ -137,7 +139,23 @@ export default function PullRequestsPage({ params }: { params: Promise<{ name: s
         eyebrow={repoName}
         title="Pull Requests"
         sub="Review and ship changes across your repository."
-        action={<Btn primary onClick={() => router.push(`/repositories/${repoName}/pull-requests/new`)}><I.Plus size={14} style={{ marginRight: 6 }} />New PR</Btn>}
+        action={
+          <a
+            href={`https://github.com/${owner}/${repoName}/pulls`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn primary"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              textDecoration: "none",
+            }}
+          >
+            <I.ExternalLink size={14} />
+            Open on GitHub
+          </a>
+        }
       />
 
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 20px" }}>

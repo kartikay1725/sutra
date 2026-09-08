@@ -15,6 +15,7 @@ import {
   Search,
   Trash2,
   X,
+  ExternalLink,
 } from "lucide-react";
 
 import { AppShell } from "@/components/shell";
@@ -385,23 +386,22 @@ export default function RepositoryIssuesPage({
               Refresh
             </button>
 
-            <button
+            <a
               className="btn primary"
-              onClick={() =>
-                router.push(
-                  `/repositories/${repoName}/issues/new`,
-                )
-              }
+              href={`https://github.com/${owner || "kartikay1725"}/${repoName}/issues`}
+              target="_blank"
+              rel="noopener noreferrer"
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 7,
                 height: 36,
+                textDecoration: "none",
               }}
             >
-              <Plus size={15} />
-              New issue
-            </button>
+              <ExternalLink size={14} />
+              Open on GitHub
+            </a>
           </div>
         </div>
 
@@ -737,23 +737,22 @@ export default function RepositoryIssuesPage({
               </div>
 
               {!search && (
-                <button
+                <a
                   className="btn primary"
-                  onClick={() =>
-                    router.push(
-                      `/repositories/${repoName}/issues/new`,
-                    )
-                  }
+                  href={`https://github.com/${owner || "kartikay1725"}/${repoName}/issues`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   style={{
                     marginTop: 4,
                     display: "flex",
                     alignItems: "center",
                     gap: 6,
+                    textDecoration: "none",
                   }}
                 >
-                  <Plus size={14} />
-                  New issue
-                </button>
+                  <ExternalLink size={14} />
+                  Open on GitHub
+                </a>
               )}
             </div>
           ) : (

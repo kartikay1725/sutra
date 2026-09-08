@@ -154,6 +154,20 @@ def test_live_agent_pull_request_e2e():
         db.add(user)
         db.flush()
 
+        user_actor = Actor(
+            id=user.id,
+            type="human",
+            name=user.username,
+            owner_id=user.id,
+            capabilities=json.dumps([
+                "repository.read",
+                "repository.write",
+                "change.create",
+            ]),
+        )
+        db.add(user_actor)
+        db.flush()
+
         repository = Repository(
             id=str(uuid4()),
             owner_id=user.id,
@@ -429,6 +443,7 @@ def test_live_agent_pull_request_e2e():
             if user:
                 from app.models.notification import Notification
                 db.query(Notification).filter(Notification.user_id == user.id).delete()
+                db.query(Actor).filter(Actor.id == user.id).delete()
                 db.query(User).filter(User.id == user.id).delete()
 
             db.commit()
