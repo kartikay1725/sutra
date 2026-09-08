@@ -7952,53 +7952,6 @@ export function Settings() {
           </div>
         </Card>
 
-        <Card>
-          <div className="card-head">
-            <div className="h2">
-              API tokens
-            </div>
-            <Btn>
-              <I.Plus size={13} /> New token
-            </Btn>
-          </div>
-
-          <div className="list">
-            {[
-              "local-dev",
-              "ci-production",
-              "agent-testing",
-            ].map((x, i) => (
-              <div
-                className="list-row"
-                key={x}
-              >
-                <I.KeyRound
-                  size={14}
-                  className="muted"
-                />
-
-                <div
-                  style={{
-                    flex: 1,
-                  }}
-                >
-                  <div className="title-sm">
-                    {x}
-                  </div>
-                  <div className="meta">
-                    Created {i + 1} months ago · last used{" "}
-                    {i + 2}h ago
-                  </div>
-                </div>
-
-                <Badge tone="aqua">
-                  Active
-                </Badge>
-              </div>
-            ))}
-          </div>
-        </Card>
-
         {/* GitHub Integration Card */}
         <Card>
           <div className="card-head">
