@@ -154,6 +154,11 @@ def _to_change_response(change: Change, actor: Actor | None, db: Session) -> Cha
         select(Repository).where(Repository.id == change.repository_id)
     )
 
+    # If change has commits but no ChangeFiles stored yet, synchronize from provider
+    if not files and repo and change.base_commit and change.resulting_commit:
+        from app.services.pull_request_service import PullRequestService
+        files = PullRequestService(db).sync_change_files_from_provider(repo, change)
+
     meta = {}
     if change.metadata_json:
         try:
@@ -660,6 +665,10 @@ def get_change_files(
         select(Repository).where(Repository.id == change.repository_id)
     )
 
+    if not files and repository and change.base_commit and change.resulting_commit:
+        from app.services.pull_request_service import PullRequestService
+        files = PullRequestService(db).sync_change_files_from_provider(repository, change)
+
     patches_by_path = {}
     if repository and change.base_commit and change.resulting_commit:
         import subprocess
@@ -717,6 +726,24 @@ def get_change_files(
                             current_lines.append(line)
                 if current_path and current_lines:
                     patches_by_path[current_path] = "".join(current_lines).strip()
+        elif repository.provider_type == "github" and repository.provider_owner:
+            try:
+                from app.services.pull_request_service import PullRequestService
+                prov = PullRequestService(db)._get_provider(repository)
+                if prov:
+                    stats = prov.get_diff_stats(
+                        owner=repository.provider_owner,
+                        name=repository.name,
+                        base=change.base_commit,
+                        head=change.resulting_commit,
+                    )
+                    for cf in (stats.changed_files if stats else []):
+                        fn = cf.get("filename")
+                        p = cf.get("patch")
+                        if fn and p:
+                            patches_by_path[fn] = p
+            except Exception:
+                pass
 
     return [
         ChangeFileResponse(

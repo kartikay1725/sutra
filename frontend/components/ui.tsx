@@ -84,11 +84,13 @@ export function Btn({
   children,
   primary = false,
   violet = false,
+  sm = false,
+  className = "",
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { primary?: boolean; violet?: boolean }) {
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { primary?: boolean; violet?: boolean; sm?: boolean }) {
   return (
     <button
-      className={"btn " + (primary ? "primary " : "") + (violet ? "violet" : "")}
+      className={`btn ${primary ? "primary " : ""}${violet ? "violet " : ""}${sm ? "sm " : ""}${className}`.trim()}
       {...props}
     >
       {children}
@@ -96,3 +98,39 @@ export function Btn({
   );
 }
 
+export function EmptyState({
+  icon,
+  title,
+  description,
+  action,
+}: {
+  icon?: React.ReactNode;
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="empty-state">
+      {icon && <div className="empty-state-icon">{icon}</div>}
+      <div className="empty-state-title">{title}</div>
+      {description && <div className="empty-state-desc">{description}</div>}
+      {action && <div>{action}</div>}
+    </div>
+  );
+}
+
+export function Table({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className="table-container">
+      <table className={"table " + className}>{children}</table>
+    </div>
+  );
+}
+
+export { SutraLoading } from "./sutra-loading";

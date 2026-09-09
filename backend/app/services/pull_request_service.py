@@ -111,6 +111,61 @@ class PullRequestService:
                     return None
         return None
 
+    def sync_change_files_from_provider(
+        self,
+        repository: Repository,
+        change: Change,
+    ) -> list[ChangeFile]:
+        """
+        Synchronize ChangeFile records from the repository provider (e.g. GitHub)
+        using git compare between base_commit and resulting_commit.
+        """
+        if not change.base_commit or not change.resulting_commit:
+            return []
+
+        provider = self._get_provider(repository)
+        if not provider:
+            return []
+
+        try:
+            owner = repository.provider_owner or repository.name
+            name = repository.name
+            stats = provider.get_diff_stats(
+                owner=owner,
+                name=name,
+                base=change.base_commit,
+                head=change.resulting_commit,
+            )
+            if not stats or not stats.changed_files:
+                return []
+
+            # Remove existing files for this change
+            existing_files = self.db.scalars(
+                select(ChangeFile).where(ChangeFile.change_id == change.id)
+            ).all()
+            for ef in existing_files:
+                self.db.delete(ef)
+
+            new_change_files = []
+            for cf_data in stats.changed_files:
+                filename = cf_data.get("filename")
+                if not filename:
+                    continue
+                cfile = ChangeFile(
+                    change_id=change.id,
+                    path=filename,
+                    operation=cf_data.get("status") or "modified",
+                    additions=int(cf_data.get("additions", 0)),
+                    deletions=int(cf_data.get("deletions", 0)),
+                )
+                self.db.add(cfile)
+                new_change_files.append(cfile)
+
+            self.db.flush()
+            return new_change_files
+        except Exception:
+            return []
+
     # ---------------------------------------------------------
     # AUTHORIZATION HELPERS
     # ---------------------------------------------------------
@@ -570,6 +625,8 @@ class PullRequestService:
             if change:
                 change.metadata_json = json.dumps(meta, sort_keys=True)
                 change.updated_at = now
+                if head_sha and head_sha != old_head:
+                    self.sync_change_files_from_provider(repository, change)
 
             self.db.flush()
             return pr
@@ -618,6 +675,10 @@ class PullRequestService:
         )
         self.db.add(change)
         self.db.flush()
+
+        # Synchronize diff stats and changed files from GitHub
+        if base_sha and head_sha:
+            self.sync_change_files_from_provider(repository, change)
 
         pr = PullRequest(
             id=str(uuid4()),

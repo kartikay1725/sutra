@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AppShell, PageHead, Card, Btn, Badge } from "@/components/shell";
+import { AppShell, PageHead, Card, Btn, Badge, EmptyState, Table, SutraLoading } from "@/components/shell";
 import { activityService, ActivityEntry } from "@/lib/activity";
 import * as I from "lucide-react";
 
@@ -72,86 +72,51 @@ export default function AuditLogPage() {
 
         <Card>
           {loading ? (
-            <div style={{ padding: 48, textAlign: "center", color: "var(--muted, #888)" }}>
-              <I.Loader2 className="animate-spin" size={24} style={{ margin: "0 auto 12px auto" }} />
-              Loading audit records...
-            </div>
+            <SutraLoading message="Retrieving compliance telemetry & immutable audit trail..." quote={true} />
           ) : logs.length === 0 ? (
-            <div style={{ padding: 48, textAlign: "center", color: "var(--muted, #888)" }}>
-              <I.ShieldCheck size={32} style={{ margin: "0 auto 12px auto", opacity: 0.5 }} />
-              No audit logs recorded yet.
+            <div style={{ padding: 24 }}>
+              <EmptyState
+                icon={<I.ShieldCheck size={20} />}
+                title="No audit logs recorded yet"
+                description="Engineering operations, approvals, and automated agent decisions will be tracked here immutably."
+              />
             </div>
           ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, textAlign: "left" }}>
-                <thead>
-                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", color: "var(--muted, #94a3b8)" }}>
-                    <th style={{ padding: "12px 16px" }}>Time</th>
-                    <th style={{ padding: "12px 16px" }}>Actor</th>
-                    <th style={{ padding: "12px 16px" }}>Action</th>
-                    <th style={{ padding: "12px 16px" }}>Resource</th>
-                    <th style={{ padding: "12px 16px" }}>Repository</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {logs.map((item, idx) => (
-                    <tr
-                      key={item.id || idx}
-                      style={{
-                        borderBottom: "1px solid rgba(255,255,255,0.04)",
-                        transition: "background 0.15s ease",
-                      }}
-                    >
-                      <td style={{ padding: "12px 16px", color: "var(--muted, #94a3b8)", whiteSpace: "nowrap" }}>
-                        {new Date(item.timestamp).toLocaleString()}
-                      </td>
-                      <td style={{ padding: "12px 16px" }}>
-                        <span
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 4,
-                            padding: "2px 8px",
-                            borderRadius: 6,
-                            fontSize: 11,
-                            fontWeight: 600,
-                            background:
-                              item.actor.type === "agent"
-                                ? "rgba(139, 92, 246, 0.15)"
-                                : item.actor.type === "system"
-                                ? "rgba(100, 116, 139, 0.15)"
-                                : "rgba(34, 197, 94, 0.15)",
-                            color:
-                              item.actor.type === "agent"
-                                ? "#a78bfa"
-                                : item.actor.type === "system"
-                                ? "#94a3b8"
-                                : "#4ade80",
-                            border: `1px solid ${
-                              item.actor.type === "agent"
-                                ? "rgba(139, 92, 246, 0.3)"
-                                : item.actor.type === "system"
-                                ? "rgba(100, 116, 139, 0.3)"
-                                : "rgba(34, 197, 94, 0.3)"
-                            }`,
-                          }}
-                        >
-                          {item.actor.type === "agent" ? <I.Bot size={11} /> : <I.User size={11} />}
-                          {item.actor.name || item.actor.type}
-                        </span>
-                      </td>
-                      <td style={{ padding: "12px 16px", fontWeight: 500 }}>{item.action}</td>
-                      <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: 12, color: "#cbd5e1" }}>
+            <Table>
+              <thead>
+                <tr>
+                  <th style={{ width: "22%" }}>Time</th>
+                  <th style={{ width: "18%" }}>Actor</th>
+                  <th style={{ width: "24%" }}>Action</th>
+                  <th style={{ width: "20%" }}>Resource</th>
+                  <th style={{ width: "16%" }}>Repository</th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((item, idx) => (
+                  <tr key={item.id || idx}>
+                    <td style={{ fontSize: "11px", whiteSpace: "nowrap" }} className="meta">
+                      {new Date(item.timestamp).toLocaleString()}
+                    </td>
+                    <td>
+                      <span className={`badge ${item.actor.type === "agent" ? "indigo" : item.actor.type === "system" ? "gray" : "green"}`}>
+                        {item.actor.type === "agent" ? <I.Bot size={11} /> : <I.User size={11} />}
+                        {item.actor.name || item.actor.type}
+                      </span>
+                    </td>
+                    <td style={{ fontWeight: 500 }}>{item.action}</td>
+                    <td>
+                      <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "11px", color: "var(--text-secondary)" }}>
                         {item.resource_type}:{item.resource_id.slice(0, 8)}
-                      </td>
-                      <td style={{ padding: "12px 16px", color: "var(--muted, #94a3b8)" }}>
-                        {item.repository || "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </span>
+                    </td>
+                    <td style={{ color: "var(--text-secondary)", fontSize: "12px" }}>
+                      {item.repository || "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
           )}
         </Card>
       </div>

@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { AppShell, PageHead, Card, Btn } from "@/components/shell";
+import { AppShell, PageHead, Card, Btn, SutraLoading } from "@/components/shell";
 import { pullRequestService, PullRequest } from "@/lib/pull-requests";
 import { repositoryService } from "@/lib/repositories";
 import { authService } from "@/lib/auth";
@@ -87,49 +87,50 @@ export default function PullRequestsPage({ params }: { params: Promise<{ name: s
   const others = filteredPrs.filter(p => p.status !== "open");
 
   const PRCard = ({ pr }: { pr: PullRequest }) => (
-    <div onClick={() => router.push(`/repositories/${repoName}/pull-requests/${pr.id}`)} style={{ cursor: "pointer" }}>
-      <Card style={{
-        padding: 0, overflow: "hidden", transition: "border-color 0.2s",
-        borderLeft: `3px solid ${pr.status === "open" ? "var(--cyan)" : "transparent"}`,
-      }}>
-        <div style={{ padding: "20px 24px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ color: STATUS_COLORS[pr.status], display: "flex", alignItems: "center" }}>
-                {STATUS_ICONS[pr.status]}
-              </span>
-              <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: STATUS_COLORS[pr.status] }}>
-                {pr.status}
-              </span>
-            </div>
-            <span style={{ fontSize: 12, color: "var(--muted)" }}>{timeAgo(pr.updated_at)}</span>
-          </div>
-
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 17, fontWeight: 600, color: "var(--fg)", marginBottom: 4, lineHeight: 1.3 }}>
+    <div
+      onClick={() => router.push(`/repositories/${repoName}/pull-requests/${pr.id}`)}
+      style={{
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 16,
+        padding: "12px 16px",
+        background: "var(--surface)",
+        border: "1px solid var(--line)",
+        borderRadius: "var(--radius-sm)",
+        transition: "background 0.12s ease, border-color 0.12s ease",
+      }}
+      className="list-row"
+    >
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, minWidth: 0 }}>
+        <span style={{ color: STATUS_COLORS[pr.status], marginTop: 2, flexShrink: 0 }}>
+          {STATUS_ICONS[pr.status]}
+        </span>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
               {pr.title}
-            </div>
-            {pr.description && (
-              <div style={{ fontSize: 13, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {pr.description}
-              </div>
-            )}
+            </span>
+            <span style={{ fontSize: 11, fontFamily: "var(--font-mono, monospace)", color: "var(--muted)" }}>
+              #{pr.id.slice(0, 7)}
+            </span>
           </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 16, fontSize: 13, color: "var(--muted)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <I.GitBranch size={13} />
-              <span style={{ fontFamily: "monospace", fontSize: 12 }}>
-                {pr.source_commit ? pr.source_commit.slice(0, 7) : "—"} → {pr.target_branch}
-              </span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <I.Hash size={13} />
-              <span>{pr.id.slice(0, 8)}</span>
-            </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 11, color: "var(--muted)", marginTop: 4, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: "var(--font-mono, monospace)" }}>
+              {pr.source_commit ? pr.source_commit.slice(0, 7) : "branch"} → {pr.target_branch}
+            </span>
+            <span>·</span>
+            <span>updated {timeAgo(pr.updated_at)}</span>
           </div>
         </div>
-      </Card>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+        <span className={`badge ${pr.status === "approved" || pr.status === "merged" ? "green" : pr.status === "open" ? "blue" : "gray"}`}>
+          {pr.status}
+        </span>
+      </div>
     </div>
   );
 
@@ -201,7 +202,7 @@ export default function PullRequestsPage({ params }: { params: Promise<{ name: s
         </div>
 
         {loading ? (
-          <div style={{ padding: 48, textAlign: "center", color: "var(--muted)" }}>Loading pull requests...</div>
+          <SutraLoading message="Synchronizing GitHub substrate pull requests & governance status..." quote={true} />
         ) : filteredPrs.length === 0 ? (
           <div style={{ padding: 48, textAlign: "center", color: "var(--muted)", background: "var(--bg-subtle)", borderRadius: 8, border: "1px solid var(--line)" }}>
             <I.GitPullRequest size={32} style={{ marginBottom: 16, opacity: 0.3 }} />

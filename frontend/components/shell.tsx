@@ -6,6 +6,7 @@ import { Bell, UserRound, LogOut, Settings, ChevronDown } from "lucide-react";
 import { globalNav, repoNav } from "../lib/nav";
 import { authService, User } from "../lib/auth";
 import { I } from "../lib/icons";
+import { SutraLoading } from "./sutra-loading";
 
 function Mark(){
   return (
@@ -86,7 +87,7 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
   }, [router]);
 
   if (loading) {
-    return <div className="shell" style={{ display: "grid", placeItems: "center" }}><div className="muted">Loading SUTRA...</div></div>;
+    return <SutraLoading fullscreen quote message="Connecting to engineering control plane..." />;
   }
 
   const repoMatch = path.match(/^\/repositories\/([^/]+)/);
@@ -257,10 +258,10 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
 export function PageHead({eyebrow,title,sub,action}:{eyebrow?:string,title:string,sub?:string,action?:React.ReactNode}){
  return <div className="page-head"><div>{eyebrow&&<div className="eyebrow">{eyebrow}</div>}<h1 className="h1">{title}</h1>{sub&&<div className="sub" style={{marginTop:7}}>{sub}</div>}</div>{action&&<div className="actions">{action}</div>}</div>
 }
-export function Btn({ children, primary = false, violet = false, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { primary?: boolean, violet?: boolean }) {
+export function Btn({ children, primary = false, violet = false, sm = false, className = "", ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { primary?: boolean, violet?: boolean, sm?: boolean }) {
   return (
     <button 
-      className={"btn " + (primary ? "primary " : "") + (violet ? "violet" : "")} 
+      className={`btn ${primary ? "primary " : ""}${violet ? "violet " : ""}${sm ? "sm " : ""}${className}`.trim()} 
       {...props}
     >
       {children}
@@ -276,3 +277,40 @@ export function Pipeline({compact=false}:{compact?:boolean}){
  return <div className={"pipeline "+(compact?"":"")} >{steps.map((x,i)=><div className="pipe" key={x}><div className="node"><span className="dot"></span><span>{x}</span></div>{i<steps.length-1&&<span className="arrow"/>}</div>)}</div>
 }
 export function Stat({label,value,delta}:{label:string,value:string,delta?:string}){return <Card><div className="stat"><div className="eyebrow">{label}</div><div className="num">{value}</div>{delta&&<div className="delta">{delta}</div>}</div></Card>}
+
+export function EmptyState({
+  icon,
+  title,
+  description,
+  action,
+}: {
+  icon?: React.ReactNode;
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="empty-state">
+      {icon && <div className="empty-state-icon">{icon}</div>}
+      <div className="empty-state-title">{title}</div>
+      {description && <div className="empty-state-desc">{description}</div>}
+      {action && <div>{action}</div>}
+    </div>
+  );
+}
+
+export function Table({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className="table-container">
+      <table className={"table " + className}>{children}</table>
+    </div>
+  );
+}
+
+export { SutraLoading } from "./sutra-loading";

@@ -11,6 +11,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
   AppShell,
+  SutraLoading,
 } from "@/components/shell";
 
 import {
@@ -1199,40 +1200,7 @@ export default function AssistantPage({
             >
               {isInitializing ||
               isLoadingMessages ? (
-                <div
-                  style={{
-                    flex: 1,
-                    minHeight: 300,
-                    display:
-                      "flex",
-                    flexDirection:
-                      "column",
-                    alignItems:
-                      "center",
-                    justifyContent:
-                      "center",
-                    gap: 10,
-                    color:
-                      "var(--muted)",
-                  }}
-                >
-                  <I.Loader
-                    size={22}
-                    className="assistant-spin"
-                    style={{
-                      color:
-                        "#22d3ee",
-                    }}
-                  />
-
-                  <span
-                    style={{
-                      fontSize: 13,
-                    }}
-                  >
-                    Loading conversation…
-                  </span>
-                </div>
+                <SutraLoading message="Attaching repository context, open tasks & knowledge graph..." quote={true} />
               ) : messages.length ===
                 0 ? (
                 <div
@@ -1428,32 +1396,22 @@ export default function AssistantPage({
                         <div
                           style={{
                             maxWidth:
-                              "78%",
+                              "82%",
                             background:
                               message.role ===
                               "user"
-                                ? "linear-gradient(135deg,rgba(139,92,246,.2),rgba(99,102,241,.2))"
-                                : "rgba(255,255,255,.04)",
+                                ? "var(--surface-2)"
+                                : "var(--surface)",
                             border:
                               message.role ===
                               "user"
-                                ? "1px solid rgba(139,92,246,.3)"
-                                : "1px solid rgba(255,255,255,.08)",
-                            borderRadius: 14,
-                            borderTopRightRadius:
-                              message.role ===
-                              "user"
-                                ? 4
-                                : 14,
-                            borderTopLeftRadius:
-                              message.role ===
-                              "assistant"
-                                ? 4
-                                : 14,
+                                ? "1px solid rgba(59,130,246,.25)"
+                                : "1px solid var(--line)",
+                            borderRadius: "var(--radius-sm)",
                             padding:
-                              "12px 16px",
+                              "10px 14px",
                             color:
-                              "#e5e7eb",
+                              "var(--text-primary)",
                           }}
                         >
                           {message.role ===

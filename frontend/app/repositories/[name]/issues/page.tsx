@@ -18,7 +18,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 
-import { AppShell } from "@/components/shell";
+import { AppShell, SutraLoading } from "@/components/shell";
 import { authService } from "@/lib/auth";
 import { issueService, Issue } from "@/lib/issues";
 import { repositoryService } from "@/lib/repositories";
@@ -672,24 +672,7 @@ export default function RepositoryIssuesPage({
 
           {/* Content */}
           {loading ? (
-            <div
-              style={{
-                minHeight: 300,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexDirection: "column",
-                gap: 10,
-                color: "var(--muted)",
-                fontSize: 13,
-              }}
-            >
-              <Loader2
-                size={22}
-                className="spin"
-              />
-              Loading issues...
-            </div>
+            <SutraLoading message="Synchronizing repository issues from GitHub substrate..." quote={true} />
           ) : filteredIssues.length === 0 ? (
             <div
               style={{

@@ -138,6 +138,11 @@ def get_repository_for_user(
             Repository.slug == repo_name.lower(),
             Repository.deleted_at.is_(None),
         )
+        .order_by(
+            (Repository.owner_id == user.id).desc(),
+            (Repository.visibility == "public").desc(),
+            Repository.created_at.desc(),
+        )
     )
 
     if not repo:
@@ -146,7 +151,7 @@ def get_repository_for_user(
             detail="Repository not found",
         )
 
-    if repo.owner_id != user.id:
+    if repo.visibility == "private" and repo.owner_id != user.id:
         raise HTTPException(
             status_code=403,
             detail="Forbidden",

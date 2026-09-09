@@ -728,6 +728,7 @@ class GitHubRepositoryProvider(RepositoryProvider):
                 "status": f.get("status"),
                 "additions": adds,
                 "deletions": dels,
+                "patch": f.get("patch"),
             })
 
         return ProviderDiffStat(

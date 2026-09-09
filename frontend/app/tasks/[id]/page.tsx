@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Bot, CheckCircle2, GitBranch, Play, ShieldCheck, MessageSquare, Plus, Check, GitPullRequest, ArrowRight, Sparkles } from "lucide-react";
-import { Page, Card, Badge } from "@/components/ui";
+import { Page, Card, Badge, SutraLoading } from "@/components/ui";
 import { Task, taskService } from "@/lib/tasks";
 import { Agent, agentService } from "@/lib/agents";
 import { ciService, type PRChecksResponse } from "@/lib/ci";
@@ -80,8 +80,23 @@ export default function TaskPage() {
     }
   };
 
-  if (loading) return <Page eyebrow={"Task #"+id} title="Loading..." description=""><p className="muted" style={{padding: 20}}>Loading task details...</p></Page>;
-  if (!task) return <Page eyebrow={"Task #"+id} title="Not Found" description=""><p className="muted" style={{padding: 20}}>Task could not be found.</p></Page>;
+  if (loading) {
+    return (
+      <Page eyebrow={"Task #" + id.slice(0, 8)} title="Task Execution Details" description="Loading sovereign session & governance status...">
+        <Card>
+          <SutraLoading message="Resolving task intent, agent telemetry & CI governance..." quote={true} />
+        </Card>
+      </Page>
+    );
+  }
+
+  if (!task) {
+    return (
+      <Page eyebrow={"Task #" + id.slice(0, 8)} title="Not Found" description="">
+        <p className="muted" style={{ padding: 20 }}>Task could not be found.</p>
+      </Page>
+    );
+  }
 
   const isCompleted = task.status === "completed" || task.status === "done";
   const isInProgress = task.status === "in_progress" || task.status === "assigned";

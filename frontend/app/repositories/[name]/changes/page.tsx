@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AppShell, PageHead, Card, Btn, Badge } from "@/components/shell";
+import { AppShell, PageHead, Card, Btn, Badge, EmptyState, SutraLoading } from "@/components/shell";
 import { changeService, Change } from "@/lib/changes";
 import { authService } from "@/lib/auth";
 import * as I from "lucide-react";
@@ -120,101 +120,77 @@ export default function ChangesListPage({ params }: { params: Promise<{ name: st
 
         {/* Changes List */}
         {loading ? (
-           <div style={{ padding: 40, textAlign: "center", color: "var(--muted)" }}>Loading changes...</div>
+           <SutraLoading message="Loading code changes and provenance trail..." quote={true} />
         ) : filteredChanges.length === 0 ? (
-           <div style={{ padding: 40, textAlign: "center", color: "var(--muted)", background: "var(--bg-subtle)", borderRadius: 8, border: "1px solid var(--line)" }}>
-             No changes found.
-           </div>
+           <EmptyState
+             icon={<I.GitCommit size={20} />}
+             title="No changes found"
+             description="No recorded or proposed changes match the selected filter."
+           />
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {filteredChanges.map(change => (
-              <div key={change.id} onClick={() => router.push(`/repositories/${repoId}/changes/${change.id}`)} style={{ cursor: "pointer" }}>
-                <Card style={{ padding: 24, transition: "border-color 0.2s" }}>
-                  
+              <div 
+                key={change.id} 
+                onClick={() => router.push(`/repositories/${repoId}/changes/${change.id}`)} 
+                style={{ cursor: "pointer" }}
+              >
+                <Card style={{ padding: "14px 18px", transition: "border-color 0.15s ease" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 14 }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                        <span className={`badge ${change.status === "approved" || change.status === "merged" ? "green" : change.status === "proposed" ? "amber" : "blue"}`}>
+                          {statusLabels[change.status] || change.status}
+                        </span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
+                          {change.title || "Untitled Change"}
+                        </span>
+                        <span style={{ fontSize: 11, fontFamily: "var(--font-mono, monospace)", color: "var(--muted)" }}>
+                          #{change.id.slice(0, 7)}
+                        </span>
+                      </div>
 
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: statusColors[change.status] || "var(--fg)" }}>
-                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: statusColors[change.status] || "var(--fg)" }} />
-                      {statusLabels[change.status] || change.status.replace('_', ' ')}
-                    </div>
-                    <div style={{ fontSize: 13, color: "var(--muted)" }}>
-                      {new Date(change.updated_at).toLocaleDateString()}
-                    </div>
-                  </div>
-                </div>
+                      {change.description && (
+                        <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 8, maxWidth: 640, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {change.description || change.intent}
+                        </div>
+                      )}
 
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 20, fontWeight: 600, color: "var(--fg)", marginBottom: 8 }}>{change.title || "Untitled Change"}</div>
-                  <div style={{ fontSize: 14, color: "var(--muted)" }}>{change.description || change.intent}</div>
-                </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 16, fontSize: 11, color: "var(--muted)", flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          {change.actor_type === "agent" ? (
+                            <span className="badge indigo">
+                              <I.Bot size={10} /> {change.actor_name || "Agent"}
+                            </span>
+                          ) : (
+                            <span className="badge blue">
+                              <I.User size={10} /> {change.actor_name || "Author"}
+                            </span>
+                          )}
+                        </div>
 
-                <div style={{ display: "flex", gap: 40, marginBottom: 24 }}>
-                  {change.task_id && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600, textTransform: "uppercase" }}>Task</div>
-                      <div style={{ fontSize: 14, color: "var(--fg)", display: "flex", alignItems: "center", gap: 6 }}>
-                        <I.CheckSquare size={14} color="var(--cyan)" /> #{change.task_id.split('-').pop()?.slice(0,6) || change.task_id.slice(0,6)}
+                        {change.task_id && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: "var(--font-mono, monospace)" }}>
+                            <I.CheckSquare size={12} color="var(--blue-hover)" />
+                            <span>task-{change.task_id.slice(0, 6)}</span>
+                          </div>
+                        )}
+
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ color: "var(--success)", fontWeight: 600 }}>+{change.additions || 0}</span>
+                          <span style={{ color: "var(--error)", fontWeight: 600 }}>−{change.deletions || 0}</span>
+                          <span>{change.files_changed || 0} {(change.files_changed === 1) ? "file" : "files"}</span>
+                        </div>
+
+                        <span>{new Date(change.updated_at).toLocaleDateString()}</span>
                       </div>
                     </div>
-                  )}
-                  {change.task_id && change.actor_type === "agent" && (
-                    <div style={{ display: "flex", alignItems: "center", color: "var(--line)" }}>
-                      <I.ArrowRight size={16} />
-                    </div>
-                  )}
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600, textTransform: "uppercase" }}>
-                      {change.actor_type === "agent" ? "Agent" : "Author"}
-                    </div>
-                    <div style={{ fontSize: 14, color: "var(--fg)", display: "flex", alignItems: "center", gap: 6 }}>
-                      {change.actor_type === "agent" ? <I.Bot size={14} color="var(--purple)" /> : <I.User size={14} color="var(--cyan)" />}
-                      {change.actor_name || "Unknown"}
-                    </div>
-                  </div>
-                  {change.actor_type === "agent" && (
-                    <div style={{ display: "flex", alignItems: "center", color: "var(--line)" }}>
-                      <I.ArrowRight size={16} />
-                    </div>
-                  )}
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600, textTransform: "uppercase" }}>Change</div>
-                    <div style={{ fontSize: 14, color: "var(--fg)", display: "flex", alignItems: "center", gap: 6 }}>
-                      <I.GitCommit size={14} color="var(--green)" /> #{change.id.split('-').pop()?.slice(0,6) || change.id.slice(0,6)}
-                    </div>
-                  </div>
-                </div>
 
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--line)", paddingTop: 16 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 16, fontSize: 13, color: "var(--muted)" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ color: "var(--green)" }}>+{change.additions || 0}</span>
-                      <span style={{ color: "var(--red)" }}>−{change.deletions || 0}</span>
-                      <span>{change.files_changed || 0} files changed</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                      <I.ChevronRight size={15} color="var(--muted)" />
                     </div>
                   </div>
-
-                  <div style={{ display: "flex", gap: 16, fontSize: 13, color: "var(--fg)" }}>
-                    {change.checks && change.checks.map(c => (
-                      <div key={c.name} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        {c.status === "passed" ? <I.Check size={14} color="var(--green)" /> : 
-                         c.status === "running" ? <I.Loader size={14} color="var(--cyan)" /> : 
-                         <I.X size={14} color="var(--red)" />}
-                        {c.name}
-                      </div>
-                    ))}
-                    {change.reviews && change.reviews.length > 0 && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        {change.reviews.every(r => r.status === "approved") ? 
-                          <I.Check size={14} color="var(--green)" /> : 
-                          <I.CheckCircle2 size={14} color="var(--yellow)" />}
-                        Review {change.reviews.filter(r => r.status === "approved").length}/{change.reviews.length}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-              </Card>
+                </Card>
               </div>
             ))}
           </div>

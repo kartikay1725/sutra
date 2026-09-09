@@ -10,6 +10,7 @@ import {
 
 import {
   AppShell,
+  SutraLoading,
 } from "@/components/shell";
 
 import {
@@ -200,16 +201,12 @@ function GraphCanvas({
       >
         <div
           style={{
-            background:
-              "linear-gradient(135deg, rgba(34,211,238,0.15), rgba(59,130,246,0.15))",
-            border:
-              "2px solid rgba(34,211,238,0.4)",
-            borderRadius: 16,
-            padding:
-              "18px 26px",
+            background: "var(--surface-2)",
+            border: "1px solid var(--line)",
+            borderRadius: "var(--radius-md)",
+            padding: "16px 20px",
             textAlign: "center",
-            boxShadow:
-              "0 0 30px rgba(34,211,238,0.15)",
+            boxShadow: "var(--shadow-sm)",
             width: "min(100%, 420px)",
           }}
         >
@@ -1076,42 +1073,13 @@ export default function KnowledgeGraphPage({
         {loading ? (
           <div
             style={{
-              border:
-                "1px solid var(--line)",
-              borderRadius: 16,
-              padding: 70,
-              display:
-                "flex",
-              flexDirection:
-                "column",
-              alignItems:
-                "center",
-              justifyContent:
-                "center",
-              gap: 12,
-              color:
-                "var(--muted)",
-              background:
-                "rgba(255,255,255,0.02)",
+              border: "1px solid var(--line)",
+              borderRadius: "var(--radius-md)",
+              background: "var(--surface)",
+              overflow: "hidden",
             }}
           >
-            <I.Loader
-              size={24}
-              className="spin"
-              style={{
-                color:
-                  "#a855f7",
-              }}
-            />
-
-            <span
-              style={{
-                fontSize: 14,
-              }}
-            >
-              Loading Knowledge
-              Graph…
-            </span>
+            <SutraLoading message="Synthesizing entity nodes, relationships & substrate provenance..." quote={true} />
           </div>
         ) : (
           <>
