@@ -130,11 +130,6 @@ export function Dashboard() {
             <Link href="/repositories">
               <Btn>Repositories</Btn>
             </Link>
-            <Link href="/repositories/new">
-              <Btn primary>
-                <I.Plus size={14} /> New Repository
-              </Btn>
-            </Link>
           </>
         }
       />

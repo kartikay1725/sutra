@@ -30,7 +30,13 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [path]);
 
   useEffect(() => {
     if (!authService.isAuthenticated()) {
@@ -90,13 +96,6 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
     return <SutraLoading fullscreen quote message="Connecting to engineering control plane..." />;
   }
 
-  const [mobileOpen, setMobileOpen] = useState(false);
-
-  // Close mobile sidebar on route change
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [path]);
-
   const repoMatch = path.match(/^\/repositories\/([^/]+)/);
   const repoName = repoMatch ? repoMatch[1] : null;
   const isRepoScope = Boolean(repoName);
@@ -118,14 +117,6 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
           onClick={() => setMobileOpen(false)}
           className="mobile-close-btn"
           aria-label="Close navigation"
-          style={{
-            display: "none",
-            background: "none",
-            border: "none",
-            color: "var(--muted)",
-            cursor: "pointer",
-            padding: 4,
-          }}
         >
           <X size={18} />
         </button>
@@ -183,7 +174,6 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
             className="mobile-menu-trigger"
             onClick={() => setMobileOpen(true)}
             aria-label="Open navigation menu"
-            style={{ display: "none" }}
           >
             <Menu size={18} />
           </button>

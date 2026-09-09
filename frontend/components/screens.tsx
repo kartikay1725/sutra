@@ -333,12 +333,7 @@ export function Dashboard() {
           <>
             <Btn>Customize</Btn>
 
-            <Link href="/repositories/new">
-              <Btn primary>
-                <I.Plus size={14} />
-                New Repository
-              </Btn>
-            </Link>
+            
           </>
         }
       />
@@ -483,12 +478,6 @@ export function Dashboard() {
                 to start building with SUTRA.
               </div>
 
-              <Link href="/repositories/new">
-                <Btn primary>
-                  <I.Plus size={14} />
-                  New Repository
-                </Btn>
-              </Link>
             </div>
           ) : (
             <div
@@ -1239,23 +1228,6 @@ export function Repositories() {
 
   return (
     <>
-      <PageHead
-        eyebrow="Code"
-        title="Repositories"
-        sub="Your repositories, their current state, and what needs attention."
-        action={
-          <button
-            type="button"
-            className="btn primary"
-            onClick={() =>
-              setIsNewRepositoryModalOpen(true)
-            }
-          >
-            <I.Plus size={14} />
-            New Repository
-          </button>
-        }
-      />
       {isNewRepositoryModalOpen && (
         <NewRepositoryModal
           onClose={() =>
@@ -1314,16 +1286,11 @@ export function Repositories() {
                   marginBottom: 18,
                 }}
               >
-                Create a new repository or connect GitHub to discover existing ones.
+                connect GitHub to discover existing repositories.
               </div>
 
               <div className="row" style={{ justifyContent: "center", gap: 10 }}>
-                <Link href="/repositories/new">
-                  <Btn primary>
-                    <I.Plus size={14} />
-                    New Repository
-                  </Btn>
-                </Link>
+                
 
                 {!githubConnected && (
                   <Btn onClick={handleConnectGitHub}>
@@ -5598,11 +5565,7 @@ export function NewRepository() {
 
   return (
     <>
-      <PageHead
-        eyebrow="Create"
-        title="New repository"
-        sub="Start a repository and bring your engineering system into SUTRA."
-      />
+      
 
       <Card>
         <div className="card-pad form">

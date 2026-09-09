@@ -117,12 +117,6 @@ export default function NewRepositoryModal({
       >
         <div className="card-head">
           <div>
-            <div
-              className="h2"
-              id="new-repository-title"
-            >
-              New Repository
-            </div>
 
             <div className="sub">
               Create a real Git repository in
