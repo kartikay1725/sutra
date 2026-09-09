@@ -21,6 +21,7 @@ import {
 import { AppShell } from "@/components/shell";
 import { authService } from "@/lib/auth";
 import { issueService, Issue } from "@/lib/issues";
+import { repositoryService } from "@/lib/repositories";
 
 type FilterState = "open" | "closed" | "all";
 
@@ -146,24 +147,33 @@ export default function RepositoryIssuesPage({
   useEffect(() => {
     let mounted = true;
 
-    authService
-      .getCurrentUser()
-      .then((user) => {
-        if (mounted) {
-          setOwner(user.username);
+    (async () => {
+      try {
+        const user = await authService.getCurrentUser();
+        let canonicalOwner = user.username;
+        try {
+          const repo = await repositoryService.getRepository(user.username, repoName);
+          if (repo && (repo.provider_owner || repo.owner)) {
+            canonicalOwner = repo.provider_owner || repo.owner || user.username;
+          }
+        } catch {
+          // Fall back to user.username if repo fetch fails
         }
-      })
-      .catch((err) => {
+        if (mounted) {
+          setOwner(canonicalOwner);
+        }
+      } catch (err) {
         if (mounted) {
           setError(getErrorMessage(err));
           setLoading(false);
         }
-      });
+      }
+    })();
 
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [repoName]);
 
   useEffect(() => {
     if (!owner) {

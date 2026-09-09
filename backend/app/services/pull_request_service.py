@@ -475,6 +475,180 @@ class PullRequestService:
                 return existing_pr
             raise
 
+    def upsert_github_pull_request(
+        self,
+        *,
+        repository: Repository,
+        pr_number: int,
+        title: str,
+        target_branch: str,
+        head_branch: Optional[str] = None,
+        head_sha: Optional[str] = None,
+        base_sha: Optional[str] = None,
+        description: Optional[str] = None,
+        html_url: Optional[str] = None,
+        author_login: Optional[str] = None,
+        is_merged: bool = False,
+        is_closed: bool = False,
+        action: Optional[str] = None,
+    ) -> PullRequest:
+        """
+        Idempotently synchronize or ingest a GitHub-created Pull Request into SUTRA.
+        Preserves existing agent provenance if the PR already has an associated SUTRA Agent/Task.
+        If a new PR record is created for an external GitHub PR, it is backed by an external tracking Change.
+        """
+        now = datetime.now(timezone.utc)
+
+        # 1. Locate existing PR by repository + github_pr_number in Change metadata
+        pr = self.db.scalar(
+            select(PullRequest)
+            .join(Change, PullRequest.source_change_id == Change.id)
+            .where(
+                PullRequest.repository_id == repository.id,
+                Change.metadata_json.contains(f'"github_pr_number": {pr_number}'),
+            )
+        )
+        if not pr and head_branch:
+            pr = self.db.scalar(
+                select(PullRequest)
+                .join(Change, PullRequest.source_change_id == Change.id)
+                .where(
+                    PullRequest.repository_id == repository.id,
+                    Change.metadata_json.contains(f'"branch": "{head_branch}"'),
+                )
+            )
+
+        if pr is not None:
+            change = self.db.scalar(select(Change).where(Change.id == pr.source_change_id))
+            meta = {}
+            if change and change.metadata_json:
+                try:
+                    meta = json.loads(change.metadata_json)
+                except Exception:
+                    pass
+
+            meta["github_pr_number"] = pr_number
+            if html_url:
+                meta["github_pr_url"] = html_url
+            if head_branch:
+                meta["branch"] = head_branch
+
+            # Handle action / synchronization
+            if action == "synchronize" or (head_sha and head_sha != pr.source_commit):
+                old_head = pr.source_commit
+                if head_sha and head_sha != old_head:
+                    pr.source_commit = head_sha
+                    if change:
+                        change.resulting_commit = head_sha
+                        approved_head = meta.get("approved_head_sha")
+                        if approved_head and approved_head != head_sha:
+                            meta["approved_head_sha"] = None
+                            if pr.status == PullRequest.STATUS_APPROVED:
+                                pr.status = PullRequest.STATUS_OPEN
+
+            if is_merged:
+                pr.status = PullRequest.STATUS_MERGED
+                pr.merged_at = pr.merged_at or now
+                if base_sha:
+                    pr.target_commit = base_sha
+                if change:
+                    change.status = "recorded"
+                    meta["merged"] = True
+            elif is_closed:
+                pr.status = PullRequest.STATUS_CLOSED
+                pr.closed_at = pr.closed_at or now
+            elif action == "reopened":
+                pr.status = PullRequest.STATUS_OPEN
+                pr.closed_at = None
+
+            pr.title = title or pr.title
+            if description is not None:
+                pr.description = description
+            pr.target_branch = target_branch or pr.target_branch
+            pr.updated_at = now
+
+            if change:
+                change.metadata_json = json.dumps(meta, sort_keys=True)
+                change.updated_at = now
+
+            self.db.flush()
+            return pr
+
+        # 2. PR does not exist yet: create external tracking Change + PullRequest
+        # Ensure owner actor exists
+        owner_actor = self.db.scalar(select(Actor).where(Actor.id == repository.owner_id))
+        if not owner_actor:
+            owner_actor = Actor(
+                id=repository.owner_id,
+                owner_id=repository.owner_id,
+                type="human",
+                name=repository.provider_owner or "Repository Owner",
+                capabilities="[]",
+            )
+            self.db.add(owner_actor)
+            self.db.flush()
+
+        change_meta = {
+            "source": "github",
+            "source_type": "github",
+            "github_pr_number": pr_number,
+            "github_pr_url": html_url or f"https://github.com/{repository.provider_owner or 'owner'}/{repository.name}/pull/{pr_number}",
+            "branch": head_branch,
+            "base_branch": target_branch,
+            "github_author_login": author_login,
+        }
+
+        initial_status = PullRequest.STATUS_OPEN
+        if is_merged:
+            initial_status = PullRequest.STATUS_MERGED
+        elif is_closed:
+            initial_status = PullRequest.STATUS_CLOSED
+
+        change = Change(
+            id=str(uuid4()),
+            repository_id=repository.id,
+            actor_id=owner_actor.id,
+            intent=f"GitHub PR #{pr_number}: {title}",
+            base_commit=base_sha,
+            resulting_commit=head_sha,
+            operation_key=f"github-pr-{repository.id}-{pr_number}-{uuid4().hex[:12]}",
+            status="recorded" if is_merged else "proposed",
+            risk_level="low",
+            metadata_json=json.dumps(change_meta, sort_keys=True),
+        )
+        self.db.add(change)
+        self.db.flush()
+
+        pr = PullRequest(
+            id=str(uuid4()),
+            repository_id=repository.id,
+            author_id=owner_actor.id,
+            source_change_id=change.id,
+            title=title.strip() if title else f"GitHub PR #{pr_number}",
+            description=description,
+            target_branch=target_branch.strip() if target_branch else (repository.default_branch or "main"),
+            source_commit=head_sha,
+            target_commit=base_sha if is_merged else None,
+            status=initial_status,
+            merged_at=now if is_merged else None,
+            closed_at=now if is_closed else None,
+            created_at=now,
+            updated_at=now,
+        )
+        self.db.add(pr)
+        self.db.flush()
+
+        self._record_event(
+            pr=pr,
+            event_type="pull_request.opened" if not is_merged else "pull_request.merged",
+            from_status=None,
+            to_status=initial_status,
+            actor_id=owner_actor.id,
+            reason="Synchronized from GitHub",
+        )
+
+        return pr
+
     # ---------------------------------------------------------
     # PR READ / LIST
     # ---------------------------------------------------------

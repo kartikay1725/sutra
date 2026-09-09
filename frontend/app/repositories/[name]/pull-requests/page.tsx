@@ -39,7 +39,7 @@ function timeAgo(dateStr: string) {
 export default function PullRequestsPage({ params }: { params: Promise<{ name: string }> }) {
   const { name: repoName } = use(params);
   const router = useRouter();
-  const [owner, setOwner] = useState<string>("kartikay1725");
+  const [owner, setOwner] = useState<string>("");
   const [prs, setPrs] = useState<PullRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("All");

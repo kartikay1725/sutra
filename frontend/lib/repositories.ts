@@ -8,6 +8,8 @@ export interface Repository {
   is_private: boolean;
   default_branch: string;
   owner?: string;
+  provider_owner?: string;
+  provider_type?: string;
   clone_url?: string;
   settings?: Record<string, any>;
   created_at: string;

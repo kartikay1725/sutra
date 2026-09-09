@@ -232,6 +232,17 @@ class RepositoryProvider(ABC):
         """Fetch pull request details and mergeability."""
         ...
 
+    def list_pull_requests(
+        self,
+        owner: str,
+        name: str,
+        state: str = "all",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[ProviderPullRequest]:
+        """List pull requests from the authoritative substrate."""
+        return []
+
     @abstractmethod
     def merge_pull_request(
         self,

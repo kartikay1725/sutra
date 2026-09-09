@@ -840,6 +840,48 @@ class GitHubRepositoryProvider(RepositoryProvider):
             html_url=data.get("html_url", ""),
         )
 
+    def list_pull_requests(
+        self,
+        owner: str,
+        name: str,
+        state: str = "all",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[ProviderPullRequest]:
+        headers = self._get_installation_headers(owner, name)
+        safe_state = state if state in {"open", "closed", "all"} else "all"
+        safe_limit = max(1, min(int(limit), 100))
+        safe_offset = max(0, int(offset))
+        page = (safe_offset // safe_limit) + 1
+
+        res = self._client.get(
+            f"/repos/{owner}/{name}/pulls",
+            headers=headers,
+            params={
+                "state": safe_state,
+                "per_page": safe_limit,
+                "page": page,
+            },
+        )
+        res.raise_for_status()
+        data = res.json()
+        return [
+            ProviderPullRequest(
+                number=item["number"],
+                title=item["title"],
+                body=item.get("body"),
+                head_ref=item["head"]["ref"] if item.get("head") else "",
+                head_sha=item["head"]["sha"] if item.get("head") else "",
+                base_ref=item["base"]["ref"] if item.get("base") else "",
+                base_sha=item["base"]["sha"] if item.get("base") else "",
+                is_merged=item.get("merged_at") is not None,
+                is_closed=item.get("state") == "closed",
+                mergeable=item.get("mergeable"),
+                html_url=item.get("html_url", ""),
+            )
+            for item in data
+        ]
+
     def create_branch(
         self,
         owner: str,

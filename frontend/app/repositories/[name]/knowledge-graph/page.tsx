@@ -20,6 +20,10 @@ import {
   authService,
 } from "@/lib/auth";
 
+import {
+  repositoryService,
+} from "@/lib/repositories";
+
 import * as I from "lucide-react";
 
 interface KGNode {
@@ -47,6 +51,7 @@ interface Subgraph {
 
 interface GraphResponse {
   nodes: KGNode[];
+  edges?: KGEdge[];
 }
 
 type GraphTab = "explorer" | "all";
@@ -508,6 +513,11 @@ export default function KnowledgeGraphPage({
   ] = useState<KGNode[]>([]);
 
   const [
+    allEdges,
+    setAllEdges,
+  ] = useState<KGEdge[]>([]);
+
+  const [
     activeTab,
     setActiveTab,
   ] = useState<GraphTab>(
@@ -562,6 +572,9 @@ export default function KnowledgeGraphPage({
           setAllNodes(
             data.nodes || [],
           );
+          setAllEdges(
+            data.edges || [],
+          );
 
           // Keep the current selection only if
           // the selected entity still exists.
@@ -585,6 +598,7 @@ export default function KnowledgeGraphPage({
           );
 
           setAllNodes([]);
+          setAllEdges([]);
 
           setError(
             err?.detail ||
@@ -618,17 +632,22 @@ export default function KnowledgeGraphPage({
             return;
           }
 
-          /*
-           * Repository pages currently resolve repositories
-           * relative to the authenticated owner, so preserve
-           * that established route behavior.
-           */
+          let canonicalOwner = user.username;
+          try {
+            const repo = await repositoryService.getRepository(user.username, name);
+            if (repo && (repo.provider_owner || repo.owner)) {
+              canonicalOwner = repo.provider_owner || repo.owner || user.username;
+            }
+          } catch {
+            // fallback to user.username
+          }
+
           setOwner(
-            user.username,
+            canonicalOwner,
           );
 
           await loadGraph(
-            user.username,
+            canonicalOwner,
           );
         } catch (err: any) {
           if (cancelled) {
@@ -934,6 +953,25 @@ export default function KnowledgeGraphPage({
               >
                 {allNodes.length}{" "}
                 entities
+              </span>
+
+              <span
+                style={{
+                  fontSize: 11,
+                  padding:
+                    "4px 10px",
+                  borderRadius: 20,
+                  background:
+                    "rgba(34,211,238,0.1)",
+                  border:
+                    "1px solid rgba(34,211,238,0.25)",
+                  color:
+                    "#22d3ee",
+                  fontWeight: 600,
+                }}
+              >
+                {allEdges.length}{" "}
+                relationships
               </span>
 
               <span

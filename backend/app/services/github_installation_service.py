@@ -261,9 +261,148 @@ class GitHubInstallationService:
         db.commit()
         for repo in synced:
             db.refresh(repo)
+            try:
+                self.sync_repository_engineering_objects(db, repo)
+            except Exception as e:
+                logger.warning(f"Failed to backfill engineering objects for repo {repo.name}: {e}")
 
         logger.info(
             f"Synced {len(synced)} GitHub repositories for user {user.id} "
             f"(installation {installation.github_installation_id})"
         )
         return synced
+
+    def sync_repository_engineering_objects(
+        self,
+        db: Session,
+        repository: Repository,
+        issue_limit: int = 30,
+        pr_limit: int = 30,
+    ) -> dict[str, int]:
+        """
+        Idempotently backfill existing open issues and pull requests from GitHub
+        into SUTRA without fabricating agent or session provenance.
+        Triggers Knowledge Graph indexing upon completion.
+        """
+        if repository.provider_type != "github" or not repository.provider_owner:
+            return {"issues": 0, "pull_requests": 0}
+
+        from app.models.issue import Issue
+        from app.providers.github.repository import GitHubRepositoryProvider
+        from app.services import knowledge_graph_service
+        from app.services.pull_request_service import PullRequestService
+
+        provider = GitHubRepositoryProvider(
+            auth_service=self.auth_service,
+            base_url=getattr(self.auth_service, "base_url", "https://api.github.com"),
+        )
+        owner = repository.provider_owner
+        repo_name = repository.name
+
+        issues_synced = 0
+        prs_synced = 0
+        now = datetime.now(timezone.utc)
+
+        # 1. Backfill Issues
+        try:
+            gh_issues = provider.list_issues(
+                owner=owner,
+                name=repo_name,
+                state="open",
+                limit=issue_limit,
+            )
+            for gh_issue in gh_issues:
+                # Deduplicate by repository_id + github_issue_id / github_issue_number
+                existing_issue = None
+                if gh_issue.id:
+                    existing_issue = db.scalar(
+                        select(Issue).where(
+                            Issue.repository_id == repository.id,
+                            Issue.github_issue_id == str(gh_issue.id),
+                        )
+                    )
+                if not existing_issue and gh_issue.number:
+                    existing_issue = db.scalar(
+                        select(Issue).where(
+                            Issue.repository_id == repository.id,
+                            Issue.github_issue_number == gh_issue.number,
+                        )
+                    )
+
+                if existing_issue:
+                    existing_issue.title = gh_issue.title or existing_issue.title
+                    existing_issue.body = gh_issue.body or existing_issue.body
+                    existing_issue.status = gh_issue.state or existing_issue.status
+                    existing_issue.github_html_url = gh_issue.html_url or existing_issue.github_html_url
+                    existing_issue.github_author_login = gh_issue.author_login or existing_issue.github_author_login
+                    existing_issue.updated_at = gh_issue.updated_at or now
+                else:
+                    new_issue = Issue(
+                        id=str(uuid4()),
+                        repository_id=repository.id,
+                        github_issue_id=str(gh_issue.id) if gh_issue.id else None,
+                        github_issue_number=gh_issue.number,
+                        github_html_url=gh_issue.html_url,
+                        source_type="human",
+                        agent_id=None,
+                        agent_session_id=None,
+                        task_id=None,
+                        actor_id=None,
+                        title=gh_issue.title or f"GitHub Issue #{gh_issue.number}",
+                        body=gh_issue.body or "",
+                        status=gh_issue.state or "open",
+                        github_author_login=gh_issue.author_login,
+                        created_at=gh_issue.created_at or now,
+                        updated_at=gh_issue.updated_at or now,
+                        closed_at=gh_issue.closed_at,
+                    )
+                    db.add(new_issue)
+                issues_synced += 1
+
+            db.commit()
+        except Exception as e:
+            logger.warning(f"Error backfilling issues for {owner}/{repo_name}: {e}")
+            db.rollback()
+
+        # 2. Backfill Pull Requests
+        try:
+            gh_prs = provider.list_pull_requests(
+                owner=owner,
+                name=repo_name,
+                state="open",
+                limit=pr_limit,
+            )
+            pr_svc = PullRequestService(db)
+            for gh_pr in gh_prs:
+                pr_svc.upsert_github_pull_request(
+                    repository=repository,
+                    pr_number=gh_pr.number,
+                    title=gh_pr.title or f"GitHub PR #{gh_pr.number}",
+                    target_branch=gh_pr.base_ref or (repository.default_branch or "main"),
+                    head_branch=gh_pr.head_ref or None,
+                    head_sha=gh_pr.head_sha or None,
+                    base_sha=gh_pr.base_sha or None,
+                    description=gh_pr.body or None,
+                    html_url=gh_pr.html_url or None,
+                    author_login=None,
+                    is_merged=gh_pr.is_merged,
+                    is_closed=gh_pr.is_closed,
+                    action="opened",
+                )
+                prs_synced += 1
+
+            db.commit()
+        except Exception as e:
+            logger.warning(f"Error backfilling PRs for {owner}/{repo_name}: {e}")
+            db.rollback()
+
+        # 3. Index Knowledge Graph
+        try:
+            knowledge_graph_service.index_engineering_lifecycle(db, repository)
+            db.commit()
+        except Exception as e:
+            logger.warning(f"Failed to index Knowledge Graph after engineering backfill: {e}")
+            db.rollback()
+
+        return {"issues": issues_synced, "pull_requests": prs_synced}
+

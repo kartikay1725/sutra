@@ -123,6 +123,7 @@ def get_repository_for_user(
     The GitHub repository itself is identified using
     Repository.provider_owner + Repository.name.
     """
+    from sqlalchemy import or_
     repo = db.scalar(
         select(Repository)
         .join(
@@ -130,7 +131,10 @@ def get_repository_for_user(
             User.id == Repository.owner_id,
         )
         .where(
-            User.username == owner_name,
+            or_(
+                User.username == owner_name,
+                Repository.provider_owner == owner_name,
+            ),
             Repository.slug == repo_name.lower(),
             Repository.deleted_at.is_(None),
         )

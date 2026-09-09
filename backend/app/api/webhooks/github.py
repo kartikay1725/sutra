@@ -4,7 +4,7 @@ from fastapi import APIRouter, Request, HTTPException, Depends, Header, status
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 from app.core.config import settings
 from app.db.session import get_db
@@ -14,19 +14,87 @@ from app.models.pull_request import PullRequest
 from app.models.change import Change
 from app.models.task import Task
 from app.models.ci_job import CIJob
-from datetime import timezone
+from app.models.issue import Issue, IssueComment
 from app.providers.github.events import GitHubWebhookAdapter
 from app.providers.events import (
     NormalizedPushEvent,
     NormalizedPullRequestEvent,
     NormalizedCheckRunEvent,
+    NormalizedIssueEvent,
+    NormalizedIssueCommentEvent,
 )
 from app.services.git_push_event_service import GitPushEventService
+from app.services.pull_request_service import PullRequestService
+from app.services import knowledge_graph_service
 
 logger = logging.getLogger("sutra.api.webhooks.github")
 router = APIRouter(prefix="/v1/webhooks", tags=["webhooks"])
 
 webhook_adapter = GitHubWebhookAdapter()
+
+
+def _resolve_repository(db: Session, event) -> Repository | None:
+    """
+    Resolve repository securely using priority order:
+    1. GitHub external ID (if present and persisted)
+    2. provider_owner + repository_name
+    3. slug or name fallback
+    """
+    external_id = getattr(event, "repository_external_id", None)
+    if external_id:
+        repo = db.scalar(
+            select(Repository).where(
+                Repository.provider_type == "github",
+                Repository.external_id == str(external_id),
+                Repository.deleted_at.is_(None),
+            )
+        )
+        if repo:
+            return repo
+
+    owner = getattr(event, "repository_owner", None)
+    name = getattr(event, "repository_name", None)
+    if owner and name:
+        repo = db.scalar(
+            select(Repository).where(
+                Repository.provider_owner == owner,
+                Repository.slug == name.lower(),
+                Repository.deleted_at.is_(None),
+            )
+        )
+        if repo:
+            return repo
+
+        repo = db.scalar(
+            select(Repository).where(
+                Repository.provider_owner == owner,
+                Repository.name == name,
+                Repository.deleted_at.is_(None),
+            )
+        )
+        if repo:
+            return repo
+
+    if name:
+        repo = db.scalar(
+            select(Repository).where(
+                Repository.slug == name.lower(),
+                Repository.deleted_at.is_(None),
+            )
+        )
+        if repo:
+            return repo
+
+        repo = db.scalar(
+            select(Repository).where(
+                Repository.name == name,
+                Repository.deleted_at.is_(None),
+            )
+        )
+        if repo:
+            return repo
+
+    return None
 
 
 @router.post(
@@ -63,14 +131,9 @@ async def handle_github_webhook(
     if not normalized_event:
         return {"status": "ignored", "event": x_github_event}
 
+    repo = _resolve_repository(db, normalized_event)
+
     if isinstance(normalized_event, NormalizedPushEvent):
-        # Resolve repository in SUTRA
-        repo = db.scalar(
-            select(Repository).where(
-                Repository.slug == normalized_event.repository_name.lower(),
-                Repository.deleted_at.is_(None),
-            )
-        )
         if repo:
             actor = db.scalar(
                 select(Actor).where(
@@ -123,20 +186,6 @@ async def handle_github_webhook(
                 return {"status": "error", "detail": str(e)}
 
     elif isinstance(normalized_event, NormalizedCheckRunEvent):
-        repo = db.scalar(
-            select(Repository).where(
-                Repository.slug == normalized_event.repository_name.lower(),
-                Repository.deleted_at.is_(None),
-            )
-        )
-        if not repo:
-            repo = db.scalar(
-                select(Repository).where(
-                    Repository.name == normalized_event.repository_name,
-                    Repository.deleted_at.is_(None),
-                )
-            )
-
         if repo:
             pr = db.scalar(
                 select(PullRequest).where(
@@ -226,135 +275,218 @@ async def handle_github_webhook(
                     "head_sha": normalized_event.head_sha,
                 }
 
-    elif isinstance(normalized_event, NormalizedPullRequestEvent):
-        repo = db.scalar(
-            select(Repository).where(
-                Repository.slug == normalized_event.repository_name.lower(),
-                Repository.deleted_at.is_(None),
+    elif isinstance(normalized_event, NormalizedIssueEvent):
+        if not repo:
+            return {
+                "status": "accepted",
+                "event": "issues",
+                "reason": "Repository not found",
+            }
+
+        now = datetime.now(timezone.utc)
+        parsed_created_at = None
+        if normalized_event.created_at:
+            try:
+                parsed_created_at = datetime.fromisoformat(normalized_event.created_at.replace("Z", "+00:00"))
+            except Exception:
+                pass
+
+        parsed_updated_at = None
+        if normalized_event.updated_at:
+            try:
+                parsed_updated_at = datetime.fromisoformat(normalized_event.updated_at.replace("Z", "+00:00"))
+            except Exception:
+                pass
+
+        parsed_closed_at = None
+        if normalized_event.closed_at:
+            try:
+                parsed_closed_at = datetime.fromisoformat(normalized_event.closed_at.replace("Z", "+00:00"))
+            except Exception:
+                pass
+        elif normalized_event.state == "closed":
+            parsed_closed_at = now
+
+        # Locate existing Issue by repository + github_issue_id or github_issue_number
+        issue = db.scalar(
+            select(Issue).where(
+                Issue.repository_id == repo.id,
+                (Issue.github_issue_id == normalized_event.issue_id) |
+                (Issue.github_issue_number == normalized_event.issue_number)
             )
         )
+
+        if not issue:
+            # Genuinely human/GitHub-created issue
+            issue = Issue(
+                repository_id=repo.id,
+                github_issue_id=normalized_event.issue_id,
+                github_issue_number=normalized_event.issue_number,
+                github_html_url=normalized_event.html_url,
+                source_type="human",
+                agent_id=None,
+                agent_session_id=None,
+                task_id=None,
+                actor_id=repo.owner_id,
+                title=normalized_event.title,
+                body=normalized_event.body,
+                status=normalized_event.state,
+                github_author_login=normalized_event.author_login,
+                created_at=parsed_created_at or now,
+                updated_at=parsed_updated_at or now,
+                closed_at=parsed_closed_at,
+            )
+            db.add(issue)
+        else:
+            # Update existing issue idempotently, STRICTLY PRESERVING agent provenance if present
+            issue.github_issue_id = normalized_event.issue_id
+            issue.github_issue_number = normalized_event.issue_number
+            issue.github_html_url = normalized_event.html_url
+            issue.title = normalized_event.title
+            issue.body = normalized_event.body
+            issue.status = normalized_event.state
+            issue.github_author_login = normalized_event.author_login
+            if parsed_created_at:
+                issue.created_at = parsed_created_at
+            issue.updated_at = parsed_updated_at or now
+            issue.closed_at = parsed_closed_at
+
+        db.commit()
+        db.refresh(issue)
+
+        # Trigger incremental Knowledge Graph indexing for repository
+        try:
+            knowledge_graph_service.index_engineering_lifecycle(db, repo)
+            db.commit()
+        except Exception as e:
+            logger.warning(f"Failed to update Knowledge Graph on issue webhook: {e}")
+
+        return {
+            "status": "processed",
+            "event": "issues",
+            "action": normalized_event.action,
+            "issue_id": issue.id,
+            "github_issue_number": issue.github_issue_number,
+            "state": issue.status,
+        }
+
+    elif isinstance(normalized_event, NormalizedIssueCommentEvent):
         if not repo:
-            repo = db.scalar(
-                select(Repository).where(
-                    Repository.name == normalized_event.repository_name,
-                    Repository.deleted_at.is_(None),
-                )
+            return {"status": "accepted", "event": "issue_comment", "reason": "Repository not found"}
+
+        issue = db.scalar(
+            select(Issue).where(
+                Issue.repository_id == repo.id,
+                Issue.github_issue_number == normalized_event.issue_number,
             )
+        )
+        if not issue:
+            return {"status": "accepted", "event": "issue_comment", "reason": "Parent issue not found"}
 
-        if repo:
-            pr = db.scalar(
-                select(PullRequest)
-                .join(Change, PullRequest.source_change_id == Change.id)
-                .where(
-                    PullRequest.repository_id == repo.id,
-                    Change.metadata_json.contains(f'"github_pr_number": {normalized_event.pr_number}'),
-                )
-            )
-            if not pr and normalized_event.head_ref:
-                pr = db.scalar(
-                    select(PullRequest)
-                    .join(Change, PullRequest.source_change_id == Change.id)
-                    .where(
-                        PullRequest.repository_id == repo.id,
-                        Change.branch == normalized_event.head_ref,
-                    )
-                )
+        now = datetime.now(timezone.utc)
+        parsed_created_at = None
+        if normalized_event.created_at:
+            try:
+                parsed_created_at = datetime.fromisoformat(normalized_event.created_at.replace("Z", "+00:00"))
+            except Exception:
+                pass
 
-            if pr:
-                change = db.scalar(select(Change).where(Change.id == pr.source_change_id))
-                action = (normalized_event.action or "").lower()
+        parsed_updated_at = None
+        if normalized_event.updated_at:
+            try:
+                parsed_updated_at = datetime.fromisoformat(normalized_event.updated_at.replace("Z", "+00:00"))
+            except Exception:
+                pass
 
-                if action == "synchronize":
-                    new_head = normalized_event.head_sha
-                    old_head = pr.source_commit
-                    if new_head and new_head != old_head:
-                        pr.source_commit = new_head
-                        if change:
-                            change.resulting_commit = new_head
-                            change_meta = {}
-                            if change.metadata_json:
-                                try:
-                                    change_meta = json.loads(change.metadata_json)
-                                except Exception:
-                                    pass
-                            approved_head = change_meta.get("approved_head_sha")
-                            if approved_head and approved_head != new_head:
-                                change_meta["approved_head_sha"] = None
-                                change.metadata_json = json.dumps(change_meta, sort_keys=True)
-                                if pr.status == PullRequest.STATUS_APPROVED:
-                                    pr.status = PullRequest.STATUS_OPEN
-                        db.commit()
-                        return {
-                            "status": "processed",
-                            "event": "pull_request",
-                            "action": "synchronize",
-                            "pull_request_id": pr.id,
-                            "new_head_sha": new_head,
-                        }
-
-                elif action == "closed":
-                    now = datetime.now(timezone.utc)
-                    if normalized_event.is_merged:
-                        pr.status = PullRequest.STATUS_MERGED
-                        pr.merged_at = pr.merged_at or now
-                        if pr.target_commit is None:
-                            pr.target_commit = normalized_event.base_sha or pr.source_commit
-                        if change:
-                            change.status = "recorded"
-                            change_meta = {}
-                            if change.metadata_json:
-                                try:
-                                    change_meta = json.loads(change.metadata_json)
-                                except Exception:
-                                    pass
-                            change_meta["merged"] = True
-                            change.metadata_json = json.dumps(change_meta, sort_keys=True)
-
-                        linked_task = db.scalar(
-                            select(Task).where(
-                                (Task.resulting_pull_request_id == pr.id) |
-                                (Task.resulting_change_id == pr.source_change_id)
-                            )
-                        )
-                        if linked_task and linked_task.status != Task.STATUS_COMPLETED:
-                            from app.services.task_service import TaskService
-                            TaskService(db)._complete_locked_task(linked_task, actor_id=pr.author_id)
-                    else:
-                        pr.status = PullRequest.STATUS_CLOSED
-                        pr.closed_at = pr.closed_at or now
-
-                    db.commit()
-                    return {
-                        "status": "processed",
-                        "event": "pull_request",
-                        "action": "closed",
-                        "pull_request_id": pr.id,
-                        "merged": normalized_event.is_merged,
-                    }
-
-                elif action == "reopened":
-                    pr.status = PullRequest.STATUS_OPEN
-                    pr.closed_at = None
-                    db.commit()
-                    return {
-                        "status": "processed",
-                        "event": "pull_request",
-                        "action": "reopened",
-                        "pull_request_id": pr.id,
-                    }
-
-                return {
-                    "status": "accepted",
-                    "event": "pull_request",
-                    "action": action,
-                    "pull_request_id": pr.id,
-                }
+        existing_c = db.scalar(
+            select(IssueComment).where(IssueComment.github_comment_id == normalized_event.comment_id)
+        )
+        if existing_c:
+            if normalized_event.action == "deleted":
+                db.delete(existing_c)
             else:
-                return {
-                    "status": "accepted",
-                    "event": "pull_request",
-                    "reason": "No matching SUTRA pull request found",
-                    "pr_number": normalized_event.pr_number,
-                }
+                existing_c.body = normalized_event.body
+                existing_c.github_html_url = normalized_event.html_url
+                existing_c.github_author_login = normalized_event.author_login
+                existing_c.updated_at = parsed_updated_at or now
+        elif normalized_event.action != "deleted":
+            c = IssueComment(
+                issue_id=issue.id,
+                github_comment_id=normalized_event.comment_id,
+                github_html_url=normalized_event.html_url,
+                author_id=None,
+                github_author_login=normalized_event.author_login,
+                body=normalized_event.body,
+                created_at=parsed_created_at or now,
+                updated_at=parsed_updated_at or now,
+            )
+            db.add(c)
+
+        db.commit()
+        return {
+            "status": "processed",
+            "event": "issue_comment",
+            "action": normalized_event.action,
+            "comment_id": normalized_event.comment_id,
+        }
+
+    elif isinstance(normalized_event, NormalizedPullRequestEvent):
+        if not repo:
+            return {
+                "status": "accepted",
+                "event": "pull_request",
+                "reason": "Repository not found",
+            }
+
+        action = (normalized_event.action or "").lower()
+        is_closed = (action == "closed")
+        is_merged = normalized_event.is_merged
+
+        pr_svc = PullRequestService(db)
+        pr = pr_svc.upsert_github_pull_request(
+            repository=repo,
+            pr_number=normalized_event.pr_number,
+            title=normalized_event.title or f"GitHub PR #{normalized_event.pr_number}",
+            target_branch=normalized_event.base_ref,
+            head_branch=normalized_event.head_ref,
+            head_sha=normalized_event.head_sha,
+            base_sha=normalized_event.base_sha,
+            description=normalized_event.body,
+            html_url=normalized_event.html_url,
+            author_login=normalized_event.author_login,
+            is_merged=is_merged,
+            is_closed=is_closed,
+            action=action,
+        )
+
+        # If merged, complete linked task if any
+        if is_merged and pr:
+            linked_task = db.scalar(
+                select(Task).where(
+                    (Task.resulting_pull_request_id == pr.id) |
+                    (Task.resulting_change_id == pr.source_change_id)
+                )
+            )
+            if linked_task and linked_task.status != Task.STATUS_COMPLETED:
+                from app.services.task_service import TaskService
+                TaskService(db)._complete_locked_task(linked_task, actor_id=pr.author_id)
+
+        db.commit()
+
+        # Update Knowledge Graph
+        try:
+            knowledge_graph_service.index_engineering_lifecycle(db, repo)
+            db.commit()
+        except Exception as e:
+            logger.warning(f"Failed to update Knowledge Graph on PR webhook: {e}")
+
+        return {
+            "status": "processed",
+            "event": "pull_request",
+            "action": action,
+            "pull_request_id": pr.id,
+            "pr_number": normalized_event.pr_number,
+            "status_state": pr.status,
+        }
 
     return {"status": "accepted", "event": x_github_event}

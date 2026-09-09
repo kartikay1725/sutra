@@ -335,7 +335,7 @@ def index_engineering_lifecycle(
                     )
                     edge_count += 1
 
-        # 4. Resulting PR
+        # 4. Resulting PR linked from task
         if t.resulting_pull_request_id:
             pr = db.scalar(select(PullRequest).where(PullRequest.id == t.resulting_pull_request_id))
             if pr:
@@ -351,6 +351,50 @@ def index_engineering_lifecycle(
                 add_edge(
                     db=db,
                     source_node_id=task_node.id,
+                    target_node_id=pr_node.id,
+                    relationship_type="reviewed_in",
+                )
+                edge_count += 1
+
+    # 4b. All PullRequests in repository (including GitHub-created PRs)
+    all_prs = db.scalars(
+        select(PullRequest).where(PullRequest.repository_id == repo_id)
+    ).all()
+    for pr in all_prs:
+        pr_node = upsert_node(
+            db=db,
+            repository_id=repo_id,
+            entity_type="pull_request",
+            name=f"PR #{pr.id[:8]}: {pr.title or 'Pull Request'}",
+            summary=f"Pull Request in status {pr.status}",
+            metadata={"pull_request_id": pr.id, "status": pr.status, "target_branch": pr.target_branch},
+        )
+        node_count += 1
+
+        if pr.source_change_id:
+            ch_node = db.scalar(
+                select(KnowledgeNode).where(
+                    KnowledgeNode.repository_id == repo_id,
+                    KnowledgeNode.entity_type == "change",
+                    KnowledgeNode.metadata_json.contains(pr.source_change_id),
+                )
+            )
+            if not ch_node:
+                ch = db.scalar(select(Change).where(Change.id == pr.source_change_id))
+                if ch:
+                    ch_node = upsert_node(
+                        db=db,
+                        repository_id=repo_id,
+                        entity_type="change",
+                        name=f"Change #{ch.id[:8]}",
+                        summary=ch.intent,
+                        metadata={"change_id": ch.id, "status": ch.status},
+                    )
+                    node_count += 1
+            if ch_node:
+                add_edge(
+                    db=db,
+                    source_node_id=ch_node.id,
                     target_node_id=pr_node.id,
                     relationship_type="reviewed_in",
                 )

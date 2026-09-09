@@ -6,6 +6,8 @@ from app.providers.events import (
     NormalizedPushEvent,
     NormalizedPullRequestEvent,
     NormalizedCheckRunEvent,
+    NormalizedIssueEvent,
+    NormalizedIssueCommentEvent,
 )
 
 
@@ -37,11 +39,12 @@ class GitHubWebhookAdapter(WebhookEventAdapter):
         self,
         event_type_header: str,
         payload: Dict[str, Any],
-    ) -> Optional[Union[NormalizedPushEvent, NormalizedPullRequestEvent, Any]]:
+    ) -> Optional[Union[NormalizedPushEvent, NormalizedPullRequestEvent, NormalizedCheckRunEvent, NormalizedIssueEvent, NormalizedIssueCommentEvent, Any]]:
         event_type = event_type_header.lower()
         repo_data = payload.get("repository", {})
         owner = repo_data.get("owner", {}).get("login", "")
         name = repo_data.get("name", "")
+        repo_external_id = str(repo_data.get("id")) if repo_data.get("id") is not None else None
 
         if event_type == "push":
             ref = payload.get("ref", "")
@@ -63,10 +66,12 @@ class GitHubWebhookAdapter(WebhookEventAdapter):
                 pusher_username=pusher,
                 commit_shas=commits,
                 raw_payload=payload,
+                repository_external_id=repo_external_id,
             )
 
         elif event_type == "pull_request":
             pr_data = payload.get("pull_request", {})
+            sender = payload.get("sender", {}).get("login") or pr_data.get("user", {}).get("login", "")
             return NormalizedPullRequestEvent(
                 provider_type="github",
                 repository_owner=owner,
@@ -78,6 +83,53 @@ class GitHubWebhookAdapter(WebhookEventAdapter):
                 base_ref=pr_data.get("base", {}).get("ref", ""),
                 base_sha=pr_data.get("base", {}).get("sha", ""),
                 is_merged=pr_data.get("merged", False),
+                title=pr_data.get("title"),
+                body=pr_data.get("body"),
+                html_url=pr_data.get("html_url"),
+                author_login=sender,
+                raw_payload=payload,
+                repository_external_id=repo_external_id,
+            )
+
+        elif event_type == "issues":
+            issue_data = payload.get("issue", {})
+            sender = payload.get("sender", {}).get("login") or issue_data.get("user", {}).get("login", "")
+            return NormalizedIssueEvent(
+                provider_type="github",
+                repository_owner=owner,
+                repository_name=name,
+                action=payload.get("action", ""),
+                issue_id=str(issue_data.get("id", "")),
+                issue_number=issue_data.get("number", 0),
+                title=issue_data.get("title", ""),
+                body=issue_data.get("body") or "",
+                state=issue_data.get("state", "open"),
+                html_url=issue_data.get("html_url", ""),
+                author_login=sender,
+                created_at=issue_data.get("created_at"),
+                updated_at=issue_data.get("updated_at"),
+                closed_at=issue_data.get("closed_at"),
+                repository_external_id=repo_external_id,
+                raw_payload=payload,
+            )
+
+        elif event_type == "issue_comment":
+            issue_data = payload.get("issue", {})
+            comment_data = payload.get("comment", {})
+            sender = payload.get("sender", {}).get("login") or comment_data.get("user", {}).get("login", "")
+            return NormalizedIssueCommentEvent(
+                provider_type="github",
+                repository_owner=owner,
+                repository_name=name,
+                action=payload.get("action", ""),
+                comment_id=str(comment_data.get("id", "")),
+                issue_number=issue_data.get("number", 0),
+                body=comment_data.get("body") or "",
+                html_url=comment_data.get("html_url", ""),
+                author_login=sender,
+                created_at=comment_data.get("created_at"),
+                updated_at=comment_data.get("updated_at"),
+                repository_external_id=repo_external_id,
                 raw_payload=payload,
             )
 
@@ -103,6 +155,7 @@ class GitHubWebhookAdapter(WebhookEventAdapter):
                 completed_at=check_data.get("completed_at"),
                 pull_request_numbers=pr_numbers,
                 raw_payload=payload,
+                repository_external_id=repo_external_id,
             )
 
         return None
