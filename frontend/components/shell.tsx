@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, UserRound, LogOut, Settings, ChevronDown } from "lucide-react";
+import { Bell, UserRound, LogOut, Settings, ChevronDown, Menu, X } from "lucide-react";
 import { globalNav, repoNav } from "../lib/nav";
 import { authService, User } from "../lib/auth";
 import { I } from "../lib/icons";
@@ -90,6 +90,13 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
     return <SutraLoading fullscreen quote message="Connecting to engineering control plane..." />;
   }
 
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [path]);
+
   const repoMatch = path.match(/^\/repositories\/([^/]+)/);
   const repoName = repoMatch ? repoMatch[1] : null;
   const isRepoScope = Boolean(repoName);
@@ -97,8 +104,32 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
   const currentNav = isRepoScope ? repoNav : globalNav;
 
   return <div className="shell">
-    <aside className="sidebar">
-      <Link href="/home" className="brand"><Mark/><span>SUTRA</span></Link>
+    {/* Mobile drawer backdrop */}
+    <div
+      className={`sidebar-overlay ${mobileOpen ? "active" : ""}`}
+      onClick={() => setMobileOpen(false)}
+      aria-hidden="true"
+    />
+
+    <aside className={`sidebar ${mobileOpen ? "mobile-open" : ""}`}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 4px 14px" }}>
+        <Link href="/home" className="brand" style={{ padding: 0 }}><Mark/><span>SUTRA</span></Link>
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="mobile-close-btn"
+          aria-label="Close navigation"
+          style={{
+            display: "none",
+            background: "none",
+            border: "none",
+            color: "var(--muted)",
+            cursor: "pointer",
+            padding: 4,
+          }}
+        >
+          <X size={18} />
+        </button>
+      </div>
       
       {isRepoScope && (
         <div className="repo-scope-header" style={{ padding: "0 14px", marginBottom: 12 }}>
@@ -147,7 +178,17 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
     </aside>
     <main className="main">
       <header className="topbar">
-        <div className="crumb"><span>SUTRA</span><span>/</span><strong>{path === "/home" ? "Home" : path.split("/").filter(Boolean).slice(-1)[0]?.replaceAll("-"," ")}</strong></div>
+        <div style={{ display: "flex", alignItems: "center", minWidth: 0 }}>
+          <button
+            className="mobile-menu-trigger"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open navigation menu"
+            style={{ display: "none" }}
+          >
+            <Menu size={18} />
+          </button>
+          <div className="crumb"><span>SUTRA</span><span>/</span><strong>{path === "/home" ? "Home" : path.split("/").filter(Boolean).slice(-1)[0]?.replaceAll("-"," ")}</strong></div>
+        </div>
         <div className="top-actions">
           <Link
             href="/docs"
