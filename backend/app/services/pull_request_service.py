@@ -588,9 +588,9 @@ class PullRequestService:
             if head_branch:
                 meta["branch"] = head_branch
 
+            old_head = pr.source_commit
             # Handle action / synchronization
             if action == "synchronize" or (head_sha and head_sha != pr.source_commit):
-                old_head = pr.source_commit
                 if head_sha and head_sha != old_head:
                     pr.source_commit = head_sha
                     if change:

@@ -1617,13 +1617,16 @@ export function RealPullRequestDetail() {
 }
 
 export function RealAgents() {
-  const [activeTab, setActiveTab] = useState<'active' | 'pending'>('active');
+  const [activeTab, setActiveTab] = useState<'active' | 'pending' | 'mcp'>('active');
   const [agents, setAgents] = useState<Agent[]>([]);
   const [pendingRequests, setPendingRequests] = useState<AgentRegistration[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', description: '', provider: '', model: '' });
+  const [mcpClient, setMcpClient] = useState<'cursor' | 'claude_desktop' | 'claude_code' | 'windsurf'>('cursor');
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [tokenInput, setTokenInput] = useState<string>('YOUR_SUTRA_TOKEN');
 
   const load = async () => {
     setLoading(true);
@@ -1639,11 +1642,18 @@ export function RealAgents() {
 
   useEffect(() => { void load(); }, []);
 
+  const copyToClipboard = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2500);
+  };
+
   const create = async () => {
     if (!form.name.trim()) return;
     try {
       const created = await agentService.createAgent(form);
       setToken(created.token);
+      setTokenInput(created.token);
       setShowCreate(false);
       setForm({name:'',description:'',provider:'',model:''});
       await load();
@@ -1688,64 +1698,236 @@ export function RealAgents() {
     }
   };
 
+  const mcpEndpoint = typeof window !== 'undefined' ? `${window.location.origin}/v1/mcp` : 'https://api.sutra.sudarshanai.com/v1/mcp';
+  const effectiveToken = token || tokenInput || 'YOUR_SUTRA_TOKEN';
+
+  const cursorSnippet = JSON.stringify({
+    mcpServers: {
+      sutra: {
+        url: mcpEndpoint,
+        headers: {
+          Authorization: `Bearer ${effectiveToken}`
+        }
+      }
+    }
+  }, null, 2);
+
+  const claudeDesktopSnippet = JSON.stringify({
+    mcpServers: {
+      sutra: {
+        url: mcpEndpoint,
+        headers: {
+          Authorization: `Bearer ${effectiveToken}`
+        }
+      }
+    }
+  }, null, 2);
+
+  const claudeCodeSnippet = `claude mcp add --transport http sutra ${mcpEndpoint} --header "Authorization: Bearer ${effectiveToken}"`;
+
+  const windsurfSnippet = JSON.stringify({
+    mcpServers: {
+      sutra: {
+        serverUrl: mcpEndpoint,
+        headers: {
+          Authorization: `Bearer ${effectiveToken}`
+        }
+      }
+    }
+  }, null, 2);
+
+  const mcpToolsList = [
+    { name: 'sutra_get_context', category: 'Context & Policy', desc: 'Fetches repository rules, active branch policies, open tasks, and engineering standards.' },
+    { name: 'sutra_search_knowledge', category: 'Context & Policy', desc: 'Searches the verified institutional Knowledge Graph and codebase intelligence.' },
+    { name: 'sutra_start_task', category: 'Task Governance', desc: 'Registers task execution under SUTRA control-plane governance, binding the agent session.' },
+    { name: 'sutra_submit_change', category: 'Reconciliation', desc: 'Reconciles terminal-pushed Git commits with SUTRA change control and provenance tracking.' },
+    { name: 'sutra_get_status', category: 'Validation & CI', desc: 'Inspects CI pipeline checks, governance evaluations, and merge blockers for a change.' },
+    { name: 'sutra_request_merge', category: 'Promotion', desc: 'Requests automated or human-in-the-loop merge authorization for an evaluated change.' },
+    { name: 'sutra_get_provenance', category: 'Auditability', desc: 'Retrieves complete immutable cryptographic provenance for files and commits.' },
+    { name: 'sutra_create_issue', category: 'Collaboration', desc: 'Files structured tracking issues or blockers directly into SUTRA project governance.' },
+  ];
+
   return <>
-    <PageHead eyebrow="Autonomy" title="Agents" sub="Registered agents owned by your SUTRA account." />
+    <PageHead
+      eyebrow="Autonomy"
+      title="Agents & Control Plane"
+      sub="Registered autonomous agents, pending authorizations, and Model Context Protocol (MCP) integrations."
+      action={
+        activeTab === 'active' ? (
+          <RealButton primary onClick={() => setShowCreate(!showCreate)}>
+            <I.Plus size={14} /> Register New Agent
+          </RealButton>
+        ) : undefined
+      }
+    />
 
     {/* Tab Navigation */}
-    <div style={{ display: 'flex', gap: 16, marginBottom: 16, borderBottom: '1px solid var(--line)', paddingBottom: 8 }}>
+    <div style={{ display: 'flex', gap: 20, marginBottom: 20, borderBottom: '1px solid var(--line)', paddingBottom: 2 }}>
       <button
         style={{
           background: 'none', border: 'none', color: activeTab === 'active' ? 'var(--cyan)' : 'var(--muted)',
-          fontWeight: activeTab === 'active' ? 600 : 400, cursor: 'pointer', borderBottom: activeTab === 'active' ? '2px solid var(--cyan)' : 'none',
-          paddingBottom: 8
+          fontWeight: activeTab === 'active' ? 600 : 400, cursor: 'pointer', borderBottom: activeTab === 'active' ? '2px solid var(--cyan)' : '2px solid transparent',
+          paddingBottom: 10, display: 'flex', alignItems: 'center', gap: 8, transition: 'all 0.2s ease'
         }}
         onClick={() => setActiveTab('active')}
       >
-        Active Agents
+        <I.Bot size={16} /> Active Agents ({agents.length})
       </button>
       <button
         style={{
           background: 'none', border: 'none', color: activeTab === 'pending' ? 'var(--cyan)' : 'var(--muted)',
-          fontWeight: activeTab === 'pending' ? 600 : 400, cursor: 'pointer', borderBottom: activeTab === 'pending' ? '2px solid var(--cyan)' : 'none',
-          paddingBottom: 8
+          fontWeight: activeTab === 'pending' ? 600 : 400, cursor: 'pointer', borderBottom: activeTab === 'pending' ? '2px solid var(--cyan)' : '2px solid transparent',
+          paddingBottom: 10, display: 'flex', alignItems: 'center', gap: 8, transition: 'all 0.2s ease'
         }}
         onClick={() => setActiveTab('pending')}
       >
-        Pending Requests {pendingRequests.length > 0 && `(${pendingRequests.length})`}
+        <I.Clock size={16} /> Pending Requests {pendingRequests.length > 0 && `(${pendingRequests.length})`}
+      </button>
+      <button
+        style={{
+          background: 'none', border: 'none', color: activeTab === 'mcp' ? 'var(--cyan)' : 'var(--muted)',
+          fontWeight: activeTab === 'mcp' ? 600 : 400, cursor: 'pointer', borderBottom: activeTab === 'mcp' ? '2px solid var(--cyan)' : '2px solid transparent',
+          paddingBottom: 10, display: 'flex', alignItems: 'center', gap: 8, transition: 'all 0.2s ease'
+        }}
+        onClick={() => setActiveTab('mcp')}
+      >
+        <I.Sparkles size={16} /> Connect SUTRA (MCP)
       </button>
     </div>
 
     {activeTab === 'active' && (
       <>
-        {token && <Card style={{marginBottom:14,borderColor:'rgba(105,230,168,.22)'}}><div className="card-pad"><div className="eyebrow">Save this token now</div><div className="code" style={{wordBreak:'break-all'}}>{token}</div><div className="meta">The backend only returns the newly generated token at creation time.</div></div></Card>}
-        {showCreate && <Card style={{marginBottom:14}}><div className="card-pad form"><div className="field"><label className="label">Name</label><input className="input" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></div><div className="field"><label className="label">Description</label><input className="input" value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/></div><div className="field"><label className="label">Provider</label><input className="input" value={form.provider} onChange={e=>setForm({...form,provider:e.target.value})}/></div><div className="field"><label className="label">Model</label><input className="input" value={form.model} onChange={e=>setForm({...form,model:e.target.value})}/></div><div className="actions"><RealButton onClick={()=>setShowCreate(false)}>Cancel</RealButton><RealButton primary onClick={()=>void create()}>Create agent</RealButton></div></div></Card>}
-        <Card>{loading ? <div className="card-pad"><div className="sub">Loading agents…</div></div> : agents.length === 0 ? <div className="card-pad"><div className="sub">No agents registered.</div></div> : <div className="list">{agents.map(a => <div className="list-row" key={a.id}><div className="avatar"><I.Bot size={14}/></div><div style={{flex:1}}><div className="title-sm">{a.name}</div><div className="meta">{a.provider || 'Provider not set'} · {a.model || 'Model not set'} · {a.token_prefix}</div></div><Badge tone={tone(a.status)}>{a.status}</Badge><Link className="btn" href={`/agents/${a.id}`}>Details</Link><RealButton onClick={()=>void revoke(a.id)}><I.XCircle size={14}/> Revoke</RealButton></div>)}</div>}</Card>
+        {token && (
+          <Card style={{marginBottom:18, borderColor:'rgba(34, 197, 94, 0.4)', background: 'linear-gradient(180deg, rgba(34, 197, 94, 0.08) 0%, rgba(16, 21, 28, 0.6) 100%)'}}>
+            <div className="card-pad" style={{ padding: '20px 24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <div className="eyebrow" style={{ color: 'var(--green)', fontWeight: 600 }}>Permanent Token Created</div>
+                <button
+                  className="btn"
+                  style={{ padding: '4px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
+                  onClick={() => copyToClipboard(token, 'token-banner')}
+                >
+                  {copiedKey === 'token-banner' ? <I.Check size={14} style={{ color: 'var(--green)' }} /> : <I.Copy size={14} />}
+                  {copiedKey === 'token-banner' ? 'Copied' : 'Copy Token'}
+                </button>
+              </div>
+              <div className="code" style={{ wordBreak:'break-all', fontSize: 13, background: 'rgba(0,0,0,0.4)', padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
+                {token}
+              </div>
+              <div className="meta" style={{ marginTop: 8, color: 'var(--text-secondary)' }}>
+                Store this token safely. You can immediately use it to connect Cursor, Claude, or Windsurf via the <strong>Connect SUTRA (MCP)</strong> tab.
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {showCreate && (
+          <Card style={{marginBottom:18, border: '1px solid var(--line-accent)'}}>
+            <div className="card-pad form" style={{ padding: '24px' }}>
+              <div style={{ marginBottom: 16 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 600 }}>Register New Coding Agent</h3>
+                <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Creates a permanent identity in SUTRA with an authoritative access token.</p>
+              </div>
+              <div className="field">
+                <label className="label">Agent Name</label>
+                <input className="input" placeholder="e.g. Claude 3.7 Sonnet (Cursor)" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/>
+              </div>
+              <div className="field">
+                <label className="label">Description</label>
+                <input className="input" placeholder="e.g. Lead autonomous coding assistant for feature development" value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div className="field">
+                  <label className="label">Provider</label>
+                  <input className="input" placeholder="e.g. Anthropic, OpenAI, Local" value={form.provider} onChange={e=>setForm({...form,provider:e.target.value})}/>
+                </div>
+                <div className="field">
+                  <label className="label">Model</label>
+                  <input className="input" placeholder="e.g. claude-3-7-sonnet" value={form.model} onChange={e=>setForm({...form,model:e.target.value})}/>
+                </div>
+              </div>
+              <div className="actions" style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+                <RealButton onClick={()=>setShowCreate(false)}>Cancel</RealButton>
+                <RealButton primary onClick={()=>void create()}>Generate Token & Register</RealButton>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        <Card>
+          {loading ? (
+            <div className="card-pad" style={{ textAlign: 'center', padding: '36px 20px' }}>
+              <div className="sub">Loading agents…</div>
+            </div>
+          ) : agents.length === 0 ? (
+            <div className="card-pad" style={{ textAlign: 'center', padding: '36px 20px' }}>
+              <I.Bot size={32} className="muted" style={{ marginBottom: 10 }} />
+              <div className="title-sm" style={{ fontWeight: 600 }}>No agents registered</div>
+              <div className="sub" style={{ marginTop: 4 }}>Register an agent above or connect via the MCP tab to enable autonomous coding governance.</div>
+            </div>
+          ) : (
+            <div className="list">
+              {agents.map(a => (
+                <div className="list-row" key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px' }}>
+                  <div className="avatar" style={{
+                    width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', background: 'rgba(6, 182, 212, 0.15)', color: 'var(--cyan)'
+                  }}>
+                    <I.Bot size={18}/>
+                  </div>
+                  <div style={{flex:1, minWidth: 0}}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span className="title-sm" style={{ fontWeight: 600 }}>{a.name}</span>
+                      <span className="badge" style={{ fontSize: 11, background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' }}>
+                        {a.token_prefix}
+                      </span>
+                    </div>
+                    <div className="meta" style={{ marginTop: 4, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span>{a.provider || 'Provider not set'}</span>
+                      <span>·</span>
+                      <span>{a.model || 'Model not set'}</span>
+                    </div>
+                  </div>
+                  <Badge tone={tone(a.status)} style={{ textTransform: 'capitalize' }}>{a.status}</Badge>
+                  <Link className="btn" href={`/agents/${a.id}`} style={{ padding: '6px 12px', fontSize: 13 }}>Details</Link>
+                  <RealButton onClick={()=>void revoke(a.id)}>
+                    <I.XCircle size={14}/> Revoke
+                  </RealButton>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
       </>
     )}
 
     {activeTab === 'pending' && (
       <Card>
         {loading ? (
-          <div className="card-pad"><div className="sub">Loading pending requests…</div></div>
+          <div className="card-pad" style={{ textAlign: 'center', padding: '36px 20px' }}><div className="sub">Loading pending requests…</div></div>
         ) : pendingRequests.length === 0 ? (
-          <div className="card-pad"><div className="sub">No pending agent requests.</div></div>
+          <div className="card-pad" style={{ textAlign: 'center', padding: '36px 20px' }}>
+            <I.CheckCircle2 size={32} style={{ color: 'var(--green)', marginBottom: 10, opacity: 0.8 }} />
+            <div className="title-sm" style={{ fontWeight: 600 }}>All Caught Up</div>
+            <div className="sub" style={{ marginTop: 4 }}>No pending agent registration requests awaiting administrative approval.</div>
+          </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 14 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 16 }}>
             {pendingRequests.map(r => (
-              <div key={r.id} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 16, borderRadius: 8, border: '1px solid var(--line)', background: 'rgba(255,255,255,0.02)' }}>
+              <div key={r.id} style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 18, borderRadius: 12, border: '1px solid var(--line)', background: 'rgba(255,255,255,0.02)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div className="title-sm" style={{ fontSize: 16, fontWeight: 600 }}>{r.agent_name}</div>
                   <Badge tone={tone(r.status)}>{r.status}</Badge>
                 </div>
-                {r.agent_description && <div style={{ fontSize: 13, opacity: 0.8 }}>{r.agent_description}</div>}
-                <div className="meta" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12, opacity: 0.6 }}>
+                {r.agent_description && <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{r.agent_description}</div>}
+                <div className="meta" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12, opacity: 0.8 }}>
                   <div><strong>Provider:</strong> {r.provider || '—'}</div>
                   <div><strong>Model:</strong> {r.model || '—'}</div>
                   <div><strong>Requested At:</strong> {fmtDate(r.created_at)}</div>
                   <div><strong>Expires At:</strong> {fmtDate(r.expires_at)}</div>
                 </div>
-                <div style={{ marginTop: 8 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Requested Capabilities:</div>
+                <div style={{ marginTop: 6 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Requested Capabilities:</div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {r.requested_capabilities && r.requested_capabilities.length > 0 ? (
                       r.requested_capabilities.map((cap: string) => (
@@ -1765,6 +1947,260 @@ export function RealAgents() {
           </div>
         )}
       </Card>
+    )}
+
+    {activeTab === 'mcp' && (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        {/* Banner */}
+        <Card style={{
+          border: '1px solid rgba(6, 182, 212, 0.3)',
+          background: 'radial-gradient(ellipse at top right, rgba(6, 182, 212, 0.12), transparent 70%), var(--surface)'
+        }}>
+          <div className="card-pad" style={{ padding: '24px 28px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+              <div style={{ maxWidth: 640 }}>
+                <div className="eyebrow" style={{ color: 'var(--cyan)', fontWeight: 600, letterSpacing: '0.05em' }}>
+                  Model Context Protocol · Streamable HTTP
+                </div>
+                <h2 style={{ fontSize: 22, fontWeight: 700, marginTop: 6, color: 'var(--text-primary)' }}>
+                  Connect Your Coding Agent Once
+                </h2>
+                <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 8, lineHeight: 1.6 }}>
+                  SUTRA provides a standard Model Context Protocol (MCP) server running on Streamable HTTP.
+                  Your coding agents in Cursor, Claude Desktop, Claude Code, and Windsurf automatically discover
+                  and invoke SUTRA governance, task coordination, and change reconciliation tools.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <a
+                  href="/oauth/authorize?client_id=sutra-mcp-client&redirect_uri=https://api.sutra.sudarshanai.com/oauth/callback&response_type=code&scope=mcp:read+mcp:write&code_challenge=E9Melhoa2OwvFrGMTJguCH5rtx64LxU408W32BgV16g&code_challenge_method=S256"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn primary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 18px', fontWeight: 600 }}
+                >
+                  <I.Zap size={15} /> OAuth 2.1 One-Click Authorize
+                </a>
+              </div>
+            </div>
+
+            {/* Protocol Spec Badges */}
+            <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
+              <span className="badge" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', fontSize: 12 }}>
+                Transport: <strong>Streamable HTTP</strong>
+              </span>
+              <span className="badge" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', fontSize: 12 }}>
+                Endpoint: <code>/v1/mcp</code>
+              </span>
+              <span className="badge" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', fontSize: 12 }}>
+                OAuth 2.1 Discovery: <code>/.well-known/oauth-authorization-server</code>
+              </span>
+              <span className="badge" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', fontSize: 12 }}>
+                RFC 9728 Resource: <code>/.well-known/oauth-protected-resource</code>
+              </span>
+            </div>
+          </div>
+        </Card>
+
+        {/* Client Setup Box */}
+        <Card>
+          <div className="card-pad" style={{ padding: '24px 28px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <h3 style={{ fontSize: 17, fontWeight: 600 }}>IDE & Client Setup</h3>
+                <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
+                  Select your development environment to copy the exact configuration.
+                </p>
+              </div>
+
+              {/* Client Selection Buttons */}
+              <div style={{ display: 'flex', gap: 6, background: 'rgba(0,0,0,0.3)', padding: 4, borderRadius: 10, border: '1px solid var(--line)' }}>
+                {[
+                  { id: 'cursor', label: 'Cursor' },
+                  { id: 'claude_desktop', label: 'Claude Desktop' },
+                  { id: 'claude_code', label: 'Claude Code' },
+                  { id: 'windsurf', label: 'Windsurf' },
+                ].map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => setMcpClient(c.id as any)}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: 7,
+                      fontSize: 13,
+                      fontWeight: mcpClient === c.id ? 600 : 400,
+                      background: mcpClient === c.id ? 'var(--surface-2)' : 'transparent',
+                      color: mcpClient === c.id ? 'var(--text-primary)' : 'var(--muted)',
+                      border: mcpClient === c.id ? '1px solid var(--line-light)' : '1px solid transparent',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Token Input for Config Interpolation */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: 10, border: '1px solid var(--line)' }}>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontWeight: 500 }}>
+                Using Token:
+              </div>
+              <input
+                className="input"
+                style={{ flex: 1, height: 36, fontSize: 12, fontFamily: 'monospace' }}
+                placeholder="Paste your SUTRA agent token here to populate configurations..."
+                value={tokenInput}
+                onChange={(e) => setTokenInput(e.target.value)}
+              />
+              {effectiveToken !== 'YOUR_SUTRA_TOKEN' && (
+                <Badge tone="green">Token Ready</Badge>
+              )}
+            </div>
+
+            {/* Config Snippets */}
+            {mcpClient === 'cursor' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                    Add to <code>~/.cursor/mcp.json</code> or project <code>.cursor/mcp.json</code>:
+                  </span>
+                  <button
+                    className="btn"
+                    style={{ padding: '4px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
+                    onClick={() => copyToClipboard(cursorSnippet, 'cursor')}
+                  >
+                    {copiedKey === 'cursor' ? <I.Check size={14} style={{ color: 'var(--green)' }} /> : <I.Copy size={14} />}
+                    {copiedKey === 'cursor' ? 'Copied' : 'Copy JSON'}
+                  </button>
+                </div>
+                <pre style={{
+                  padding: 16, borderRadius: 10, background: '#07090D', border: '1px solid var(--line)',
+                  fontSize: 13, overflowX: 'auto', color: '#60A5FA', fontFamily: 'var(--font-mono, monospace)'
+                }}>
+                  {cursorSnippet}
+                </pre>
+              </div>
+            )}
+
+            {mcpClient === 'claude_desktop' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                    Add to <code>claude_desktop_config.json</code>:
+                  </span>
+                  <button
+                    className="btn"
+                    style={{ padding: '4px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
+                    onClick={() => copyToClipboard(claudeDesktopSnippet, 'claude_desktop')}
+                  >
+                    {copiedKey === 'claude_desktop' ? <I.Check size={14} style={{ color: 'var(--green)' }} /> : <I.Copy size={14} />}
+                    {copiedKey === 'claude_desktop' ? 'Copied' : 'Copy JSON'}
+                  </button>
+                </div>
+                <pre style={{
+                  padding: 16, borderRadius: 10, background: '#07090D', border: '1px solid var(--line)',
+                  fontSize: 13, overflowX: 'auto', color: '#A855F7', fontFamily: 'var(--font-mono, monospace)'
+                }}>
+                  {claudeDesktopSnippet}
+                </pre>
+              </div>
+            )}
+
+            {mcpClient === 'claude_code' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                    Execute directly in your terminal:
+                  </span>
+                  <button
+                    className="btn"
+                    style={{ padding: '4px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
+                    onClick={() => copyToClipboard(claudeCodeSnippet, 'claude_code')}
+                  >
+                    {copiedKey === 'claude_code' ? <I.Check size={14} style={{ color: 'var(--green)' }} /> : <I.Copy size={14} />}
+                    {copiedKey === 'claude_code' ? 'Copied' : 'Copy Command'}
+                  </button>
+                </div>
+                <pre style={{
+                  padding: 16, borderRadius: 10, background: '#07090D', border: '1px solid var(--line)',
+                  fontSize: 13, overflowX: 'auto', color: '#22C55E', fontFamily: 'var(--font-mono, monospace)'
+                }}>
+                  {claudeCodeSnippet}
+                </pre>
+              </div>
+            )}
+
+            {mcpClient === 'windsurf' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                    Add to <code>~/.codeium/windsurf/mcp_config.json</code>:
+                  </span>
+                  <button
+                    className="btn"
+                    style={{ padding: '4px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
+                    onClick={() => copyToClipboard(windsurfSnippet, 'windsurf')}
+                  >
+                    {copiedKey === 'windsurf' ? <I.Check size={14} style={{ color: 'var(--green)' }} /> : <I.Copy size={14} />}
+                    {copiedKey === 'windsurf' ? 'Copied' : 'Copy JSON'}
+                  </button>
+                </div>
+                <pre style={{
+                  padding: 16, borderRadius: 10, background: '#07090D', border: '1px solid var(--line)',
+                  fontSize: 13, overflowX: 'auto', color: '#38BDF8', fontFamily: 'var(--font-mono, monospace)'
+                }}>
+                  {windsurfSnippet}
+                </pre>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* 8 Curated Tools Contract Table */}
+        <Card>
+          <div className="card-pad" style={{ padding: '24px 28px' }}>
+            <div style={{ marginBottom: 18 }}>
+              <div className="eyebrow" style={{ color: 'var(--cyan)' }}>MCP Contract</div>
+              <h3 style={{ fontSize: 17, fontWeight: 600, marginTop: 4 }}>Standard SUTRA Governance Tools (8 Tools)</h3>
+              <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
+                These curated tools are automatically exposed to your agent upon connecting to the Streamable HTTP endpoint.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {mcpToolsList.map((tool) => (
+                <div
+                  key={tool.name}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 16px',
+                    borderRadius: 10,
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid var(--line)',
+                    gap: 16,
+                    flexWrap: 'wrap'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 260 }}>
+                    <code style={{ fontSize: 13, fontWeight: 600, color: 'var(--cyan)' }}>{tool.name}</code>
+                    <span className="badge" style={{ fontSize: 11, background: 'rgba(255,255,255,0.05)' }}>
+                      {tool.category}
+                    </span>
+                  </div>
+                  <div style={{ flex: 1, fontSize: 13, color: 'var(--text-secondary)', minWidth: 280 }}>
+                    {tool.desc}
+                  </div>
+                  <Badge tone="aqua">Exposed via MCP</Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+      </div>
     )}
   </>;
 }

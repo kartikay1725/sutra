@@ -78,6 +78,8 @@ from app.services.session_reaper_worker import SessionReaperWorker
 
 reaper_worker = SessionReaperWorker()
 
+from app.mcp.server import mcp_server, get_mcp_routes
+
 @asynccontextmanager
 async def lifespan(
     app: FastAPI,
@@ -91,7 +93,9 @@ async def lifespan(
     
     reaper_worker.start()
 
-    yield
+    mcp_server.session_manager._has_started = False
+    async with mcp_server.session_manager.run():
+        yield
     
     reaper_worker.stop()
 
@@ -538,3 +542,9 @@ app.include_router(agent_issues_router)
 
 from app.api.webhooks.github import router as webhooks_router
 app.include_router(webhooks_router)
+
+from app.api.oauth import router as oauth_router
+app.include_router(oauth_router)
+
+# Mount official MCP Streamable HTTP transport routes (/v1/mcp)
+app.router.routes.extend(get_mcp_routes())
