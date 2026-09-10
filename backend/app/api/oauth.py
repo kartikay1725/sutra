@@ -53,7 +53,7 @@ def verify_code_challenge(verifier: str, challenge: str, method: str = "S256") -
 @router.get("/.well-known/oauth-authorization-server")
 def get_oauth_authorization_server_metadata(request: Request) -> Dict[str, Any]:
     """RFC 8414: OAuth 2.0 Authorization Server Metadata."""
-    base_url = str(request.base_url).rstrip("/")
+    base_url = settings.get_public_api_url(request)
     return {
         "issuer": base_url,
         "authorization_endpoint": f"{base_url}/oauth/authorize",
@@ -76,7 +76,7 @@ def get_oauth_authorization_server_metadata(request: Request) -> Dict[str, Any]:
 @router.get("/v1/mcp/.well-known/oauth-protected-resource")
 def get_oauth_protected_resource_metadata(request: Request) -> Dict[str, Any]:
     """RFC 9728: OAuth 2.0 Protected Resource Metadata."""
-    base_url = str(request.base_url).rstrip("/")
+    base_url = settings.get_public_api_url(request)
     return {
         "resource": f"{base_url}/v1/mcp",
         "authorization_servers": [base_url],
@@ -239,7 +239,7 @@ def authorize_endpoint(
         logger.warning(f"Failed to store auth code in Redis: {e}")
 
     # Build redirect URL with RFC 9207 iss parameter
-    base_url = str(request.base_url).rstrip("/")
+    base_url = settings.get_public_api_url(request)
     params = {"code": code, "iss": base_url}
     if state:
         params["state"] = state

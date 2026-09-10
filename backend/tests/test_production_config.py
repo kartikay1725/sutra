@@ -151,3 +151,44 @@ def test_postgresql_engine_resolves_psycopg3_driver(monkeypatch):
     engine = create_engine(s.database_url)
     assert engine.dialect.name == "postgresql"
     assert engine.dialect.driver == "psycopg"
+
+
+def test_sutra_public_api_url_normalization_and_https_enforcement():
+    """Verify that sutra_public_api_url is normalized and enforced to HTTPS in production."""
+    # 1. Normalization of production origin
+    s1 = Settings(
+        app_env="production",
+        debug=False,
+        jwt_secret="a" * 32,
+        database_url="postgresql+psycopg://user:pass@localhost:5432/db",
+        redis_url="redis://localhost:6379",
+        event_integrity_key="b" * 32,
+        sutra_public_api_url="http://api.sutra.sudarshanai.com/",
+    )
+    assert s1.sutra_public_api_url == "https://api.sutra.sudarshanai.com"
+    assert s1.get_public_api_url() == "https://api.sutra.sudarshanai.com"
+
+    # 2. Rejects insecure HTTP public API URL in production
+    with pytest.raises(ValueError, match="SUTRA_PUBLIC_API_URL must use HTTPS in production"):
+        Settings(
+            app_env="production",
+            debug=False,
+            jwt_secret="a" * 32,
+            database_url="postgresql+psycopg://user:pass@localhost:5432/db",
+            redis_url="redis://localhost:6379",
+            event_integrity_key="b" * 32,
+            sutra_public_api_url="http://custom-domain.example.com",
+        )
+
+    # 3. Default production canonical URL when sutra_public_api_url is None
+    s3 = Settings(
+        app_env="production",
+        debug=False,
+        jwt_secret="a" * 32,
+        database_url="postgresql+psycopg://user:pass@localhost:5432/db",
+        redis_url="redis://localhost:6379",
+        event_integrity_key="b" * 32,
+        sutra_public_api_url=None,
+    )
+    assert s3.get_public_api_url() == "https://api.sutra.sudarshanai.com"
+

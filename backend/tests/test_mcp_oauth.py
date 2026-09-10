@@ -336,3 +336,224 @@ async def test_oauth_pkce_authorization_and_mcp_call(setup_oauth_environment):
             assert rf_res.status_code == 200
             new_token_data = rf_res.json()
             assert new_token_data["access_token"].startswith("sutra_mcp_at_")
+
+
+@pytest.mark.asyncio
+async def test_oauth_authorization_server_metadata_uses_https():
+    """Test A: Verify AS metadata uses canonical HTTPS for production host."""
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://api.sutra.sudarshanai.com") as client:
+        res = await client.get("/.well-known/oauth-authorization-server")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["issuer"] == "https://api.sutra.sudarshanai.com"
+        assert data["authorization_endpoint"] == "https://api.sutra.sudarshanai.com/oauth/authorize"
+        assert data["token_endpoint"] == "https://api.sutra.sudarshanai.com/oauth/token"
+        assert data["revocation_endpoint"] == "https://api.sutra.sudarshanai.com/oauth/revoke"
+        assert data["registration_endpoint"] == "https://api.sutra.sudarshanai.com/oauth/register"
+        assert data["service_documentation"] == "https://api.sutra.sudarshanai.com/docs"
+
+
+@pytest.mark.asyncio
+async def test_oauth_protected_resource_metadata_uses_https():
+    """Test B: Verify PR metadata uses canonical HTTPS for production host."""
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://api.sutra.sudarshanai.com") as client:
+        for path in ["/.well-known/oauth-protected-resource", "/v1/mcp/.well-known/oauth-protected-resource"]:
+            res = await client.get(path)
+            assert res.status_code == 200
+            data = res.json()
+            assert data["resource"] == "https://api.sutra.sudarshanai.com/v1/mcp"
+            assert data["authorization_servers"] == ["https://api.sutra.sudarshanai.com"]
+            assert data["resource_documentation"] == "https://api.sutra.sudarshanai.com/docs"
+
+
+@pytest.mark.asyncio
+async def test_all_oauth_urls_are_https():
+    """Test C: Verify that all advertised URLs in OAuth metadata are HTTPS and none use HTTP."""
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://api.sutra.sudarshanai.com") as client:
+        as_res = await client.get("/.well-known/oauth-authorization-server")
+        pr_res = await client.get("/.well-known/oauth-protected-resource")
+
+        for metadata in [as_res.json(), pr_res.json()]:
+            for key, value in metadata.items():
+                if isinstance(value, str) and (value.startswith("http://") or value.startswith("https://")):
+                    assert value.startswith("https://"), f"Field '{key}' has non-HTTPS URL: {value}"
+                    assert not value.startswith("http://api.sutra.sudarshanai.com"), f"Field '{key}' has HTTP production URL: {value}"
+                elif isinstance(value, list):
+                    for item in value:
+                        if isinstance(item, str) and (item.startswith("http://") or item.startswith("https://")):
+                            assert item.startswith("https://"), f"List item in '{key}' has non-HTTPS URL: {item}"
+                            assert not item.startswith("http://api.sutra.sudarshanai.com"), f"List item in '{key}' has HTTP production URL: {item}"
+
+
+@pytest.mark.asyncio
+async def test_local_development_origin_still_works():
+    """Test D: Verify that local development host (localhost) continues to work."""
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://localhost:8000") as client:
+        res = await client.get("/.well-known/oauth-authorization-server")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["issuer"] == "http://localhost:8000"
+        assert data["authorization_endpoint"] == "http://localhost:8000/oauth/authorize"
+
+
+@pytest.mark.asyncio
+async def test_forwarded_http_does_not_produce_http_metadata():
+    """Test E: Verify that forwarded HTTP headers do not degrade production metadata to HTTP."""
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://api.sutra.sudarshanai.com") as client:
+        # Simulate reverse proxy forwarding clear HTTP with X-Forwarded-Proto: http
+        headers = {
+            "Host": "api.sutra.sudarshanai.com",
+            "X-Forwarded-Proto": "http",
+            "X-Forwarded-Host": "api.sutra.sudarshanai.com",
+        }
+        res = await client.get("/.well-known/oauth-authorization-server", headers=headers)
+        assert res.status_code == 200
+        data = res.json()
+        assert data["issuer"] == "https://api.sutra.sudarshanai.com"
+        assert data["authorization_endpoint"] == "https://api.sutra.sudarshanai.com/oauth/authorize"
+        assert not data["issuer"].startswith("http://api.sutra.sudarshanai.com")
+
+
+@pytest.mark.asyncio
+async def test_cimd_still_works():
+    """Test F: Verify client registration / CIMD fallback still works with canonical origin."""
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://api.sutra.sudarshanai.com") as client:
+        res = await client.post(
+            "/oauth/register",
+            json={
+                "client_name": "Production CIMD Client",
+                "redirect_uris": ["https://ide.client.com/oauth/callback"],
+            },
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["client_id"].startswith("sutra_client_")
+        assert "authorization_code" in data["grant_types"]
+
+
+@pytest.mark.asyncio
+async def test_pkce_flow_still_works(setup_oauth_environment):
+    """Test G: Verify full PKCE flow with production origin and canonical iss redirect parameter."""
+    env = setup_oauth_environment
+
+    code_verifier = secrets.token_urlsafe(64)
+    digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
+    code_challenge = base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+
+    redirect_uri = "https://ide.client.com/callback"
+    state = secrets.token_hex(16)
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://api.sutra.sudarshanai.com") as client:
+        auth_res = await client.get(
+            "/oauth/authorize",
+            params={
+                "client_id": "cursor-production",
+                "redirect_uri": redirect_uri,
+                "response_type": "code",
+                "code_challenge": code_challenge,
+                "code_challenge_method": "S256",
+                "state": state,
+                "scope": "sutra:agent",
+                "agent_id": env["agent"].id,
+            },
+            follow_redirects=False,
+        )
+        assert auth_res.status_code == 302
+        loc = auth_res.headers.get("location")
+        parsed = urlparse(loc)
+        params = parse_qs(parsed.query)
+
+        # Verify canonical HTTPS RFC 9207 iss parameter
+        assert params["iss"][0] == "https://api.sutra.sudarshanai.com"
+        code = params["code"][0]
+
+        # Exchange code for token
+        token_res = await client.post(
+            "/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+                "client_id": "cursor-production",
+                "code_verifier": code_verifier,
+            },
+        )
+        assert token_res.status_code == 200
+        token_data = token_res.json()
+        assert token_data["access_token"].startswith("sutra_mcp_at_")
+
+
+@pytest.mark.asyncio
+async def test_mcp_authenticated_call_still_works(setup_oauth_environment):
+    """Test H: Verify MCP authenticated tool call with token generated via production flow."""
+    env = setup_oauth_environment
+
+    code_verifier = secrets.token_urlsafe(64)
+    digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
+    code_challenge = base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+
+    redirect_uri = "https://ide.client.com/callback"
+
+    async with run_mcp():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://api.sutra.sudarshanai.com") as client:
+            auth_res = await client.get(
+                "/oauth/authorize",
+                params={
+                    "client_id": "cursor-production",
+                    "redirect_uri": redirect_uri,
+                    "response_type": "code",
+                    "code_challenge": code_challenge,
+                    "code_challenge_method": "S256",
+                    "scope": "sutra:agent",
+                    "agent_id": env["agent"].id,
+                },
+                follow_redirects=False,
+            )
+            code = parse_qs(urlparse(auth_res.headers.get("location")).query)["code"][0]
+
+            token_res = await client.post(
+                "/oauth/token",
+                data={
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "redirect_uri": redirect_uri,
+                    "client_id": "cursor-production",
+                    "code_verifier": code_verifier,
+                },
+            )
+            access_token = token_res.json()["access_token"]
+
+            # Initialize MCP session
+            init_res = await client.post(
+                "/v1/mcp",
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "initialize",
+                    "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "oauth-client", "version": "1"}},
+                },
+                headers={"Accept": "application/json, text/event-stream"},
+            )
+            session_id = init_res.headers.get("mcp-session-id")
+
+            # Call tool with OAuth access token
+            tool_res = await client.post(
+                "/v1/mcp",
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "tools/call",
+                    "params": {"name": "sutra_get_context", "arguments": {}},
+                },
+                headers={
+                    "mcp-session-id": session_id,
+                    "Authorization": f"Bearer {access_token}",
+                    "Accept": "application/json, text/event-stream",
+                },
+            )
+            assert tool_res.status_code == 200
+            lines = [line.strip() for line in tool_res.text.splitlines() if line.startswith("data: ")]
+            payload = json.loads(lines[0][len("data: "):])
+            sc = payload["result"].get("structuredContent")
+            ctx = sc["result"] if isinstance(sc, dict) and "result" in sc else sc
+            assert ctx["identity"]["agent_id"] == env["agent"].id

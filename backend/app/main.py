@@ -275,7 +275,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.get("/", tags=["discovery"])
 def root(request: Request):
-    base = str(request.base_url).rstrip("/")
+    base = settings.get_public_api_url(request)
     return {
         "name": "SUTRA - The Engineering OS",
         "version": "0.2.0",
@@ -367,7 +367,7 @@ def metrics():
     ),
 )
 def agent_info(request: Request):
-    base = str(request.base_url).rstrip("/")
+    base = settings.get_public_api_url(request)
     return {
         "sutra_version": "0.2.0",
         "api_base": f"{base}/v1",

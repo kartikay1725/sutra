@@ -1,9 +1,12 @@
 import os
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+CANONICAL_PRODUCTION_API_URL: str = "https://api.sutra.sudarshanai.com"
 
 
 class Settings(BaseSettings):
@@ -52,7 +55,20 @@ class Settings(BaseSettings):
 
     repository_storage_path: str = "./data/repositories"
     sutra_base_url: str = "http://localhost:8000"
+    sutra_public_api_url: str | None = None
     cors_origins: str = "http://localhost:3000"
+
+    @field_validator("sutra_public_api_url")
+    @classmethod
+    def normalize_public_api_url(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = v.strip().rstrip("/")
+        if not v:
+            return None
+        if "api.sutra.sudarshanai.com" in v:
+            return CANONICAL_PRODUCTION_API_URL
+        return v
 
     # ---------------------------------------------------------
     # GITHUB SUBSTRATE & APP INTEGRATION
@@ -159,7 +175,42 @@ class Settings(BaseSettings):
                 raise ValueError("Event integrity key must be at least 32 characters in production")
             if self.event_integrity_key in self.INSECURE_DEFAULTS:
                 raise ValueError("Insecure default event integrity key cannot be used in production")
+            if self.sutra_public_api_url and not self.sutra_public_api_url.startswith("https://"):
+                raise ValueError("SUTRA_PUBLIC_API_URL must use HTTPS in production")
         return self
+
+    def get_public_api_url(self, request: Any = None) -> str:
+        """
+        Return the canonical public API origin without trailing slash.
+
+        Resolution Priority:
+        1. Explicitly configured sutra_public_api_url (e.g. SUTRA_PUBLIC_API_URL env var).
+        2. Production or staging environment: always return CANONICAL_PRODUCTION_API_URL.
+        3. If request is provided and the host (or X-Forwarded-Host) is api.sutra.sudarshanai.com,
+           always return CANONICAL_PRODUCTION_API_URL.
+        4. In local development / test environments:
+           - If request is provided, derive from request.base_url (e.g. http://localhost:8000).
+           - Otherwise, fallback to sutra_base_url.
+        """
+        if self.sutra_public_api_url:
+            return self.sutra_public_api_url.rstrip("/")
+
+        if self.app_env.lower() in ("production", "prod", "staging"):
+            return CANONICAL_PRODUCTION_API_URL
+
+        if request is not None:
+            try:
+                host = request.headers.get("host", "").split(":")[0].lower()
+                if host == "api.sutra.sudarshanai.com":
+                    return CANONICAL_PRODUCTION_API_URL
+                f_host = request.headers.get("x-forwarded-host", "").split(":")[0].lower()
+                if f_host == "api.sutra.sudarshanai.com":
+                    return CANONICAL_PRODUCTION_API_URL
+                return str(request.base_url).rstrip("/")
+            except Exception:
+                pass
+
+        return self.sutra_base_url.rstrip("/")
 
     def __repr__(self) -> str:
         return f"<Settings app_name={self.app_name!r} app_env={self.app_env!r} debug={self.debug} database_url='[REDACTED]' jwt_secret='[REDACTED]'>"
