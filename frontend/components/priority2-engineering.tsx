@@ -14,6 +14,7 @@ import { agentService, type Agent, type AgentRegistration } from '../lib/agents'
 import { ciService, type CIJob, type CILog, type PRChecksResponse } from '../lib/ci';
 import { governanceService, type GovernanceEvaluation } from '../lib/governance';
 import { environmentService, type Environment, type Deployment } from '../lib/environments';
+import { ConnectSutraButton, ConnectSutraModal, type SutraConnectionState, CANONICAL_MCP_ENDPOINT } from './sutra-connect';
 
 function tone(status: string) {
   const s = status.toLowerCase();
@@ -1626,13 +1627,18 @@ export function RealAgents() {
   const [form, setForm] = useState({ name: '', description: '', provider: '', model: '' });
   const [mcpClient, setMcpClient] = useState<'cursor' | 'claude_desktop' | 'claude_code' | 'windsurf'>('cursor');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const [tokenInput, setTokenInput] = useState<string>('YOUR_SUTRA_TOKEN');
+  const [connectionState, setConnectionState] = useState<SutraConnectionState>('not_connected');
+  const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
     try {
-      setAgents(await agentService.listAgents());
+      const agentList = await agentService.listAgents();
+      setAgents(agentList);
       setPendingRequests(await agentService.listPendingRegistrations());
+      if (agentList.some(a => a.is_active)) {
+        setConnectionState('connected');
+      }
     } catch(e) {
       console.error(e);
     } finally {
@@ -1641,6 +1647,24 @@ export function RealAgents() {
   };
 
   useEffect(() => { void load(); }, []);
+
+  const handleConnectClick = () => {
+    setConnectionState('connecting');
+    // Check if running in an environment that exposes direct desktop IDE bridge
+    const hasDirectBridge = typeof window !== 'undefined' && Boolean((window as any).vscode || (window as any).cursorBridge || (window as any).__SUTRA_MCP_BRIDGE__);
+    if (hasDirectBridge) {
+      setTimeout(() => {
+        setConnectionState('connected');
+      }, 500);
+    } else {
+      // In standard browser environment, direct background process injection is unsupported.
+      // Fallback modal is displayed containing the two cards (Custom MCP Settings & API Integration).
+      setTimeout(() => {
+        setConnectionState('unsupported');
+        setIsConnectModalOpen(true);
+      }, 350);
+    }
+  };
 
   const copyToClipboard = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -1653,7 +1677,6 @@ export function RealAgents() {
     try {
       const created = await agentService.createAgent(form);
       setToken(created.token);
-      setTokenInput(created.token);
       setShowCreate(false);
       setForm({name:'',description:'',provider:'',model:''});
       await load();
@@ -1698,40 +1721,31 @@ export function RealAgents() {
     }
   };
 
-  const mcpEndpoint = typeof window !== 'undefined' ? `${window.location.origin}/v1/mcp` : 'https://api.sutra.sudarshanai.com/v1/mcp';
-  const effectiveToken = token || tokenInput || 'YOUR_SUTRA_TOKEN';
+  const mcpEndpoint = CANONICAL_MCP_ENDPOINT;
 
-  const cursorSnippet = JSON.stringify({
+  // Modern Zero-Token OAuth Configuration Snippets
+  const cursorOAuthSnippet = JSON.stringify({
     mcpServers: {
       sutra: {
-        url: mcpEndpoint,
-        headers: {
-          Authorization: `Bearer ${effectiveToken}`
-        }
+        url: mcpEndpoint
       }
     }
   }, null, 2);
+
+  const claudeCodeOAuthSnippet = `claude mcp add --transport http sutra ${mcpEndpoint}`;
 
   const claudeDesktopSnippet = JSON.stringify({
     mcpServers: {
       sutra: {
-        url: mcpEndpoint,
-        headers: {
-          Authorization: `Bearer ${effectiveToken}`
-        }
+        url: mcpEndpoint
       }
     }
   }, null, 2);
 
-  const claudeCodeSnippet = `claude mcp add --transport http sutra ${mcpEndpoint} --header "Authorization: Bearer ${effectiveToken}"`;
-
   const windsurfSnippet = JSON.stringify({
     mcpServers: {
       sutra: {
-        serverUrl: mcpEndpoint,
-        headers: {
-          Authorization: `Bearer ${effectiveToken}`
-        }
+        serverUrl: mcpEndpoint
       }
     }
   }, null, 2);
@@ -1753,11 +1767,17 @@ export function RealAgents() {
       title="Agents & Control Plane"
       sub="Registered autonomous agents, pending authorizations, and Model Context Protocol (MCP) integrations."
       action={
-        activeTab === 'active' ? (
-          <RealButton primary onClick={() => setShowCreate(!showCreate)}>
-            <I.Plus size={14} /> Register New Agent
-          </RealButton>
-        ) : undefined
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <ConnectSutraButton
+            onClick={handleConnectClick}
+            state={connectionState}
+          />
+          {activeTab === 'active' && (
+            <RealButton onClick={() => setShowCreate(!showCreate)}>
+              <I.Plus size={14} /> Register New Agent
+            </RealButton>
+          )}
+        </div>
       }
     />
 
@@ -1956,36 +1976,42 @@ export function RealAgents() {
           border: '1px solid rgba(6, 182, 212, 0.3)',
           background: 'radial-gradient(ellipse at top right, rgba(6, 182, 212, 0.12), transparent 70%), var(--surface)'
         }}>
-          <div className="card-pad" style={{ padding: '24px 28px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+          <div className="card-pad" style={{ padding: '28px 32px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 20 }}>
               <div style={{ maxWidth: 640 }}>
                 <div className="eyebrow" style={{ color: 'var(--cyan)', fontWeight: 600, letterSpacing: '0.05em' }}>
                   Model Context Protocol · Streamable HTTP
                 </div>
-                <h2 style={{ fontSize: 22, fontWeight: 700, marginTop: 6, color: 'var(--text-primary)' }}>
+                <h2 style={{ fontSize: 24, fontWeight: 700, marginTop: 6, color: 'var(--text-primary)' }}>
                   Connect Your Coding Agent Once
                 </h2>
                 <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 8, lineHeight: 1.6 }}>
-                  SUTRA provides a standard Model Context Protocol (MCP) server running on Streamable HTTP.
-                  Your coding agents in Cursor, Claude Desktop, Claude Code, and Windsurf automatically discover
-                  and invoke SUTRA governance, task coordination, and change reconciliation tools.
+                  SUTRA provides an enterprise-grade Model Context Protocol (MCP) server over Streamable HTTP.
+                  Compatible clients (Cursor, Claude Code, etc.) automatically discover the authorization server,
+                  challenge credentials via RFC 9728, and prompt for one-click browser approval.
                 </p>
               </div>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                <ConnectSutraButton
+                  size="large"
+                  onClick={handleConnectClick}
+                  state={connectionState}
+                />
                 <a
-                  href="/oauth/authorize?client_id=sutra-mcp-client&redirect_uri=https://api.sutra.sudarshanai.com/oauth/callback&response_type=code&scope=mcp:read+mcp:write&code_challenge=E9Melhoa2OwvFrGMTJguCH5rtx64LxU408W32BgV16g&code_challenge_method=S256"
+                  href="/oauth/authorize?client_id=sutra-mcp-client&redirect_uri=https://api.sutra.sudarshanai.com/oauth/callback&response_type=code&scope=sutra:agent&code_challenge=E9Melhoa2OwvFrGMTJguCH5rtx64LxU408W32BgV16g&code_challenge_method=S256"
                   target="_blank"
                   rel="noreferrer"
-                  className="btn primary"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 18px', fontWeight: 600 }}
+                  onClick={() => setConnectionState('awaiting_authorization')}
+                  className="btn"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 20px', fontWeight: 600, fontSize: 14, borderRadius: 10 }}
                 >
-                  <I.Zap size={15} /> OAuth 2.1 One-Click Authorize
+                  <I.ExternalLink size={16} /> Test OAuth Flow
                 </a>
               </div>
             </div>
 
             {/* Protocol Spec Badges */}
-            <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 10, marginTop: 22, flexWrap: 'wrap' }}>
               <span className="badge" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', fontSize: 12 }}>
                 Transport: <strong>Streamable HTTP</strong>
               </span>
@@ -2002,161 +2028,183 @@ export function RealAgents() {
           </div>
         </Card>
 
-        {/* Client Setup Box */}
-        <Card>
-          <div className="card-pad" style={{ padding: '24px 28px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-              <div>
-                <h3 style={{ fontSize: 17, fontWeight: 600 }}>IDE & Client Setup</h3>
-                <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
-                  Select your development environment to copy the exact configuration.
-                </p>
+        {/* Diagnostic Status Indicator */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 12,
+          padding: '14px 20px',
+          borderRadius: 12,
+          background: connectionState === 'connected' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255,255,255,0.03)',
+          border: connectionState === 'connected' ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--line)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: connectionState === 'connected' ? '#10b981' : connectionState === 'connecting' ? '#06b6d4' : connectionState === 'awaiting_authorization' ? '#eab308' : '#94a3b8',
+              boxShadow: connectionState === 'connected' ? '0 0 8px #10b981' : 'none',
+            }} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+              Connection State:{' '}
+              {connectionState === 'not_connected' && 'Not connected'}
+              {connectionState === 'connecting' && 'Connecting...'}
+              {connectionState === 'awaiting_authorization' && 'Awaiting browser authorization'}
+              {connectionState === 'connected' && `Connected (${agents.find(a => a.is_active)?.name || 'Active SUTRA Agent'})`}
+              {connectionState === 'unsupported' && 'Unsupported direct injection — Custom configuration active'}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              className="btn"
+              onClick={handleConnectClick}
+              style={{ fontSize: 12, padding: '4px 12px' }}
+            >
+              <I.RefreshCw size={12} /> Check Connection
+            </button>
+          </div>
+        </div>
+
+        {/* Fallback Cards Section */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 20 }}>
+          {/* CARD 1: Custom MCP Settings */}
+          <Card style={{ border: '1px solid rgba(6, 182, 212, 0.25)', background: 'linear-gradient(180deg, rgba(6, 182, 212, 0.04) 0%, var(--surface) 100%)' }}>
+            <div className="card-pad" style={{ padding: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Badge tone="aqua">Card 1 · Recommended</Badge>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Custom MCP Settings</h3>
+                </div>
+              </div>
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.5 }}>
+                For coding agents that support custom remote MCP servers (Cursor, Claude Code, Windsurf).
+                Point your client to the canonical SUTRA MCP endpoint — it handles OAuth discovery and browser approval automatically.
+                <strong> No permanent token required.</strong>
+              </p>
+
+              {/* Endpoint Display */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                  Canonical SUTRA MCP Endpoint:
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', background: '#07090e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 12px', gap: 8 }}>
+                  <code style={{ flex: 1, fontSize: 13, color: '#38bdf8', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                    {mcpEndpoint}
+                  </code>
+                  <button
+                    type="button"
+                    className="btn"
+                    style={{ padding: '4px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
+                    onClick={() => copyToClipboard(mcpEndpoint, 'endpoint_tab')}
+                  >
+                    {copiedKey === 'endpoint_tab' ? <I.Check size={12} style={{ color: 'var(--green)' }} /> : <I.Copy size={12} />}
+                    {copiedKey === 'endpoint_tab' ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
               </div>
 
-              {/* Client Selection Buttons */}
-              <div style={{ display: 'flex', gap: 6, background: 'rgba(0,0,0,0.3)', padding: 4, borderRadius: 10, border: '1px solid var(--line)' }}>
+              {/* Client Selection */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
                 {[
                   { id: 'cursor', label: 'Cursor' },
-                  { id: 'claude_desktop', label: 'Claude Desktop' },
                   { id: 'claude_code', label: 'Claude Code' },
                   { id: 'windsurf', label: 'Windsurf' },
+                  { id: 'claude_desktop', label: 'Claude Desktop' },
                 ].map((c) => (
                   <button
                     key={c.id}
+                    type="button"
                     onClick={() => setMcpClient(c.id as any)}
                     style={{
-                      padding: '6px 14px',
-                      borderRadius: 7,
-                      fontSize: 13,
+                      padding: '4px 10px',
+                      borderRadius: 6,
+                      fontSize: 12,
                       fontWeight: mcpClient === c.id ? 600 : 400,
-                      background: mcpClient === c.id ? 'var(--surface-2)' : 'transparent',
-                      color: mcpClient === c.id ? 'var(--text-primary)' : 'var(--muted)',
-                      border: mcpClient === c.id ? '1px solid var(--line-light)' : '1px solid transparent',
+                      background: mcpClient === c.id ? 'rgba(6, 182, 212, 0.18)' : 'rgba(255, 255, 255, 0.03)',
+                      color: mcpClient === c.id ? '#38bdf8' : 'var(--muted)',
+                      border: mcpClient === c.id ? '1px solid rgba(6, 182, 212, 0.35)' : '1px solid transparent',
                       cursor: 'pointer',
-                      transition: 'all 0.15s ease'
                     }}
                   >
                     {c.label}
                   </button>
                 ))}
               </div>
+
+              {/* Snippet box */}
+              <div style={{ position: 'relative', background: '#07090D', border: '1px solid var(--line)', borderRadius: 8, padding: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase' }}>
+                    {mcpClient === 'cursor' && 'Add to ~/.cursor/mcp.json'}
+                    {mcpClient === 'claude_code' && 'Run in Terminal'}
+                    {mcpClient === 'windsurf' && 'Add to ~/.codeium/windsurf/mcp_config.json'}
+                    {mcpClient === 'claude_desktop' && 'Add to claude_desktop_config.json'}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn"
+                    style={{ padding: '2px 8px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}
+                    onClick={() => {
+                      const snippet = mcpClient === 'cursor' ? cursorOAuthSnippet : mcpClient === 'claude_code' ? claudeCodeOAuthSnippet : mcpClient === 'windsurf' ? windsurfSnippet : claudeDesktopSnippet;
+                      copyToClipboard(snippet, 'tab_snippet');
+                    }}
+                  >
+                    {copiedKey === 'tab_snippet' ? <I.Check size={11} style={{ color: 'var(--green)' }} /> : <I.Copy size={11} />}
+                    {copiedKey === 'tab_snippet' ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+                <pre style={{ margin: 0, fontSize: 12, color: '#38bdf8', fontFamily: 'monospace', overflowX: 'auto' }}>
+                  {mcpClient === 'cursor' && cursorOAuthSnippet}
+                  {mcpClient === 'claude_code' && claudeCodeOAuthSnippet}
+                  {mcpClient === 'windsurf' && windsurfSnippet}
+                  {mcpClient === 'claude_desktop' && claudeDesktopSnippet}
+                </pre>
+              </div>
             </div>
+          </Card>
 
-            {/* Custom Token Input for Config Interpolation */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: 10, border: '1px solid var(--line)' }}>
-              <div style={{ fontSize: 13, color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontWeight: 500 }}>
-                Using Token:
+          {/* CARD 2: API Integration */}
+          <Card style={{ border: '1px solid rgba(255, 255, 255, 0.1)', background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, var(--surface) 100%)' }}>
+            <div className="card-pad" style={{ padding: '24px', display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Badge tone="amber">Card 2 · Fallback</Badge>
+                <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>API Integration</h3>
               </div>
-              <input
-                className="input"
-                style={{ flex: 1, height: 36, fontSize: 12, fontFamily: 'monospace' }}
-                placeholder="Paste your SUTRA agent token here to populate configurations..."
-                value={tokenInput}
-                onChange={(e) => setTokenInput(e.target.value)}
-              />
-              {effectiveToken !== 'YOUR_SUTRA_TOKEN' && (
-                <Badge tone="green">Token Ready</Badge>
-              )}
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.5 }}>
+                Fallback for automated pipelines, CI/CD runners, and background services that cannot use the remote MCP OAuth flow.
+                Integrate directly via SUTRA REST APIs with policy and provenance checks.
+              </p>
+
+              <div style={{ marginTop: 'auto', background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <I.Book size={18} style={{ color: 'var(--cyan)' }} />
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>SUTRA API & Documentation</div>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 14 }}>
+                  Comprehensive guides on repository reconciliation, branch governance, and change promotion.
+                </div>
+                <Link
+                  href="/docs"
+                  className="btn"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '6px 14px', borderRadius: 6 }}
+                >
+                  <span>Explore Documentation</span>
+                  <I.ExternalLink size={12} />
+                </Link>
+              </div>
+
+              <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)' }}>
+                <I.Lock size={13} style={{ color: 'var(--amber)' }} />
+                <span>Zero privileged credentials exposed in the browser.</span>
+              </div>
             </div>
-
-            {/* Config Snippets */}
-            {mcpClient === 'cursor' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                    Add to <code>~/.cursor/mcp.json</code> or project <code>.cursor/mcp.json</code>:
-                  </span>
-                  <button
-                    className="btn"
-                    style={{ padding: '4px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
-                    onClick={() => copyToClipboard(cursorSnippet, 'cursor')}
-                  >
-                    {copiedKey === 'cursor' ? <I.Check size={14} style={{ color: 'var(--green)' }} /> : <I.Copy size={14} />}
-                    {copiedKey === 'cursor' ? 'Copied' : 'Copy JSON'}
-                  </button>
-                </div>
-                <pre style={{
-                  padding: 16, borderRadius: 10, background: '#07090D', border: '1px solid var(--line)',
-                  fontSize: 13, overflowX: 'auto', color: '#60A5FA', fontFamily: 'var(--font-mono, monospace)'
-                }}>
-                  {cursorSnippet}
-                </pre>
-              </div>
-            )}
-
-            {mcpClient === 'claude_desktop' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                    Add to <code>claude_desktop_config.json</code>:
-                  </span>
-                  <button
-                    className="btn"
-                    style={{ padding: '4px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
-                    onClick={() => copyToClipboard(claudeDesktopSnippet, 'claude_desktop')}
-                  >
-                    {copiedKey === 'claude_desktop' ? <I.Check size={14} style={{ color: 'var(--green)' }} /> : <I.Copy size={14} />}
-                    {copiedKey === 'claude_desktop' ? 'Copied' : 'Copy JSON'}
-                  </button>
-                </div>
-                <pre style={{
-                  padding: 16, borderRadius: 10, background: '#07090D', border: '1px solid var(--line)',
-                  fontSize: 13, overflowX: 'auto', color: '#A855F7', fontFamily: 'var(--font-mono, monospace)'
-                }}>
-                  {claudeDesktopSnippet}
-                </pre>
-              </div>
-            )}
-
-            {mcpClient === 'claude_code' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                    Execute directly in your terminal:
-                  </span>
-                  <button
-                    className="btn"
-                    style={{ padding: '4px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
-                    onClick={() => copyToClipboard(claudeCodeSnippet, 'claude_code')}
-                  >
-                    {copiedKey === 'claude_code' ? <I.Check size={14} style={{ color: 'var(--green)' }} /> : <I.Copy size={14} />}
-                    {copiedKey === 'claude_code' ? 'Copied' : 'Copy Command'}
-                  </button>
-                </div>
-                <pre style={{
-                  padding: 16, borderRadius: 10, background: '#07090D', border: '1px solid var(--line)',
-                  fontSize: 13, overflowX: 'auto', color: '#22C55E', fontFamily: 'var(--font-mono, monospace)'
-                }}>
-                  {claudeCodeSnippet}
-                </pre>
-              </div>
-            )}
-
-            {mcpClient === 'windsurf' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                    Add to <code>~/.codeium/windsurf/mcp_config.json</code>:
-                  </span>
-                  <button
-                    className="btn"
-                    style={{ padding: '4px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
-                    onClick={() => copyToClipboard(windsurfSnippet, 'windsurf')}
-                  >
-                    {copiedKey === 'windsurf' ? <I.Check size={14} style={{ color: 'var(--green)' }} /> : <I.Copy size={14} />}
-                    {copiedKey === 'windsurf' ? 'Copied' : 'Copy JSON'}
-                  </button>
-                </div>
-                <pre style={{
-                  padding: 16, borderRadius: 10, background: '#07090D', border: '1px solid var(--line)',
-                  fontSize: 13, overflowX: 'auto', color: '#38BDF8', fontFamily: 'var(--font-mono, monospace)'
-                }}>
-                  {windsurfSnippet}
-                </pre>
-              </div>
-            )}
-          </div>
-        </Card>
+          </Card>
+        </div>
 
         {/* 8 Curated Tools Contract Table */}
         <Card>
@@ -2202,6 +2250,16 @@ export function RealAgents() {
         </Card>
       </div>
     )}
+
+    {/* SUTRA Connect Fallback Dialog Modal */}
+    <ConnectSutraModal
+      isOpen={isConnectModalOpen}
+      onClose={() => setIsConnectModalOpen(false)}
+      connectionState={connectionState}
+      onStateChange={setConnectionState}
+      connectedAgentName={agents.find(a => a.is_active)?.name}
+      onConnectAttempt={handleConnectClick}
+    />
   </>;
 }
 

@@ -209,8 +209,10 @@ async def run_mcp():
 
 
 @pytest.mark.asyncio
-async def test_mcp_streamable_initialize_and_tool_discovery():
+async def test_mcp_streamable_initialize_and_tool_discovery(setup_mcp_environment):
     """Verify Streamable HTTP initialization and exposure of the curated 8 tools."""
+    env = setup_mcp_environment
+    auth_header = f"Bearer {env['session_token']}"
     async with run_mcp():
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://localhost") as client:
             init_res = await client.post(
@@ -225,7 +227,7 @@ async def test_mcp_streamable_initialize_and_tool_discovery():
                         "clientInfo": {"name": "test-suite", "version": "1.0.0"},
                     },
                 },
-                headers={"Accept": "application/json, text/event-stream"},
+                headers={"Authorization": auth_header, "Accept": "application/json, text/event-stream"},
             )
             assert init_res.status_code == 200
             session_id = init_res.headers.get("mcp-session-id")
@@ -235,14 +237,14 @@ async def test_mcp_streamable_initialize_and_tool_discovery():
             await client.post(
                 "/v1/mcp",
                 json={"jsonrpc": "2.0", "method": "notifications/initialized"},
-                headers={"mcp-session-id": session_id, "Accept": "application/json, text/event-stream"},
+                headers={"mcp-session-id": session_id, "Authorization": auth_header, "Accept": "application/json, text/event-stream"},
             )
 
             # List tools
             list_res = await client.post(
                 "/v1/mcp",
                 json={"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
-                headers={"mcp-session-id": session_id, "Accept": "application/json, text/event-stream"},
+                headers={"mcp-session-id": session_id, "Authorization": auth_header, "Accept": "application/json, text/event-stream"},
             )
             assert list_res.status_code == 200
             # Parse SSE data
@@ -278,7 +280,7 @@ def extract_tool_result(result: dict) -> dict:
 
 @pytest.mark.asyncio
 async def test_mcp_unauthenticated_call_fails():
-    """Verify tool calls without Bearer token fail with structured 401 error."""
+    """Verify tool calls without Bearer token fail at HTTP layer with 401 and WWW-Authenticate."""
     async with run_mcp():
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://localhost") as client:
             init_res = await client.post(
@@ -291,26 +293,10 @@ async def test_mcp_unauthenticated_call_fails():
                 },
                 headers={"Accept": "application/json, text/event-stream"},
             )
-            session_id = init_res.headers.get("mcp-session-id")
-
-            call_res = await client.post(
-                "/v1/mcp",
-                json={
-                    "jsonrpc": "2.0",
-                    "id": 2,
-                    "method": "tools/call",
-                    "params": {"name": "sutra_get_context", "arguments": {}},
-                },
-                headers={"mcp-session-id": session_id, "Accept": "application/json, text/event-stream"},
-            )
-            assert call_res.status_code == 200
-            lines = [line.strip() for line in call_res.text.splitlines() if line.startswith("data: ")]
-            payload = json.loads(lines[0][len("data: "):])
-            result = payload["result"]
-            # Should report authentication error in structured output
-            structured = extract_tool_result(result)
-            assert structured.get("status") == "error"
-            assert "Authentication required" in structured.get("error", "")
+            assert init_res.status_code == 401
+            auth_header = init_res.headers.get("www-authenticate", "")
+            assert "Bearer" in auth_header
+            assert "resource_metadata=" in auth_header
 
 
 @pytest.mark.asyncio
@@ -338,7 +324,7 @@ async def test_mcp_e2e_agent_workflow(setup_mcp_environment, db_session):
                     "method": "initialize",
                     "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test", "version": "1"}},
                 },
-                headers={"Accept": "application/json, text/event-stream"},
+                headers={"Authorization": auth_header, "Accept": "application/json, text/event-stream"},
             )
             session_id = init_res.headers.get("mcp-session-id")
 
@@ -461,7 +447,7 @@ async def test_mcp_permanent_token_auto_creates_session(setup_mcp_environment, d
                     "method": "initialize",
                     "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test", "version": "1"}},
                 },
-                headers={"Accept": "application/json, text/event-stream"},
+                headers={"Authorization": permanent_auth_header, "Accept": "application/json, text/event-stream"},
             )
             session_id = init_res.headers.get("mcp-session-id")
 

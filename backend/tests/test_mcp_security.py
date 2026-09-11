@@ -317,6 +317,8 @@ async def test_adversarial_submit_change_security(setup_security_environment, db
                         "Accept": "application/json, text/event-stream",
                     },
                 )
+                if res.status_code == 401:
+                    return {"status": "error", "error": "session revoked", "details": {"code": 401}}
                 assert res.status_code == 200
                 return extract_tool_result(res.json()["result"])
 

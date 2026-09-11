@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -12,23 +12,37 @@ bearer_scheme = HTTPBearer(
 )
 
 
+def _resolve_raw_token(
+    credentials: HTTPAuthorizationCredentials | None,
+    request: Request | None = None,
+) -> str | None:
+    """Extract raw user token from Authorization header or secure browser cookie."""
+    if credentials and credentials.credentials:
+        return credentials.credentials.strip()
+    if request:
+        cookie_token = request.cookies.get("sutra_session") or request.cookies.get("sutra_token")
+        if cookie_token and cookie_token.strip():
+            return cookie_token.strip()
+    return None
+
+
 def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(
         bearer_scheme
     ),
     db: Session = Depends(get_db),
 ) -> User:
+    raw_token = _resolve_raw_token(credentials, request)
 
-    if credentials is None:
+    if not raw_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
         )
 
     try:
-        user_id, session_id = decode_access_token(
-            credentials.credentials
-        )
+        user_id, session_id = decode_access_token(raw_token)
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -61,16 +75,19 @@ def get_current_user(
 
     return user
 
+
 def get_current_user_optional(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(
         bearer_scheme
     ),
     db: Session = Depends(get_db),
 ) -> User | None:
-    if credentials is None:
+    raw_token = _resolve_raw_token(credentials, request)
+    if not raw_token:
         return None
     try:
-        user_id, session_id = decode_access_token(credentials.credentials)
+        user_id, session_id = decode_access_token(raw_token)
         user = db.get(User, user_id)
         if user is None:
             return None
@@ -88,4 +105,5 @@ def get_current_user_optional(
         return user
     except Exception:
         return None
+
 

@@ -123,10 +123,18 @@ def setup_oauth_environment(db_session):
     db_session.add(access)
     db_session.commit()
 
+    from app.core.security import create_access_token
+    from app.models.user_session import UserSession
+    user_sess = UserSession(user_id=owner.id, expires_at=now + timedelta(hours=1))
+    db_session.add(user_sess)
+    db_session.commit()
+    owner_token = create_access_token(owner.id, user_sess.id)
+
     yield {
         "owner": owner,
         "repo": repo,
         "agent": agent,
+        "owner_token": owner_token,
     }
 
     # Cleanup
@@ -136,6 +144,7 @@ def setup_oauth_environment(db_session):
         db_session.query(Actor).filter(Actor.id.in_([owner.id, agent.id])).delete()
         db_session.query(Agent).filter(Agent.id == agent.id).delete()
         db_session.query(Repository).filter(Repository.id == repo.id).delete()
+        db_session.query(UserSession).filter(UserSession.user_id == owner.id).delete()
         db_session.query(User).filter(User.id == owner.id).delete()
         db_session.commit()
         repo_dir = (Path(settings.repository_storage_path).resolve() / repo.storage_key).resolve()
@@ -215,9 +224,10 @@ async def test_oauth_pkce_authorization_and_mcp_call(setup_oauth_environment):
 
     async with run_mcp():
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://localhost") as client:
-            # 2. Authorize
+            # 2. Authorize with authenticated human consent
             auth_res = await client.get(
                 "/oauth/authorize",
+                headers={"Authorization": f"Bearer {env['owner_token']}"},
                 params={
                     "client_id": "cursor-ide",
                     "redirect_uri": redirect_uri,
@@ -227,6 +237,7 @@ async def test_oauth_pkce_authorization_and_mcp_call(setup_oauth_environment):
                     "state": state,
                     "scope": "sutra:agent",
                     "agent_id": env["agent"].id,
+                    "action": "approve",
                 },
                 follow_redirects=False,
             )
@@ -254,6 +265,7 @@ async def test_oauth_pkce_authorization_and_mcp_call(setup_oauth_environment):
             # 4. Authorize again to get a fresh code
             auth_res2 = await client.get(
                 "/oauth/authorize",
+                headers={"Authorization": f"Bearer {env['owner_token']}"},
                 params={
                     "client_id": "cursor-ide",
                     "redirect_uri": redirect_uri,
@@ -263,6 +275,7 @@ async def test_oauth_pkce_authorization_and_mcp_call(setup_oauth_environment):
                     "state": state,
                     "scope": "sutra:agent",
                     "agent_id": env["agent"].id,
+                    "action": "approve",
                 },
                 follow_redirects=False,
             )
@@ -297,7 +310,10 @@ async def test_oauth_pkce_authorization_and_mcp_call(setup_oauth_environment):
                     "method": "initialize",
                     "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "oauth-client", "version": "1"}},
                 },
-                headers={"Accept": "application/json, text/event-stream"},
+                headers={
+                    "Accept": "application/json, text/event-stream",
+                    "Authorization": f"Bearer {access_token}",
+                },
             )
             assert init_res.status_code == 200
             session_id = init_res.headers.get("mcp-session-id")
@@ -446,6 +462,7 @@ async def test_pkce_flow_still_works(setup_oauth_environment):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://api.sutra.sudarshanai.com") as client:
         auth_res = await client.get(
             "/oauth/authorize",
+            headers={"Authorization": f"Bearer {env['owner_token']}"},
             params={
                 "client_id": "cursor-production",
                 "redirect_uri": redirect_uri,
@@ -455,6 +472,7 @@ async def test_pkce_flow_still_works(setup_oauth_environment):
                 "state": state,
                 "scope": "sutra:agent",
                 "agent_id": env["agent"].id,
+                "action": "approve",
             },
             follow_redirects=False,
         )
@@ -498,6 +516,7 @@ async def test_mcp_authenticated_call_still_works(setup_oauth_environment):
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://api.sutra.sudarshanai.com") as client:
             auth_res = await client.get(
                 "/oauth/authorize",
+                headers={"Authorization": f"Bearer {env['owner_token']}"},
                 params={
                     "client_id": "cursor-production",
                     "redirect_uri": redirect_uri,
@@ -506,6 +525,7 @@ async def test_mcp_authenticated_call_still_works(setup_oauth_environment):
                     "code_challenge_method": "S256",
                     "scope": "sutra:agent",
                     "agent_id": env["agent"].id,
+                    "action": "approve",
                 },
                 follow_redirects=False,
             )
@@ -532,8 +552,12 @@ async def test_mcp_authenticated_call_still_works(setup_oauth_environment):
                     "method": "initialize",
                     "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "oauth-client", "version": "1"}},
                 },
-                headers={"Accept": "application/json, text/event-stream"},
+                headers={
+                    "Accept": "application/json, text/event-stream",
+                    "Authorization": f"Bearer {access_token}",
+                },
             )
+            assert init_res.status_code == 200
             session_id = init_res.headers.get("mcp-session-id")
 
             # Call tool with OAuth access token

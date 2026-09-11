@@ -1,34 +1,38 @@
 """OAuth 2.1 Authorization Server & Protected Resource Metadata Endpoints.
 
-Implements RFC 8414 (OAuth 2.0 Authorization Server Metadata) and
+Implements RFC 8414 (OAuth 2.0 Authorization Server Metadata),
 RFC 9728 (OAuth 2.0 Protected Resource Metadata) for MCP clients (Cursor,
-Claude Desktop, Windsurf, CLI), along with PKCE authorization code exchange.
+Claude Desktop, Claude Code, Windsurf, CLI), along with PKCE authorization code exchange,
+real browser login, and explicit human consent.
 """
 from __future__ import annotations
 
 import base64
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+import html
 import hashlib
 import json
 import logging
 import secrets
 from typing import Any, Dict, Optional
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode, urlparse
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, Response, status
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.api.agent_dependencies import create_agent_session
 from app.api.dependencies import get_current_user_optional
-from app.core.config import settings
+from app.core.config import CANONICAL_PRODUCTION_API_URL, settings
 from app.core.redis_service import redis_service
+from app.core.security import create_access_token, hash_password, verify_password
 from app.db.session import get_db
 from app.models.actor import Actor
 from app.models.agent import Agent
 from app.models.user import User
+from app.models.user_session import UserSession
 
 logger = logging.getLogger("sutra.oauth")
 
@@ -44,6 +48,30 @@ def verify_code_challenge(verifier: str, challenge: str, method: str = "S256") -
     elif method in ("plain", ""):
         return secrets.compare_digest(verifier, challenge)
     return False
+
+
+def resolve_client_name(client_id: str) -> str:
+    """Resolve a human-readable client name from client_id or cached registration."""
+    try:
+        cached = redis_service.get(f"oauth_client:{client_id}")
+        if cached and isinstance(cached, dict) and cached.get("client_name"):
+            return cached["client_name"]
+    except Exception:
+        pass
+
+    known = {
+        "cursor": "Cursor",
+        "claude-desktop": "Claude Desktop",
+        "claude-code": "Claude Code",
+        "claude": "Claude",
+        "windsurf": "Windsurf",
+        "sutra-mcp-client": "SUTRA MCP Client",
+    }
+    lowered = client_id.lower()
+    for k, v in known.items():
+        if k in lowered:
+            return v
+    return client_id
 
 
 # =========================================================================
@@ -119,147 +147,563 @@ async def register_client_endpoint(request: Request) -> Dict[str, Any]:
 
 
 # =========================================================================
-# OAUTH AUTHORIZATION FLOW (PKCE)
+# HTML UI TEMPLATES (LOGIN, CONSENT, CALLBACK)
 # =========================================================================
 
-class AuthorizeRequest(BaseModel):
-    client_id: str
-    redirect_uri: str
-    response_type: str = "code"
-    code_challenge: str
-    code_challenge_method: str = "S256"
-    state: Optional[str] = None
-    scope: str = "sutra:agent"
-    agent_id: Optional[str] = None
-    resource: Optional[str] = None
+_BASE_CSS = """
+:root {
+  --bg: #0B0B0F;
+  --surface: #121218;
+  --surface-2: #1A1A24;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-focus: rgba(6, 182, 212, 0.5);
+  --text: #F8FAFC;
+  --text-muted: #94A3B8;
+  --cyan: #06B6D4;
+  --cyan-hover: #0891B2;
+  --green: #10B981;
+  --red: #EF4444;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Inter", sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.card {
+  width: 100%;
+  max-width: 480px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px -10px rgba(6, 182, 212, 0.1);
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(6, 182, 212, 0.12);
+  color: var(--cyan);
+  margin-bottom: 12px;
+}
+h1 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+p.sub { font-size: 14px; color: var(--text-muted); line-height: 1.5; margin-bottom: 24px; }
+.field { margin-bottom: 16px; }
+label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+input {
+  width: 100%;
+  height: 44px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 14px;
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+input:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15); }
+.error-box {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #FCA5A5;
+  font-size: 13px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 18px;
+}
+.scope-list {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+.scope-item { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; font-size: 13px; }
+.scope-item:last-child { margin-bottom: 0; }
+.scope-icon { color: var(--cyan); font-weight: bold; margin-top: 1px; }
+.scope-text strong { color: var(--text); display: block; margin-bottom: 2px; }
+.scope-text span { color: var(--text-muted); font-size: 12px; line-height: 1.4; display: block; }
+.user-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 24px;
+  font-size: 13px;
+}
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(6, 182, 212, 0.2);
+  color: var(--cyan);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+}
+.actions { display: flex; gap: 12px; }
+.btn {
+  flex: 1;
+  height: 44px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  border: none;
+}
+.btn-primary { background: linear-gradient(135deg, #06B6D4 0%, #0284C7 100%); color: white; }
+.btn-primary:hover { opacity: 0.95; transform: translateY(-1px); }
+.btn-secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { background: rgba(255, 255, 255, 0.06); }
+"""
 
+
+def _render_login_html(
+    client_id: str,
+    client_name: str,
+    redirect_uri: str,
+    code_challenge: str,
+    code_challenge_method: str,
+    state: Optional[str],
+    scope: str,
+    error: Optional[str] = None,
+) -> str:
+    err_html = f'<div class="error-box">{html.escape(error)}</div>' if error else ""
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Sign in to SUTRA</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>{_BASE_CSS}</style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">SUTRA Governance Control Plane</div>
+    <h1>Sign In to Authorize</h1>
+    <p class="sub"><strong>{html.escape(client_name)}</strong> is requesting connection to SUTRA. Please sign in to approve access.</p>
+    {err_html}
+    <form method="POST" action="/oauth/authorize">
+      <input type="hidden" name="login_action" value="login">
+      <input type="hidden" name="client_id" value="{html.escape(client_id)}">
+      <input type="hidden" name="redirect_uri" value="{html.escape(redirect_uri)}">
+      <input type="hidden" name="response_type" value="code">
+      <input type="hidden" name="code_challenge" value="{html.escape(code_challenge)}">
+      <input type="hidden" name="code_challenge_method" value="{html.escape(code_challenge_method)}">
+      <input type="hidden" name="scope" value="{html.escape(scope)}">
+      <input type="hidden" name="state" value="{html.escape(state or '')}">
+
+      <div class="field">
+        <label>Username or Email</label>
+        <input type="text" name="login" required autofocus autocomplete="username" placeholder="developer@example.com">
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" name="password" required autocomplete="current-password" placeholder="••••••••••••">
+      </div>
+      <div style="margin-top: 24px;">
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In & Continue</button>
+      </div>
+    </form>
+  </div>
+</body>
+</html>"""
+
+
+def _render_consent_html(
+    client_id: str,
+    client_name: str,
+    redirect_uri: str,
+    code_challenge: str,
+    code_challenge_method: str,
+    state: Optional[str],
+    scope: str,
+    username: str,
+    email: str,
+) -> str:
+    initial = (username[:1] or "U").upper()
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Connect {html.escape(client_name)} to SUTRA</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>{_BASE_CSS}</style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">Model Context Protocol · OAuth 2.1</div>
+    <h1>Connect {html.escape(client_name)}</h1>
+    <p class="sub">Authorize <strong>{html.escape(client_name)}</strong> to act as an autonomous coding agent governed by your SUTRA control plane.</p>
+
+    <div class="user-badge">
+      <div class="user-avatar">{html.escape(initial)}</div>
+      <div>
+        <div style="font-weight: 600;">{html.escape(username)}</div>
+        <div style="font-size: 12px; color: var(--text-muted);">{html.escape(email)}</div>
+      </div>
+    </div>
+
+    <div class="scope-list">
+      <div class="scope-item">
+        <div class="scope-icon">✓</div>
+        <div class="scope-text">
+          <strong>Autonomous Agent Identity</strong>
+          <span>Provisions a lease-bound coding identity strictly owned by your account.</span>
+        </div>
+      </div>
+      <div class="scope-item">
+        <div class="scope-icon">✓</div>
+        <div class="scope-text">
+          <strong>Zero-Access Default Boundary</strong>
+          <span>Starts with 0 repository grants. You must explicitly authorize repositories.</span>
+        </div>
+      </div>
+      <div class="scope-item">
+        <div class="scope-icon">✓</div>
+        <div class="scope-text">
+          <strong>SUTRA 4-Pillar Governance</strong>
+          <span>All terminal pushes, changes, and PRs require cryptographic provenance and human approval.</span>
+        </div>
+      </div>
+    </div>
+
+    <form method="POST" action="/oauth/authorize">
+      <input type="hidden" name="client_id" value="{html.escape(client_id)}">
+      <input type="hidden" name="redirect_uri" value="{html.escape(redirect_uri)}">
+      <input type="hidden" name="response_type" value="code">
+      <input type="hidden" name="code_challenge" value="{html.escape(code_challenge)}">
+      <input type="hidden" name="code_challenge_method" value="{html.escape(code_challenge_method)}">
+      <input type="hidden" name="scope" value="{html.escape(scope)}">
+      <input type="hidden" name="state" value="{html.escape(state or '')}">
+
+      <div class="actions">
+        <button type="submit" name="action" value="cancel" class="btn btn-secondary">Cancel</button>
+        <button type="submit" name="action" value="approve" class="btn btn-primary">Approve</button>
+      </div>
+    </form>
+  </div>
+</body>
+</html>"""
+
+
+def _render_callback_html(
+    title: str,
+    message: str,
+    is_success: bool = True,
+    client_name: Optional[str] = None,
+) -> str:
+    color = "var(--green)" if is_success else "var(--red)"
+    icon = "✓" if is_success else "✕"
+    client_line = f"<p style='margin-bottom: 12px; color: var(--text);'><strong>{html.escape(client_name)}</strong> is now authorized.</p>" if client_name else ""
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>{html.escape(title)}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>{_BASE_CSS}</style>
+</head>
+<body>
+  <div class="card" style="text-align: center;">
+    <div style="width: 56px; height: 56px; border-radius: 50%; background: {color}22; color: {color}; font-size: 28px; font-weight: bold; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto;">
+      {icon}
+    </div>
+    <h1>{html.escape(title)}</h1>
+    {client_line}
+    <p class="sub">{html.escape(message)}</p>
+    <div style="margin-top: 16px;">
+      <p style="font-size: 12px; color: var(--text-muted);">You can now close this browser tab and return to your IDE or terminal.</p>
+    </div>
+  </div>
+</body>
+</html>"""
+
+
+# =========================================================================
+# OAUTH AUTHORIZATION FLOW (PKCE + BROWSER LOGIN & CONSENT)
+# =========================================================================
 
 @router.get("/oauth/authorize")
 @router.post("/oauth/authorize")
-def authorize_endpoint(
+async def authorize_endpoint(
     request: Request,
-    client_id: str = Query(...),
-    redirect_uri: str = Query(...),
-    response_type: str = Query("code"),
-    code_challenge: str = Query(...),
-    code_challenge_method: str = Query("S256"),
+    response: Response,
+    client_id: Optional[str] = Query(None),
+    redirect_uri: Optional[str] = Query(None),
+    response_type: Optional[str] = Query(None),
+    code_challenge: Optional[str] = Query(None),
+    code_challenge_method: Optional[str] = Query(None),
     state: Optional[str] = Query(None),
-    scope: str = Query("sutra:agent"),
-    agent_id: Optional[str] = Query(None),
+    scope: Optional[str] = Query(None),
     resource: Optional[str] = Query(None),
+    action: Optional[str] = Query(None),
+    agent_id: Optional[str] = Query(None),
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
     """
     OAuth 2.1 PKCE Authorize Endpoint.
-    Initiated by MCP clients to request delegated access.
-    Supports both CIMD (HTTPS URL client_id) and registered clients.
+    Enforces real browser authentication and explicit human consent.
+    Never falls back to arbitrary or global agents.
     """
+    form_data = {}
+    if request.method == "POST":
+        try:
+            form_data = dict(await request.form())
+        except Exception:
+            try:
+                form_data = await request.json()
+            except Exception:
+                form_data = {}
+
+    # Merge form data with query params (form data takes precedence on POST)
+    client_id = form_data.get("client_id") or client_id
+    redirect_uri = form_data.get("redirect_uri") or redirect_uri
+    response_type = form_data.get("response_type") or response_type or "code"
+    code_challenge = form_data.get("code_challenge") or code_challenge
+    code_challenge_method = form_data.get("code_challenge_method") or code_challenge_method or "S256"
+    state = form_data.get("state") or state
+    scope = form_data.get("scope") or scope or "sutra:agent"
+    resource = form_data.get("resource") or resource
+    agent_id = form_data.get("agent_id") or agent_id
+    submitted_action = form_data.get("action") or action
+    login_action = form_data.get("login_action")
+
+    # Validate required OAuth params
+    if not client_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing client_id")
+    if not redirect_uri:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing redirect_uri")
+    if not code_challenge:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing code_challenge")
     if response_type != "code":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Unsupported response_type. Only 'code' is supported.",
-        )
-
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported response_type. Only 'code' is supported.")
     if code_challenge_method != "S256":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Unsupported code_challenge_method. Only 'S256' is permitted under OAuth 2.1.",
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported code_challenge_method. Only 'S256' is permitted under OAuth 2.1.")
 
-    # Validate redirect_uri format
     if not redirect_uri.startswith("http://") and not redirect_uri.startswith("https://"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid redirect_uri. Must be an HTTP or HTTPS URI.",
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid redirect_uri. Must be an HTTP or HTTPS URI.")
+
+    client_name = resolve_client_name(client_id)
+
+    # 1. Handle Login Form Submission
+    if login_action == "login":
+        login_val = (form_data.get("login") or "").strip()
+        password_val = form_data.get("password") or ""
+        user = db.scalar(
+            select(User).where(or_(User.username == login_val, User.email == login_val.lower()))
         )
-
-    # Resolve active agent
-    selected_agent: Optional[Agent] = None
-    if agent_id:
-        selected_agent = db.scalar(select(Agent).where(Agent.id == agent_id, Agent.is_active.is_(True)))
-
-    if not selected_agent and current_user:
-        # Pick or create a dedicated MCP agent for this user
-        selected_agent = db.scalar(
-            select(Agent).where(
-                Agent.owner_id == current_user.id,
-                Agent.is_active.is_(True),
+        if not user or not verify_password(password_val, user.password_hash):
+            html_content = _render_login_html(
+                client_id=client_id,
+                client_name=client_name,
+                redirect_uri=redirect_uri,
+                code_challenge=code_challenge,
+                code_challenge_method=code_challenge_method,
+                state=state,
+                scope=scope,
+                error="Invalid username/email or password.",
             )
+            return HTMLResponse(content=html_content, status_code=401)
+
+        if not user.email_verified:
+            html_content = _render_login_html(
+                client_id=client_id,
+                client_name=client_name,
+                redirect_uri=redirect_uri,
+                code_challenge=code_challenge,
+                code_challenge_method=code_challenge_method,
+                state=state,
+                scope=scope,
+                error="Please verify your email address before continuing.",
+            )
+            return HTMLResponse(content=html_content, status_code=403)
+
+        # Create session and set cookie
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
+        user_session = UserSession(user_id=user.id, expires_at=expires_at)
+        db.add(user_session)
+        db.commit()
+        db.refresh(user_session)
+
+        raw_token = create_access_token(user.id, user_session.id)
+        consent_html = _render_consent_html(
+            client_id=client_id,
+            client_name=client_name,
+            redirect_uri=redirect_uri,
+            code_challenge=code_challenge,
+            code_challenge_method=code_challenge_method,
+            state=state,
+            scope=scope,
+            username=user.username,
+            email=user.email,
         )
-        if not selected_agent:
-            raw_token = f"sutra_agent_{secrets.token_urlsafe(32)}"
-            selected_agent = Agent(
-                owner_id=current_user.id,
-                name="MCP Coding Agent",
-                description="Auto-provisioned agent for Model Context Protocol integration",
-                token_hash=hashlib.sha256(raw_token.encode("utf-8")).hexdigest(),
-                token_prefix=raw_token[:16],
-                status="active",
-                is_active=True,
+        resp = HTMLResponse(content=consent_html)
+        resp.set_cookie(
+            key="sutra_session",
+            value=raw_token,
+            httponly=True,
+            samesite="lax",
+            secure=False if settings.debug and settings.app_env == "development" else True,
+            max_age=settings.access_token_expire_minutes * 60,
+            path="/",
+        )
+        return resp
+
+    # 2. If User is NOT Authenticated -> Render SUTRA Login Page
+    if not current_user:
+        html_content = _render_login_html(
+            client_id=client_id,
+            client_name=client_name,
+            redirect_uri=redirect_uri,
+            code_challenge=code_challenge,
+            code_challenge_method=code_challenge_method,
+            state=state,
+            scope=scope,
+        )
+        return HTMLResponse(content=html_content)
+
+    # 3. User is Authenticated -> Handle Explicit Actions (Cancel vs Approve)
+    if submitted_action == "cancel":
+        # RFC 6749 Access Denied
+        params = {"error": "access_denied", "error_description": "User cancelled authorization"}
+        if state:
+            params["state"] = state
+        target_url = f"{redirect_uri}{'&' if '?' in redirect_uri else '?'}{urlencode(params)}"
+        return RedirectResponse(url=target_url, status_code=status.HTTP_302_FOUND)
+
+    if submitted_action == "approve":
+        # Resolve Agent belonging strictly and exclusively to current_user
+        agent = None
+        if agent_id:
+            # If client/user specified an agent, it MUST belong to current_user and be active
+            agent = db.scalar(
+                select(Agent).where(
+                    Agent.id == agent_id,
+                    Agent.owner_id == current_user.id,
+                    Agent.is_active.is_(True),
+                    Agent.status == "active",
+                )
             )
-            db.add(selected_agent)
-            db.flush()
+            if not agent:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Requested agent does not exist or does not belong to the authenticated user.",
+                )
 
-            actor = Actor(
-                id=selected_agent.id,
-                owner_id=current_user.id,
-                type="agent",
-                name=selected_agent.name,
-                capabilities=json.dumps([
-                    "repository.read",
-                    "repository.write",
-                    "change.create",
-                    "change.commit",
-                    "change.conflict.read",
-                    "knowledge_graph.read",
-                ]),
+        if not agent:
+            # Deterministically create or reuse an Agent belonging exclusively to current_user
+            agent_name = f"MCP ({client_name})"
+            agent = db.scalar(
+                select(Agent).where(
+                    Agent.owner_id == current_user.id,
+                    Agent.name == agent_name,
+                    Agent.is_active.is_(True),
+                    Agent.status == "active",
+                )
             )
-            db.add(actor)
-            db.commit()
-            db.refresh(selected_agent)
+            if not agent:
+                raw_token = f"sutra_agent_{secrets.token_urlsafe(32)}"
+                agent = Agent(
+                    owner_id=current_user.id,
+                    name=agent_name,
+                    description=f"Auto-provisioned agent for {client_name} MCP integration",
+                    token_hash=hash_password(raw_token),
+                    token_prefix=raw_token[:16],
+                    status="active",
+                    is_active=True,
+                )
+                db.add(agent)
+                db.flush()
 
-    # Issue authorization code
-    code = f"sutra_auth_code_{secrets.token_urlsafe(32)}"
-    code_data = {
-        "client_id": client_id,
-        "redirect_uri": redirect_uri,
-        "code_challenge": code_challenge,
-        "code_challenge_method": code_challenge_method,
-        "scope": scope,
-        "resource": resource,
-        "agent_id": selected_agent.id if selected_agent else None,
-        "user_id": current_user.id if current_user else None,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
+                actor = Actor(
+                    id=agent.id,
+                    owner_id=current_user.id,
+                    type="agent",
+                    name=agent.name,
+                    capabilities=json.dumps([
+                        "repository.read",
+                        "repository.write",
+                        "change.create",
+                        "change.commit",
+                        "change.conflict.read",
+                        "knowledge_graph.read",
+                    ]),
+                )
+                db.add(actor)
+                db.commit()
+                db.refresh(agent)
 
-    try:
-        redis_service.set(f"oauth_code:{code}", code_data, ex=600)
-    except Exception as e:
-        logger.warning(f"Failed to store auth code in Redis: {e}")
+        # Issue authorization code bound strictly to the human user and their agent
+        code = f"sutra_auth_code_{secrets.token_urlsafe(32)}"
+        code_data = {
+            "client_id": client_id,
+            "redirect_uri": redirect_uri,
+            "code_challenge": code_challenge,
+            "code_challenge_method": code_challenge_method,
+            "scope": scope,
+            "resource": resource,
+            "agent_id": agent.id,
+            "user_id": current_user.id,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
 
-    # Build redirect URL with RFC 9207 iss parameter
-    base_url = settings.get_public_api_url(request)
-    params = {"code": code, "iss": base_url}
-    if state:
-        params["state"] = state
+        try:
+            redis_service.set(f"oauth_code:{code}", code_data, ex=600)
+        except Exception as e:
+            logger.warning(f"Failed to store auth code in Redis: {e}")
 
-    target_url = f"{redirect_uri}{'&' if '?' in redirect_uri else '?'}{urlencode(params)}"
-    return RedirectResponse(url=target_url, status_code=status.HTTP_302_FOUND)
+        # Build redirect URL with RFC 9207 iss parameter
+        base_url = settings.get_public_api_url(request)
+        params = {"code": code, "iss": base_url}
+        if state:
+            params["state"] = state
+
+        target_url = f"{redirect_uri}{'&' if '?' in redirect_uri else '?'}{urlencode(params)}"
+        return RedirectResponse(url=target_url, status_code=status.HTTP_302_FOUND)
+
+    # 4. User is Authenticated, no action submitted yet -> Display Consent Screen
+    consent_html = _render_consent_html(
+        client_id=client_id,
+        client_name=client_name,
+        redirect_uri=redirect_uri,
+        code_challenge=code_challenge,
+        code_challenge_method=code_challenge_method,
+        state=state,
+        scope=scope,
+        username=current_user.username,
+        email=current_user.email,
+    )
+    return HTMLResponse(content=consent_html)
 
 
 # =========================================================================
 # TOKEN EXCHANGE (AUTHORIZATION CODE & REFRESH TOKEN)
 # =========================================================================
-
-class TokenRequest(BaseModel):
-    grant_type: str
-    code: Optional[str] = None
-    redirect_uri: Optional[str] = None
-    client_id: Optional[str] = None
-    code_verifier: Optional[str] = None
-    refresh_token: Optional[str] = None
-
 
 @router.post("/oauth/token")
 async def token_endpoint(
@@ -269,8 +713,8 @@ async def token_endpoint(
     """
     OAuth 2.1 Token Exchange Endpoint.
     Exchanges authorization code for an authoritative SUTRA MCP Access Token.
+    Strictly verifies user ownership. Never falls back to arbitrary agents.
     """
-    # Accept both JSON and application/x-www-form-urlencoded
     content_type = request.headers.get("content-type", "")
     if "application/json" in content_type:
         data = await request.json()
@@ -334,19 +778,28 @@ async def token_endpoint(
         except Exception:
             pass
 
-        # Resolve agent
+        # Strictly resolve agent and user bound to authorization code (FAIL CLOSED)
         agent_id = cached_code.get("agent_id")
-        agent = None
-        if agent_id:
-            agent = db.scalar(select(Agent).where(Agent.id == agent_id, Agent.is_active.is_(True)))
+        user_id = cached_code.get("user_id")
+        if not agent_id or not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Authorization code has no bound agent or user identity",
+            )
 
+        agent = db.scalar(
+            select(Agent).where(
+                Agent.id == agent_id,
+                Agent.owner_id == user_id,
+                Agent.is_active.is_(True),
+                Agent.status == "active",
+            )
+        )
         if not agent:
-            agent = db.scalar(select(Agent).where(Agent.is_active.is_(True)))
-            if not agent:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="No active agent associated with authorization",
-                )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Agent bound to authorization code is inactive, revoked, or not owned by authorizing user",
+            )
 
         # Create authoritative SUTRA AgentSession
         session, raw_session_token = create_agent_session(agent, db)
@@ -359,6 +812,7 @@ async def token_endpoint(
         token_prefix = access_token[:32]
         token_data = {
             "agent_id": agent.id,
+            "user_id": user_id,
             "session_id": session.id,
             "raw_session_token": raw_session_token,
             "scope": cached_code.get("scope", "sutra:agent"),
@@ -367,6 +821,7 @@ async def token_endpoint(
         }
         rt_data = {
             "agent_id": agent.id,
+            "user_id": user_id,
             "scope": cached_code.get("scope", "sutra:agent"),
             "resource": cached_code.get("resource"),
             "client_id": cached_code.get("client_id"),
@@ -399,7 +854,7 @@ async def token_endpoint(
         try:
             rt_data = redis_service.get(f"mcp_oauth_rt:{rt}")
         except Exception as e:
-            logger.warning(f"Redis get failed: {e}")
+            logger.warning(f"Redis get failed for refresh token: {e}")
 
         if not rt_data or not isinstance(rt_data, dict):
             raise HTTPException(
@@ -408,18 +863,28 @@ async def token_endpoint(
             )
 
         agent_id = rt_data.get("agent_id")
-        agent = db.scalar(select(Agent).where(Agent.id == agent_id, Agent.is_active.is_(True)))
+        user_id = rt_data.get("user_id")
+        agent = db.scalar(
+            select(Agent).where(
+                Agent.id == agent_id,
+                Agent.owner_id == user_id,
+                Agent.is_active.is_(True),
+                Agent.status == "active",
+            )
+        )
         if not agent:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Agent is inactive or deleted",
+                detail="Agent associated with refresh token is inactive or revoked",
             )
 
         session, raw_session_token = create_agent_session(agent, db)
-        access_token = f"sutra_mcp_at_{secrets.token_urlsafe(32)}"
-        token_prefix = access_token[:32]
+        new_access_token = f"sutra_mcp_at_{secrets.token_urlsafe(32)}"
+        token_prefix = new_access_token[:32]
+
         token_data = {
             "agent_id": agent.id,
+            "user_id": user_id,
             "session_id": session.id,
             "raw_session_token": raw_session_token,
             "scope": rt_data.get("scope", "sutra:agent"),
@@ -430,29 +895,71 @@ async def token_endpoint(
         try:
             redis_service.set(f"mcp_oauth:{token_prefix}", token_data, ex=900)
         except Exception as e:
-            logger.warning(f"Failed to cache OAuth token in Redis: {e}")
+            logger.warning(f"Failed to cache rotated OAuth token: {e}")
 
         return {
-            "access_token": access_token,
+            "access_token": new_access_token,
             "token_type": "Bearer",
             "expires_in": 900,
-            "refresh_token": rt,
             "scope": rt_data.get("scope", "sutra:agent"),
         }
 
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported grant_type '{grant_type}'",
+            detail=f"Unsupported grant_type '{grant_type}'. Only 'authorization_code' and 'refresh_token' are supported.",
         )
 
 
 # =========================================================================
-# RFC 7009 TOKEN REVOCATION ENDPOINT
+# OAUTH BROWSER CALLBACK LANDING
+# =========================================================================
+
+@router.get("/oauth/callback")
+def oauth_callback_endpoint(
+    request: Request,
+    code: Optional[str] = Query(None),
+    state: Optional[str] = Query(None),
+    error: Optional[str] = Query(None),
+    error_description: Optional[str] = Query(None),
+):
+    """
+    Browser landing page for OAuth redirects.
+    Provides clear visual feedback for client connection completion.
+    """
+    if error:
+        desc = error_description or "The authorization request was cancelled or failed."
+        html_content = _render_callback_html(
+            title="Authorization Denied",
+            message=desc,
+            is_success=False,
+        )
+        return HTMLResponse(content=html_content, status_code=400)
+
+    if code:
+        html_content = _render_callback_html(
+            title="SUTRA Connected Successfully",
+            message="Your Model Context Protocol (MCP) coding client has been authorized.",
+            is_success=True,
+        )
+        return HTMLResponse(content=html_content, status_code=200)
+
+    html_content = _render_callback_html(
+        title="OAuth Callback",
+        message="No authorization code was provided.",
+        is_success=False,
+    )
+    return HTMLResponse(content=html_content, status_code=400)
+
+
+# =========================================================================
+# RFC 7009 TOKEN REVOCATION
 # =========================================================================
 
 @router.post("/oauth/revoke")
-async def revoke_token_endpoint(request: Request) -> Dict[str, Any]:
+async def revoke_token_endpoint(
+    request: Request,
+):
     """RFC 7009 OAuth 2.0 Token Revocation."""
     content_type = request.headers.get("content-type", "")
     if "application/json" in content_type:
@@ -462,15 +969,18 @@ async def revoke_token_endpoint(request: Request) -> Dict[str, Any]:
         data = dict(form)
 
     token = data.get("token")
-    if token:
-        token_type_hint = data.get("token_type_hint")
-        try:
-            if token.startswith("sutra_mcp_at_") or token_type_hint == "access_token":
-                redis_service.delete(f"mcp_oauth:{token[:32]}")
-            if token.startswith("sutra_mcp_rt_") or token_type_hint == "refresh_token":
-                redis_service.delete(f"mcp_oauth_rt:{token}")
-        except Exception as e:
-            logger.warning(f"Token revocation error: {e}")
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing 'token' parameter to revoke",
+        )
 
-    # RFC 7009 requires returning 200 OK regardless of whether the token existed
+    try:
+        if token.startswith("sutra_mcp_at_"):
+            redis_service.delete(f"mcp_oauth:{token[:32]}")
+        elif token.startswith("sutra_mcp_rt_"):
+            redis_service.delete(f"mcp_oauth_rt:{token}")
+    except Exception as e:
+        logger.warning(f"Error during token revocation: {e}")
+
     return {"status": "revoked"}

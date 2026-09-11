@@ -7,7 +7,7 @@ import base64
 import hashlib
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import HTTPBearer
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import or_, select
@@ -458,7 +458,7 @@ def reset_password(request: Request, payload: ResetPasswordRequest, db: Session 
 
 
 @router.post("/login", response_model=AuthResponse)
-def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)):
+def login(request: Request, response: Response, payload: LoginRequest, db: Session = Depends(get_db)):
     ip = get_client_ip(request)
     enforce_rate_limit(f"login:ip:{ip}", settings.rate_limit_login_per_minute, 60, "login attempt",
     )
@@ -481,7 +481,17 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
     db.commit()
     db.refresh(user_session)
 
-    return AuthResponse(access_token=create_access_token(user.id, user_session.id))
+    raw_token = create_access_token(user.id, user_session.id)
+    response.set_cookie(
+        key="sutra_session",
+        value=raw_token,
+        httponly=True,
+        samesite="lax",
+        secure=False if settings.debug and settings.app_env == "development" else True,
+        max_age=settings.access_token_expire_minutes * 60,
+        path="/",
+    )
+    return AuthResponse(access_token=raw_token)
 
 @router.get("/me")
 def me(current_user: User = Depends(get_current_user)):
@@ -495,18 +505,25 @@ def me(current_user: User = Depends(get_current_user)):
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(
     request: Request,
+    response: Response,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    response.delete_cookie(key="sutra_session", path="/")
     auth_header = request.headers.get("Authorization")
 
-    if not auth_header or not auth_header.startswith("Bearer "):
+    token = None
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header[7:].strip()
+    elif "sutra_session" in request.cookies:
+        token = request.cookies["sutra_session"].strip()
+
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
         )
 
-    token = auth_header[7:].strip()
 
     try:
         user_id, session_id = decode_access_token(token)
