@@ -62,5 +62,5 @@ def handle_sso_callback(
     """
     raise HTTPException(
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Single Sign-On (SSO) is coming soon for private beta.",
+        detail="Single Sign-On (SSO) is coming soon for Beta.",
     )

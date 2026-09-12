@@ -3,8 +3,8 @@ import { Signup } from "@/components/auth";
 import { noIndexMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "Join Private Beta — SUTRA",
-  description: "Request access or register for the SUTRA private beta.",
+  title: "Join Beta — SUTRA",
+  description: "Request access or register for the SUTRA Beta.",
   ...noIndexMetadata,
 };
 

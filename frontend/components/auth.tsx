@@ -15,7 +15,7 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  
+
   // Unverified email verification state
   const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
@@ -318,7 +318,7 @@ export function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
-  
+
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [loading, setLoading] = useState(false);
@@ -390,7 +390,7 @@ export function Signup() {
             ? "The engineering OS for autonomous agents."
             : `We sent a 6-digit verification code to ${email}.`}
         </div>
-        
+
         {error && (
           <div
             className="error-banner"
@@ -460,7 +460,7 @@ export function Signup() {
               />
             </div>
             <Btn primary style={{ width: "100%" }} type="submit" disabled={loading}>
-              {loading ? "Creating account..." : "Join Private Beta"}
+              {loading ? "Creating account..." : "Join Beta"}
             </Btn>
           </form>
         ) : (

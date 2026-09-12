@@ -252,7 +252,7 @@ export function LandingPage() {
                 textTransform: "uppercase",
               }}
             >
-              Private Beta
+              Beta
             </span>
           </Link>
 
@@ -322,7 +322,7 @@ export function LandingPage() {
                 textDecoration: "none",
               }}
             >
-              Join the Private Beta
+              Join the Beta
             </Link>
           </div>
 
@@ -407,7 +407,7 @@ export function LandingPage() {
                 marginTop: 4,
               }}
             >
-              Join the Private Beta
+              Join the Beta
             </Link>
           </div>
         )}
@@ -487,7 +487,7 @@ export function LandingPage() {
               onClick={() => trackEvent("click_cta", "marketing", "hero_join_private_beta")}
             >
               <ShimmerButton style={{ padding: "14px 34px", fontSize: 15 }}>
-                Join the Private Beta
+                Join the Beta
                 <ArrowRight size={16} />
               </ShimmerButton>
             </Link>
@@ -1285,7 +1285,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* 11. PRIVATE BETA CTA */}
+      {/* 11. Beta CTA */}
       <section
         style={{
           maxWidth: 1000,
@@ -1319,7 +1319,7 @@ export function LandingPage() {
             margin: "0 auto 36px",
           }}
         >
-          SUTRA is currently available as a private beta for teams experimenting with real-world AI-assisted engineering workflows.
+          SUTRA is currently available as a Beta for teams experimenting with real-world AI-assisted engineering workflows.
         </p>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
           <Link
@@ -1333,7 +1333,7 @@ export function LandingPage() {
               textDecoration: "none",
             }}
           >
-            Join the Private Beta
+            Join the Beta
           </Link>
           <div style={{ fontSize: 13, color: "#707A88" }}>
             Already have an account?{" "}
@@ -1395,7 +1395,7 @@ export function LandingPage() {
               Sign In
             </Link>
             <Link href="/register" style={{ color: "#3B82F6", textDecoration: "none", fontWeight: 600 }}>
-              Join the Private Beta
+              Join the Beta
             </Link>
           </div>
         </div>

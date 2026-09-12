@@ -101,7 +101,7 @@ export function AboutPage() {
                 textTransform: "uppercase",
               }}
             >
-              Private Beta
+              Beta
             </span>
           </Link>
 
@@ -169,7 +169,7 @@ export function AboutPage() {
                 textDecoration: "none",
               }}
             >
-              Join the Private Beta
+              Join the Beta
             </Link>
           </div>
 
@@ -254,7 +254,7 @@ export function AboutPage() {
                 marginTop: 4,
               }}
             >
-              Join the Private Beta
+              Join the Beta
             </Link>
           </div>
         )}
@@ -532,7 +532,7 @@ export function AboutPage() {
         </p>
       </section>
 
-      {/* ABOUT — PRIVATE BETA */}
+      {/* ABOUT — Beta */}
       <section
         style={{
           maxWidth: 860,
@@ -553,7 +553,7 @@ export function AboutPage() {
             marginBottom: 14,
           }}
         >
-          Private beta
+          Beta
         </h2>
         <p
           style={{
@@ -580,7 +580,7 @@ export function AboutPage() {
             gap: 8,
           }}
         >
-          Join the Private Beta
+          Join the Beta
           <ArrowRight size={16} />
         </Link>
       </section>
@@ -636,7 +636,7 @@ export function AboutPage() {
               Sign In
             </Link>
             <Link href="/register" style={{ color: "#3B82F6", textDecoration: "none", fontWeight: 600 }}>
-              Join the Private Beta
+              Join the Beta
             </Link>
           </div>
         </div>
