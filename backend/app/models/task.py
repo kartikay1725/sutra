@@ -169,6 +169,16 @@ class Task(Base):
         nullable=True,
     )
 
+    execution_summary: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    validation_summary: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
     __table_args__ = (
         CheckConstraint(
             "status IN "

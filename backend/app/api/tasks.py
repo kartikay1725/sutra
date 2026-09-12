@@ -78,6 +78,9 @@ class TaskResponse(BaseModel):
     completed_at: datetime | None
     cancelled_at: datetime | None
 
+    execution_summary: str | None = None
+    validation_summary: str | None = None
+
 
 def _to_response(task: Task) -> TaskResponse:
     return TaskResponse(
@@ -108,6 +111,9 @@ def _to_response(task: Task) -> TaskResponse:
         started_at=task.started_at,
         completed_at=task.completed_at,
         cancelled_at=task.cancelled_at,
+
+        execution_summary=task.execution_summary,
+        validation_summary=task.validation_summary,
     )
 
 

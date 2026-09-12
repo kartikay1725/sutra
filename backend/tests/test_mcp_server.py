@@ -268,8 +268,19 @@ async def test_mcp_streamable_initialize_and_tool_discovery(setup_mcp_environmen
                 "sutra_get_provenance",
                 "sutra_get_governance",
                 "sutra_create_issue",
+                "sutra_complete_task",
             }
-            assert expected_tools.issubset(tool_names), f"Missing tools: {expected_tools - tool_names}"
+            assert tool_names == expected_tools, f"Tool mismatch: expected {expected_tools}, got {tool_names}"
+            assert len(tools) == 14
+
+            # Verify every tool has a description and properties have descriptions
+            for tool in tools:
+                assert tool.get("description"), f"Tool {tool['name']} missing description"
+                props = tool.get("inputSchema", {}).get("properties", {})
+                for prop_name, prop_info in props.items():
+                    assert "description" in prop_info and prop_info["description"], (
+                        f"Tool {tool['name']} parameter '{prop_name}' missing description"
+                    )
 
 
 def extract_tool_result(result: dict) -> dict:
@@ -643,5 +654,151 @@ async def test_mcp_governed_commit_flow(setup_mcp_environment, db_session, monke
             assert "verdict" in gov_eval
             assert "passed" in gov_eval
             assert any("Commit origin verified as SUTRA-governed." in p for p in gov_eval.get("passed", []))
+
+            # 7. Attempt to complete task while PR is unmerged/unapproved -> should block
+            complete_res = await call_tool(
+                16,
+                "sutra_complete_task",
+                {
+                    "task_id": env["task"].id,
+                    "execution_summary": "Pushed commit and opened PR.",
+                    "validation_summary": "All tests passed.",
+                },
+            )
+            assert complete_res.get("error") or "human" in str(complete_res).lower()
+
+            # 8. Start task Mode B (auto-create from prompt without task_id)
+            mode_b_data = await call_tool(
+                17,
+                "sutra_start_task",
+                {
+                    "title": "Autonomous Feature Request",
+                    "description": "Please implement feature X and add tests.",
+                    "repository": repo.name,
+                },
+            )
+            assert mode_b_data["status"] == "claimed"
+            new_task_id = mode_b_data["task_id"]
+            assert new_task_id is not None
+            assert mode_b_data["title"] == "Autonomous Feature Request"
+            assert mode_b_data["source"] == "agent"
+
+            # 9. Complete autonomous task without linked PR -> succeeds
+            complete_mode_b = await call_tool(
+                18,
+                "sutra_complete_task",
+                {
+                    "task_id": new_task_id,
+                    "execution_summary": "Implemented feature X successfully.",
+                    "validation_summary": "12 tests passed.",
+                },
+            )
+            assert complete_mode_b["status"] == "success"
+            assert complete_mode_b["task_status"] == "completed"
+            assert complete_mode_b["execution_summary"] == "Implemented feature X successfully."
+            assert complete_mode_b["validation_summary"] == "12 tests passed."
+
+
+@pytest.mark.asyncio
+async def test_mcp_tool_metadata_semantic_discoverability():
+    """Verify semantic discoverability, intent mappings, boundary definition, and parameter schemas for all 14 tools."""
+    # 1. Verify server instructions
+    instructions = mcp_server.instructions
+    assert instructions is not None
+    # Boundary definitions
+    assert "Terminal/local tools are appropriate for" in instructions
+    assert "reading files" in instructions
+    assert "editing files" in instructions
+    assert "running tests" in instructions
+    assert "git inspection" in instructions
+    assert "SUTRA MCP tools MUST be used for governed" in instructions
+    assert "SUTRA does not replace GitHub" in instructions
+
+    # Intent mappings
+    assert "sutra_start_task" in instructions
+    assert "sutra_declare_change" in instructions
+    assert "sutra_push_commit" in instructions
+    assert "sutra_open_pull_request" in instructions
+    assert "sutra_get_status" in instructions
+    assert "sutra_get_governance" in instructions
+    assert "sutra_request_merge" in instructions
+    assert "sutra_complete_task" in instructions
+
+    # Natural language phrases mapped
+    assert "fix this bug" in instructions
+    assert "commit this" in instructions
+    assert "push this change" in instructions
+    assert "open a PR" in instructions
+    assert "can this merge?" in instructions
+    assert "what's the status?" in instructions
+    assert "finish the task" in instructions
+
+    # 2. Inspect tools from mcp_server
+    tools = await mcp_server.list_tools()
+    tool_map = {t.name: t for t in tools}
+    assert len(tool_map) == 14
+
+    # 3. Verify canonical vs legacy descriptions
+    # sutra_push_commit
+    push_desc = tool_map["sutra_push_commit"].description
+    assert "Git commit" in push_desc
+    assert "push" in push_desc.lower()
+    assert "governed" in push_desc.lower()
+    assert "terminal" in push_desc.lower()
+    assert "sutra_governed" in push_desc
+
+    # sutra_open_pull_request
+    pr_desc = tool_map["sutra_open_pull_request"].description
+    assert "Pull Request" in pr_desc
+    assert "gh pr create" in pr_desc
+    assert "CI" in pr_desc
+
+    # sutra_declare_change
+    declare_desc = tool_map["sutra_declare_change"].description
+    assert "code change" in declare_desc.lower()
+    assert "feature" in declare_desc.lower()
+    assert "bug fix" in declare_desc.lower()
+    assert "branch" in declare_desc.lower()
+
+    # sutra_start_task
+    start_desc = tool_map["sutra_start_task"].description
+    assert "engineering task" in start_desc.lower()
+    assert "coding request" in start_desc.lower()
+    assert "bug fix" in start_desc.lower()
+    assert "do NOT ask the user for a Task ID" in start_desc
+
+    # sutra_get_governance
+    gov_desc = tool_map["sutra_get_governance"].description
+    assert "governance" in gov_desc.lower()
+    assert "merge" in gov_desc.lower()
+    assert "CI" in gov_desc
+
+    # sutra_get_status
+    status_desc = tool_map["sutra_get_status"].description
+    assert "lifecycle" in status_desc.lower()
+    assert "status" in status_desc.lower()
+    assert "pipeline" in status_desc.lower()
+
+    # sutra_complete_task
+    complete_desc = tool_map["sutra_complete_task"].description
+    assert "outcome" in complete_desc.lower()
+    assert "validation" in complete_desc.lower()
+
+    # Legacy tools
+    submit_desc = tool_map["sutra_submit_change"].description
+    assert "DEPRECATED" in submit_desc
+    assert "LEGACY" in submit_desc
+
+    import_desc = tool_map["sutra_import_external_change"].description
+    assert "EXTERNAL" in import_desc
+    assert "external_unverified" in import_desc
+
+    # 4. Verify all parameter descriptions across all 14 tools
+    for name, tool in tool_map.items():
+        props = tool.input_schema.get("properties", {})
+        for prop_name, prop_info in props.items():
+            assert "description" in prop_info, f"Tool '{name}' property '{prop_name}' missing description"
+            assert len(prop_info["description"]) > 5, f"Tool '{name}' property '{prop_name}' description too short"
+
 
 

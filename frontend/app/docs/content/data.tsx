@@ -3,6 +3,7 @@ import { Group1GettingStarted } from './group1';
 import { Group2IdentityAccess } from './group2';
 import { Group3HumanGuide } from './group3';
 import { Group4AgentGuide } from './group4';
+import { GroupMcpIntegration } from './groupMcp';
 import { Group5AgentContract } from './group5';
 import { Group6APIReference } from './group6';
 import { Group7SecurityGovernance } from './group7';
@@ -20,6 +21,7 @@ export const sections: DocSection[] = [
   ...Group2IdentityAccess,
   ...Group3HumanGuide,
   ...Group4AgentGuide,
+  ...GroupMcpIntegration,
   ...Group5AgentContract,
   ...Group6APIReference,
   ...Group7SecurityGovernance,

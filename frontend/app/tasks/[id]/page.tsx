@@ -107,7 +107,20 @@ export default function TaskPage() {
 
   return (
     <Page 
-      eyebrow={"Task #"+id.slice(0, 8)} 
+      eyebrow={
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span>{"Task #" + id.slice(0, 8)}</span>
+          {task.source === "agent" ? (
+            <span className="badge indigo" style={{ fontSize: "11px", padding: "2px 8px", display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <Sparkles size={11} /> Agent-created Task
+            </span>
+          ) : (
+            <span className="badge gray" style={{ fontSize: "11px", padding: "2px 8px" }}>
+              Human-created Task
+            </span>
+          )}
+        </div>
+      }
       title={task.title} 
       description={task.description || "No description provided."} 
       actions={
@@ -172,6 +185,60 @@ export default function TaskPage() {
           </div>
         </div>
       </Card>
+
+      {/* Agent Execution & Validation Record Card */}
+      {(task.source === "agent" || task.execution_summary || task.validation_summary) && (
+        <Card style={{ marginBottom: 20, border: "1px solid rgba(129, 140, 248, 0.25)", background: "var(--bg-subtle)" }}>
+          <div style={{ padding: "18px 20px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, borderBottom: "1px solid var(--line)", paddingBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(129, 140, 248, 0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Sparkles size={16} style={{ color: "var(--indigo, #818cf8)" }} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 14, fontWeight: 600, margin: 0, color: "var(--fg)" }}>Agent Engineering Record</h3>
+                  <div style={{ fontSize: 12, color: "var(--muted)" }}>Autonomous task provenance, execution recap & validation telemetry</div>
+                </div>
+              </div>
+              <Badge tone={task.source === "agent" ? "purple" : "gray"}>
+                {task.source === "agent" ? "Auto-created from Prompt" : "Human Created"}
+              </Badge>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: task.validation_summary ? "1fr 1fr" : "1fr", gap: 14 }}>
+              {/* Execution Summary */}
+              <div style={{ background: "rgba(0, 0, 0, 0.2)", padding: "12px 14px", borderRadius: 8, border: "1px solid var(--line)" }}>
+                <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--cyan)", fontWeight: 600, marginBottom: 6 }}>
+                  Execution Summary
+                </div>
+                <div style={{ fontSize: 13, lineHeight: 1.5, color: "var(--text-primary)", whiteSpace: "pre-wrap" }}>
+                  {task.execution_summary || "Agent task active. Awaiting execution summary on completion..."}
+                </div>
+              </div>
+
+              {/* Validation Summary */}
+              {task.validation_summary && (
+                <div style={{ background: "rgba(0, 0, 0, 0.2)", padding: "12px 14px", borderRadius: 8, border: "1px solid var(--line)" }}>
+                  <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--green)", fontWeight: 600, marginBottom: 6 }}>
+                    Validation & Test Verification
+                  </div>
+                  <div style={{ fontSize: 13, lineHeight: 1.5, color: "var(--text-primary)", whiteSpace: "pre-wrap" }}>
+                    {task.validation_summary}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {task.description && (
+              <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--line)", fontSize: 12, color: "var(--muted)", display: "flex", gap: 6 }}>
+                <strong style={{ color: "var(--fg)", flexShrink: 0 }}>User Intent / Prompt:</strong>
+                <span style={{ color: "var(--text-secondary)" }}>{task.description}</span>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
       {/* Authoritative Engineering Lifecycle Timeline */}
       <EngineeringTimeline
         taskId={id}
@@ -343,8 +410,8 @@ export default function TaskPage() {
             </div>
             <div className="timeline">
               <div className="event">
-                <strong>Task created</strong>
-                <p>By user · {new Date(task.created_at).toLocaleString()}</p>
+                <strong>{task.source === "agent" ? "Task auto-created by agent" : "Task created"}</strong>
+                <p>{task.source === "agent" ? "Spawned from user prompt" : "By user"} · {new Date(task.created_at).toLocaleString()}</p>
               </div>
               {task.started_at && (
                 <div className="event">
@@ -371,9 +438,15 @@ export default function TaskPage() {
                 <div><span className="muted">Waiting for agent to begin...</span></div>
               ) : (
                 <>
-                  <div><span className="cyan">System</span> &nbsp; Agent initialized in workspace</div>
+                  <div><span className="cyan">System</span> &nbsp; Agent session initialized in repository</div>
+                  {task.execution_summary && (
+                    <div style={{ marginTop: 6 }}><span className="cyan">Summary</span> &nbsp; {task.execution_summary}</div>
+                  )}
+                  {task.validation_summary && (
+                    <div style={{ marginTop: 4 }}><span className="green">Verified</span> &nbsp; {task.validation_summary}</div>
+                  )}
                   {isCompleted ? (
-                    <div><span className="green">Success</span> &nbsp; Changes pushed and task completed.</div>
+                    <div style={{ marginTop: 6 }}><span className="green">Success</span> &nbsp; Changes pushed and task completed.</div>
                   ) : (
                     <div><span className="cyan">Agent</span> &nbsp; Working on implementation...</div>
                   )}

@@ -1,4 +1,4 @@
-"""Curated 8-Tool SUTRA MCP Interface.
+"""Curated SUTRA MCP Interface.
 
 Implements high-signal agent workflows and inspection primitives as an
 adapter layer over existing SUTRA domain services.
@@ -8,9 +8,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, List, Optional
 from uuid import uuid4
 
+from pydantic import Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -46,19 +47,22 @@ def _format_error(message: str, details: Optional[Dict[str, Any]] = None) -> Dic
 
 
 def register_sutra_tools(server: Any) -> None:
-    """Register the curated 8 tools on the MCP server instance."""
+    """Register curated SUTRA tools on the MCP server instance."""
 
     # =========================================================================
     # TOOL 1: sutra_get_context
     # =========================================================================
     @server.tool()
     async def sutra_get_context(ctx: Context) -> Dict[str, Any]:
-        """CRITICAL FIRST STEP: Returns your authoritative SUTRA engineering context.
+        """AUTHORITATIVE ENGINEERING CONTEXT & IDENTITY: Discovers agent session, assigned repository, permissions, and active task.
 
-Call this immediately when starting work to discover your identity, active task
-assignment, repository permissions, blocked operations, and legal next step.
-SUTRA is the engineering control plane; code cannot be merged without satisfying
-SUTRA governance. Do NOT attempt to merge or self-approve.
+Call this tool at the start of a session or when inspecting your working environment:
+- Discovers agent identity, actor permissions, and authorized capabilities.
+- Identifies the assigned repository, default branch, and active lease.
+- Resolves the current active task (if any) and legal next steps.
+- Answers: "who am I?", "what repository am I working on?", "what permissions do I have?".
+
+SUTRA is the engineering control plane; code cannot be merged without satisfying SUTRA governance. Agents cannot merge or self-approve.
         """
         with SessionLocal() as db:
             try:
@@ -77,14 +81,19 @@ SUTRA governance. Do NOT attempt to merge or self-approve.
     @server.tool()
     async def sutra_search_knowledge(
         ctx: Context,
-        repository_id: str,
-        query: str,
-        limit: int = 10,
+        repository_id: Annotated[str, Field(description="UUID or slug of the repository to search.")],
+        query: Annotated[str, Field(description="Natural language query or code symbol to search (e.g. 'auth middleware', 'calculate_tax', 'database schema').")],
+        limit: Annotated[int, Field(description="Maximum number of architecture/code knowledge nodes to return (default 10, max 25).")] = 10,
     ) -> Dict[str, Any]:
-        """Searches the SUTRA Knowledge Graph for repository code architecture, function definitions, dependencies, and engineering decisions.
+        """CODEBASE INTELLIGENCE & ARCHITECTURE SEARCH: Queries the SUTRA Knowledge Graph for symbols, contracts, dependencies, and decisions.
 
-Use this before modifying code to understand existing contracts and conventions.
-Read-only.
+Use this before writing, modifying, or refactoring code to:
+- Understand existing codebase architecture, classes, functions, and module boundaries.
+- Inspect internal APIs, data schemas, contracts, and engineering conventions.
+- Trace dependencies, callers, and related implementations across the repository.
+- Answers: "search codebase architecture", "how does feature X work?", "where is function Y defined?".
+
+Read-only inspection tool for repository intelligence and code understanding.
         """
         with SessionLocal() as db:
             try:
@@ -141,19 +150,48 @@ Read-only.
     @server.tool()
     async def sutra_start_task(
         ctx: Context,
-        task_id: str,
+        task_id: Annotated[Optional[str], Field(description="Optional UUID of an existing SUTRA Task to claim/resume. Omit when starting a new user request--do NOT ask the user for a Task ID.")] = None,
+        title: Annotated[Optional[str], Field(description="Title summarizing the user's coding objective (e.g. 'Fix auth token expiration bug', 'Add health check endpoint').")] = None,
+        description: Annotated[Optional[str], Field(description="Detailed explanation of the task, requirements, acceptance criteria, or error message.")] = None,
+        repository: Annotated[Optional[str], Field(description="Repository name or slug (optional if active session is already scoped to a repository).")] = None,
+        priority: Annotated[str, Field(description="Task priority level: 'low', 'medium', 'high', or 'critical' (default 'medium').")] = "medium",
+        task_type: Annotated[str, Field(description="Type of engineering work: 'feature', 'bug', 'refactor', 'test', or 'docs' (default 'feature').")] = "feature",
     ) -> Dict[str, Any]:
-        """Claims an assigned or open engineering task and locks an exclusive execution lease for your session.
+        """START AN ENGINEERING TASK: Begins a new coding request, bug fix, feature, refactor, test, or documentation task.
 
-You must call this before writing code or pushing branches. Once claimed, you own
-this task until completion or release. Returns task requirements, target branch name,
-and repository details.
+NATURAL WORKFLOW (DEFAULT):
+When the user asks you to write code or solve an engineering problem (e.g. 'Fix the auth bug', 'Implement user profile endpoint', 'Add unit tests'),
+do NOT ask the user for a Task ID!
+Call this tool with 'title' (and optionally 'description', 'task_type', 'priority').
+SUTRA automatically creates the governed Task, binds it to your active AgentSession, and grants your exclusive execution lease.
+
+EXISTING TASK MODE:
+Provide 'task_id' only if the user explicitly provided an existing SUTRA Task UUID to claim or resume.
+
+Answers intents like:
+- "start this task" / "start working on this"
+- "fix this bug" / "implement this feature"
+- "new coding request" / "refactor this component"
+
+Canonical next step after starting: Call sutra_declare_change to allocate the feature branch.
         """
         with SessionLocal() as db:
             try:
                 session, agent = resolve_mcp_agent_session(ctx, db)
                 task_svc = TaskService(db)
-                task = task_svc.claim_agent_task(task_id, session)
+
+                if task_id:
+                    task = task_svc.claim_agent_task(task_id, session)
+                else:
+                    task = task_svc.create_and_claim_agent_task(
+                        session=session,
+                        title=title,
+                        description=description,
+                        repository=repository,
+                        priority=priority,
+                        task_type=task_type,
+                    )
+
                 db.commit()
                 db.refresh(task)
 
@@ -177,6 +215,7 @@ and repository details.
                     "agent_id": agent.id,
                     "session_id": session.id,
                     "task_status": task.status,
+                    "source": getattr(task, "source", "agent") or "agent",
                     "title": task.title,
                     "description": task.description,
                     "acceptance_criteria": task.description,
@@ -230,19 +269,24 @@ and repository details.
     @server.tool()
     async def sutra_declare_change(
         ctx: Context,
-        task_id: str,
-        intent: str,
-        branch: str,
-        base_branch: str = "main",
-        base_commit: Optional[str] = None,
+        task_id: Annotated[str, Field(description="UUID of the active SUTRA Task (from sutra_start_task) that this change belongs to.")],
+        intent: Annotated[str, Field(description="Clear explanation of the change objective (e.g. 'Fix null pointer in auth middleware and add regression test').")],
+        branch: Annotated[str, Field(description="Git feature branch name to create/target (e.g. 'agent/task-xxxx' or 'fix-auth-null-check').")],
+        base_branch: Annotated[str, Field(description="Target base branch to merge into eventually (default 'main').")] = "main",
+        base_commit: Annotated[Optional[str], Field(description="Optional base commit SHA from which the branch originates.")] = None,
     ) -> Dict[str, Any]:
-        """FIRST GOVERNED CODE STEP: Formally declares an engineering Change under SUTRA governance.
+        """BEGIN TRACKING A CODE CHANGE: Declares a feature, bug fix, refactor, or documentation change under SUTRA governance.
 
-Call this after sutra_start_task to establish a tracked Change record bound to your
-session and task. This allocates the feature branch and prepares SUTRA to accept
-governed commits via sutra_push_commit.
+Call this after sutra_start_task to establish a tracked Change record bound to your session and task.
+This allocates your git feature branch and prepares SUTRA to receive governed commits.
 
-Do NOT use terminal git push. All code must be submitted via sutra_push_commit.
+Answers intents like:
+- "begin tracking a code change"
+- "track this change" / "start code change"
+- "create/allocate feature branch"
+- "prepare repository modification"
+
+Do NOT use terminal `git checkout -b` or terminal `git push`. Submit code changes through sutra_push_commit.
         """
         with SessionLocal() as db:
             try:
@@ -324,24 +368,23 @@ Do NOT use terminal git push. All code must be submitted via sutra_push_commit.
     @server.tool()
     async def sutra_push_commit(
         ctx: Context,
-        change_id: str,
-        commit_message: str,
-        file_patches: List[Dict[str, Any]],
+        change_id: Annotated[str, Field(description="UUID of the declared SUTRA Change (from sutra_declare_change). Identifies the governed change container.")],
+        commit_message: Annotated[str, Field(description="Conventional Git commit message explaining the change (e.g. 'fix(auth): handle expired token gracefully').")],
+        file_patches: Annotated[List[Dict[str, Any]], Field(description="List of file modifications submitted to SUTRA's governed Git commit path. Each element is {'path': 'relative/path/to/file.py', 'content': 'full file content as string'} or {'path': 'path/to/file.py', 'operation': 'delete'} for deletions.")],
     ) -> Dict[str, Any]:
-        """SUTRA-GOVERNED COMMIT CREATION: Atomically pushes code changes to the feature branch.
+        """CREATE AND PUSH A GIT COMMIT: Pushes repository code changes with SUTRA cryptographic provenance and governance stamping.
 
-The agent submits file paths and their contents directly to SUTRA. SUTRA creates the
-git blobs, commit object, and advances the branch ref via its GitHub App installation token.
-The commit is cryptographically registered and stamped as 'sutra_governed'.
+USE THIS TOOL INSTEAD OF TERMINAL `git commit` / `git push` FOR GOVERNED ENGINEERING WORK.
+Submits file modifications and deletions directly to the repository through the SUTRA GitHub App.
+Commits created through this tool are cryptographically recorded with origin 'sutra_governed', which is required for SUTRA governance verification and merge approval.
 
-Do NOT run `git commit` or `git push` in the terminal.
+Answers intents like:
+- "commit this" / "create a Git commit"
+- "push the commit" / "push this change"
+- "repository code submission" / "save code changes"
+- "submit patches"
 
-Parameters:
-  - change_id: The ID of the declared change from sutra_declare_change.
-  - commit_message: Conventional git commit message explaining the change.
-  - file_patches: Array of file objects to write or delete:
-      [{"path": "relative/path/to/file.py", "content": "file contents as string"}]
-      For deletion: [{"path": "file.py", "operation": "delete"}]
+Next step after committing: Call sutra_open_pull_request to open the linked GitHub PR.
         """
         with SessionLocal() as db:
             try:
@@ -414,17 +457,23 @@ Parameters:
     @server.tool()
     async def sutra_open_pull_request(
         ctx: Context,
-        change_id: str,
-        pr_title: str,
-        pr_description: Optional[str] = None,
-        base_branch: str = "main",
+        change_id: Annotated[str, Field(description="UUID of the SUTRA Change (from sutra_declare_change) containing the pushed governed commit.")],
+        pr_title: Annotated[str, Field(description="Title of the GitHub Pull Request (e.g. 'fix: resolve auth token expiration bug').")],
+        pr_description: Annotated[Optional[str], Field(description="Detailed Pull Request markdown description summarizing changes, motivation, and validation results.")] = None,
+        base_branch: Annotated[str, Field(description="Target branch to merge into on GitHub (default 'main').")] = "main",
     ) -> Dict[str, Any]:
-        """OPENS LINKED PULL REQUEST: Creates the GitHub PR linked to your SUTRA Change and Task.
+        """CREATE AND OPEN A GITHUB PULL REQUEST: Opens the linked PR for your SUTRA Change, Task, and governed commits.
 
-Call this after sutra_push_commit has recorded the governed commit.
-This opens the Pull Request on GitHub and initiates CI evaluation and SUTRA governance checks.
+USE THIS TOOL INSTEAD OF `gh pr create` OR DIRECT GITHUB UI PR CREATION FOR GOVERNED WORK.
+Opens the Pull Request on GitHub, links it to your SUTRA Change and Task, and initiates automated CI checks, provenance verification, and governance evaluation.
 
-After calling this, use sutra_get_status to monitor CI and governance progress.
+Answers intents like:
+- "open a PR" / "create a pull request"
+- "open a GitHub Pull Request"
+- "submit PR for review"
+- "submit code for review"
+
+Next step after opening: Call sutra_get_status or sutra_get_governance to monitor CI and governance progress.
         """
         with SessionLocal() as db:
             try:
@@ -522,21 +571,22 @@ After calling this, use sutra_get_status to monitor CI and governance progress.
     @server.tool()
     async def sutra_import_external_change(
         ctx: Context,
-        task_id: str,
-        commit_sha: str,
-        intent: str,
-        branch: str,
-        pr_title: str,
-        pr_description: Optional[str] = None,
-        base_branch: str = "main",
-        base_commit: Optional[str] = None,
-        is_legacy_submit: bool = False,
+        task_id: Annotated[str, Field(description="UUID of the active SUTRA Task to associate with the external commit.")],
+        commit_sha: Annotated[str, Field(description="Full 40-character SHA of the externally-pushed Git commit to reconcile.")],
+        intent: Annotated[str, Field(description="Explanation of what was modified in the external commit.")],
+        branch: Annotated[str, Field(description="Git branch where the commit was pushed.")],
+        pr_title: Annotated[str, Field(description="Title for the linked GitHub Pull Request.")],
+        pr_description: Annotated[Optional[str], Field(description="Optional markdown description for the Pull Request.")] = None,
+        base_branch: Annotated[str, Field(description="Base branch targeted for merge (default 'main').")] = "main",
+        base_commit: Annotated[Optional[str], Field(description="Optional base commit SHA before this change.")] = None,
+        is_legacy_submit: Annotated[bool, Field(description="Internal flag indicating whether this is invoked via legacy sutra_submit_change.")] = False,
     ) -> Dict[str, Any]:
-        """EXTERNAL / UNVERIFIED COMMIT IMPORT: Reconciles an externally-pushed terminal commit.
+        """EXTERNAL / UNVERIFIED COMMIT IMPORT: Reconciles an externally-pushed terminal commit into SUTRA for observation.
 
-WARNING: Commits imported via this tool are stamped with origin 'external_unverified'
-and CANNOT receive SUTRA governance approval. Use sutra_declare_change and sutra_push_commit
-for SUTRA-governed engineering tasks.
+WARNING: Commits imported via this tool originate outside SUTRA's governed pipeline and are stamped with origin 'external_unverified'. Under standard SUTRA governance policies, external unverified commits CANNOT receive automated governance approval.
+
+DO NOT use this for standard agent engineering work.
+Use the canonical governed pipeline: sutra_declare_change -> sutra_push_commit -> sutra_open_pull_request.
         """
         with SessionLocal() as db:
             try:
@@ -722,18 +772,23 @@ for SUTRA-governed engineering tasks.
     @server.tool()
     async def sutra_submit_change(
         ctx: Context,
-        task_id: str,
-        commit_sha: str,
-        intent: str,
-        branch: str,
-        pr_title: str,
-        pr_description: Optional[str] = None,
-        base_branch: str = "main",
-        base_commit: Optional[str] = None,
+        task_id: Annotated[str, Field(description="[LEGACY] UUID of the active SUTRA Task.")],
+        commit_sha: Annotated[str, Field(description="[LEGACY] SHA of the commit to submit.")],
+        intent: Annotated[str, Field(description="[LEGACY] Description of the change intent.")],
+        branch: Annotated[str, Field(description="[LEGACY] Git branch name.")],
+        pr_title: Annotated[str, Field(description="[LEGACY] Pull Request title.")],
+        pr_description: Annotated[Optional[str], Field(description="[LEGACY] Pull Request description.")] = None,
+        base_branch: Annotated[str, Field(description="[LEGACY] Target base branch (default 'main').")] = "main",
+        base_commit: Annotated[Optional[str], Field(description="[LEGACY] Base commit SHA.")] = None,
     ) -> Dict[str, Any]:
-        """DEPRECATED: Use sutra_declare_change + sutra_push_commit + sutra_open_pull_request instead.
+        """[DEPRECATED / LEGACY COMPATIBILITY] Legacy single-step change submission tool.
 
-This tool now reconciles commits for backwards compatibility while tagging origin appropriately.
+DO NOT USE FOR NEW WORK. Prefer the canonical 3-step governed workflow:
+1. sutra_declare_change (declares change and allocates branch)
+2. sutra_push_commit (creates and pushes governed commit with cryptographic provenance)
+3. sutra_open_pull_request (opens linked GitHub PR)
+
+This tool is preserved strictly for backwards compatibility with legacy integrations and maps internally to external commit reconciliation.
         """
         return await sutra_import_external_change(
             ctx=ctx,
@@ -749,21 +804,33 @@ This tool now reconciles commits for backwards compatibility while tagging origi
         )
 
     # =========================================================================
-    # TOOL 5: sutra_get_status
+    # TOOL 9: sutra_get_status
     # =========================================================================
     @server.tool()
     async def sutra_get_status(
         ctx: Context,
-        pull_request_id: Optional[str] = None,
-        task_id: Optional[str] = None,
-        change_id: Optional[str] = None,
+        pull_request_id: Annotated[Optional[str], Field(description="UUID of the SUTRA Pull Request to query lifecycle status for.")] = None,
+        task_id: Annotated[Optional[str], Field(description="UUID of the SUTRA Task to query lifecycle status for.")] = None,
+        change_id: Annotated[Optional[str], Field(description="UUID of the SUTRA Change to query lifecycle status for.")] = None,
     ) -> Dict[str, Any]:
-        """Returns consolidated engineering lifecycle status for your Task, Change, or Pull Request.
+        """ENGINEERING LIFECYCLE STATUS & PIPELINE INSPECTION: Queries current state, active stage, and blocking reasons across Task, Change, or PR.
 
-Aggregates the authoritative engineering lifecycle: Task -> Session -> Change ->
-Commit -> PR -> CI -> Governance -> Approval -> Merge -> Task completion.
+Aggregates the authoritative engineering lifecycle:
+Task -> Session -> Change -> Commit -> PR -> CI -> Governance -> Approval -> Merge -> Task Completion.
 
-Provides current_stage, overall_state, next_action, next_actor, and blocking_reasons.
+Returns:
+- current_stage: Current position in the pipeline (task_claimed, change_declared, committed, pr_opened, ci_running, under_review, approved, merged).
+- overall_state: High-level status (in_progress, pending_review, ready_for_merge, blocked, completed).
+- next_action: Legally expected next operation in the lifecycle.
+- next_actor: Who must act next (agent or human reviewer).
+- blocking_reasons: Detailed explanations of any policy, CI, or conflict blockers.
+
+Answers intents like:
+- "what's the status?" / "what is the lifecycle status?"
+- "task/change/PR state"
+- "what is blocking progress?" / "what's blocking?"
+- "what step is next?"
+
 Accepts pull_request_id, task_id, or change_id.
         """
         with SessionLocal() as db:
@@ -787,19 +854,23 @@ Accepts pull_request_id, task_id, or change_id.
                 return _format_error(f"Failed to get lifecycle status: {str(e)}")
 
     # =========================================================================
-    # TOOL 6: sutra_request_merge
+    # TOOL 10: sutra_request_merge
     # =========================================================================
     @server.tool()
     async def sutra_request_merge(
         ctx: Context,
-        pull_request_id: str,
-        completion_summary: str = "",
+        pull_request_id: Annotated[str, Field(description="UUID of the SUTRA Pull Request that is ready for merge handover.")],
+        completion_summary: Annotated[str, Field(description="Summary of work completed and test validations to present to human reviewers.")] = "",
     ) -> Dict[str, Any]:
-        """Final handover step: Verifies that CI passed and SUTRA governance is satisfied, then dispatches a formal merge request to the human repository owner.
+        """REQUEST MERGE HANDOVER: Verifies CI and governance pass, then alerts human repository owners to execute the merge.
 
-STRICT BOUNDARY: Agents CANNOT merge branches directly. Merging is an exclusive human
-authority. This tool verifies eligibility and alerts human reviewers to execute the
-governed merge.
+STRICT BOUNDARY: Agents CANNOT merge branches directly. Merging is an exclusive human authority enforced by SUTRA governance.
+This tool verifies that CI checks passed and SUTRA governance policies are satisfied, then dispatches a formal merge request to human owners.
+
+Answers intents like:
+- "request merge" / "ask for merge"
+- "ready to merge" / "handover PR for merge"
+- "notify human reviewer to merge"
         """
         with SessionLocal() as db:
             try:
@@ -872,18 +943,23 @@ governed merge.
                 return _format_error(f"Failed to request merge: {str(e)}")
 
     # =========================================================================
-    # TOOL 7: sutra_get_provenance
+    # TOOL 11: sutra_get_provenance
     # =========================================================================
     @server.tool()
     async def sutra_get_provenance(
         ctx: Context,
-        repository_id: str,
-        commit_sha: str,
+        repository_id: Annotated[str, Field(description="UUID or slug of the repository.")],
+        commit_sha: Annotated[str, Field(description="Git commit SHA (40-char or short) to resolve cryptographic and author provenance for.")],
     ) -> Dict[str, Any]:
-        """Inspects the full cryptographic provenance chain for any commit SHA in the repository.
+        """CRYPTOGRAPHIC PROVENANCE & AUDIT INSPECTION: Inspects author identity, task binding, and audit trail for any Git commit.
 
-Resolves whether the commit was authored by an agent or human, the associated SUTRA Task,
-Change ID, Agent Session, and reviewer approval records.
+Resolves whether the commit was authored by a verified SUTRA agent or human, the associated SUTRA Task ID, Change ID, Agent Session, and reviewer approval records.
+Reveals whether the commit is stamped 'sutra_governed' or 'external_unverified'.
+
+Answers intents like:
+- "who wrote this commit?"
+- "is this commit verified / governed?"
+- "check commit provenance" / "audit trail"
         """
         with SessionLocal() as db:
             try:
@@ -903,23 +979,29 @@ Change ID, Agent Session, and reviewer approval records.
                 return _format_error(f"Failed to resolve provenance: {str(e)}")
 
     # =========================================================================
-    # TOOL 8: sutra_get_governance
+    # TOOL 12: sutra_get_governance
     # =========================================================================
     @server.tool()
     async def sutra_get_governance(
         ctx: Context,
-        pull_request_id: Optional[str] = None,
-        task_id: Optional[str] = None,
-        change_id: Optional[str] = None,
+        pull_request_id: Annotated[Optional[str], Field(description="UUID of the SUTRA Pull Request to evaluate governance for.")] = None,
+        task_id: Annotated[Optional[str], Field(description="UUID of the SUTRA Task to check governance for.")] = None,
+        change_id: Annotated[Optional[str], Field(description="UUID of the SUTRA Change to check governance for.")] = None,
     ) -> Dict[str, Any]:
-        """Inspects the authoritative SUTRA governance evaluation and gate verification for a Pull Request.
+        """GOVERNANCE VERIFICATION & MERGE READINESS: Evaluates CI tests, branch policies, commit origin, and approval status.
 
-Evaluates:
-  - Change integrity and commit origin ('sutra_governed' required)
-  - Cryptographic and task provenance
-  - CI check statuses
-  - Branch protection rules and review satisfaction
-  - Conflict detection
+Authoritatively evaluates whether a change can proceed and merge:
+- Commit origin verification ('sutra_governed' required; external unverified rejected)
+- Cryptographic provenance and task lease validity
+- CI check statuses and automated test pass/fail results
+- Branch protection rules and human approval satisfaction
+- Git conflict detection
+
+Answers intents like:
+- "can this merge?" / "is this ready to merge?"
+- "why can't this merge?" / "why is this blocked?"
+- "are CI tests passing?" / "is policy satisfied?"
+- "check governance" / "merge readiness"
 
 Accepts pull_request_id, task_id, or change_id.
         """
@@ -956,19 +1038,23 @@ Accepts pull_request_id, task_id, or change_id.
                 return _format_error(f"Failed to evaluate governance: {str(e)}")
 
     # =========================================================================
-    # TOOL 9: sutra_create_issue
+    # TOOL 13: sutra_create_issue
     # =========================================================================
     @server.tool()
     async def sutra_create_issue(
         ctx: Context,
-        task_id: str,
-        title: str,
-        body: str,
+        task_id: Annotated[str, Field(description="UUID of the current SUTRA Task to link this issue to.")],
+        title: Annotated[str, Field(description="Title of the GitHub issue (e.g. 'Bug: Token refresh fails on 401 response').")],
+        body: Annotated[str, Field(description="Markdown body describing the bug, steps to reproduce, or technical debt.")],
     ) -> Dict[str, Any]:
-        """Creates a tracked GitHub issue linked to your current SUTRA task and repository context.
+        """FILE AN ISSUE / REPORT TECHNICAL DEBT: Creates a tracked GitHub issue linked to your current SUTRA task and repository context.
 
-Use this to report bugs, document technical debt discovered during execution, or propose
-follow-up tasks.
+Use this to report bugs discovered during implementation, document technical debt, or propose follow-up tasks for future engineering sessions.
+
+Answers intents like:
+- "create an issue" / "file a bug ticket"
+- "report technical debt"
+- "log a follow-up item"
         """
         with SessionLocal() as db:
             try:
@@ -1009,3 +1095,80 @@ follow-up tasks.
                 db.rollback()
                 logger.error(f"sutra_create_issue failed: {e}", exc_info=True)
                 return _format_error(f"Failed to create issue: {str(e)}")
+
+    # =========================================================================
+    # TOOL 14: sutra_complete_task
+    # =========================================================================
+    @server.tool()
+    async def sutra_complete_task(
+        ctx: Context,
+        task_id: Annotated[Optional[str], Field(description="UUID of the SUTRA Task to finalize. If omitted, automatically resolves the session's active in-progress task.")] = None,
+        outcome: Annotated[str, Field(description="Final task outcome: 'completed' (work finished and tests passed), 'blocked' (blocked by external dependency or failing check), or 'cancelled'.")] = "completed",
+        execution_summary: Annotated[str, Field(description="Detailed summary of code changes implemented, files modified, and architecture impact.")] = "",
+        validation_summary: Annotated[str, Field(description="Summary of validation performed: unit tests run, test results, linting, and build verification.")] = "",
+    ) -> Dict[str, Any]:
+        """FINALIZE TASK & RECORD OUTCOME: Summarizes implementation, test validations, and marks task complete under governance rules.
+
+Records the engineering outcome, files changed, and test validations on the authoritative Task record.
+Enforces SUTRA governance: if outcome is 'completed', verifies that any linked Pull Request does not require pending human review/approval before closing.
+
+Outcomes:
+- 'completed': Implementation finished, verified with tests, and ready/handed over.
+- 'blocked': Implementation blocked by external dependencies, failing tests, or policy.
+- 'cancelled': Task discarded or superseded.
+
+Answers intents like:
+- "finish the task" / "mark task complete"
+- "task done" / "finalize engineering work"
+- "record validation summary"
+        """
+        with SessionLocal() as db:
+            try:
+                session, agent = resolve_mcp_agent_session(ctx, db)
+                task_svc = TaskService(db)
+
+                resolved_task_id = task_id
+                if not resolved_task_id:
+                    claimed_task = db.scalar(
+                        select(Task).where(
+                            Task.claimed_by_session_id == session.id,
+                            Task.status == Task.STATUS_IN_PROGRESS,
+                        )
+                    )
+                    if claimed_task:
+                        resolved_task_id = claimed_task.id
+                    else:
+                        return _format_error("No task_id provided and no active task claimed by this session")
+
+                task = task_svc.complete_agent_task(
+                    task_id=resolved_task_id,
+                    session=session,
+                    outcome=outcome,
+                    execution_summary=execution_summary,
+                    validation_summary=validation_summary,
+                )
+                db.commit()
+                db.refresh(task)
+
+                return {
+                    "status": "success",
+                    "task_id": task.id,
+                    "task_status": task.status,
+                    "outcome": outcome,
+                    "execution_summary": task.execution_summary,
+                    "validation_summary": task.validation_summary,
+                    "completed_at": task.completed_at.isoformat() if task.completed_at else None,
+                    "message": f"Task '{task.title}' updated with status '{task.status}'."
+                }
+            except MCPAuthError as e:
+                return _format_error(e.message, {"code": e.code})
+            except PermissionError as e:
+                db.rollback()
+                return _format_error(f"Permission denied: {str(e)}")
+            except ValueError as e:
+                db.rollback()
+                return _format_error(f"Task completion rejected: {str(e)}")
+            except Exception as e:
+                db.rollback()
+                logger.error(f"sutra_complete_task failed: {e}", exc_info=True)
+                return _format_error(f"Failed to complete task: {str(e)}")

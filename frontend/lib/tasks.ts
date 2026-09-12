@@ -12,8 +12,17 @@ export interface Task {
   issue_id?: string;
   resulting_change_id?: string;
   resulting_pull_request_id?: string;
+  source?: string; // 'user' | 'agent'
+  created_by?: string;
+  claimed_by_session_id?: string;
+  lease_expires_at?: string;
+  priority?: string;
+  task_type?: string;
+  execution_summary?: string;
+  validation_summary?: string;
   started_at?: string;
   completed_at?: string;
+  cancelled_at?: string;
   created_at: string;
   updated_at: string;
 }

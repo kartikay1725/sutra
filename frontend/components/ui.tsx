@@ -8,9 +8,9 @@ export function Page({
   actions,
   children,
 }: {
-  eyebrow?: string;
-  title: string;
-  description?: string;
+  eyebrow?: React.ReactNode;
+  title: React.ReactNode;
+  description?: React.ReactNode;
   actions?: React.ReactNode;
   children: React.ReactNode;
 }) {

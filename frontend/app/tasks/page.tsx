@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Filter, Bot, UserRound, CheckCircle2, Clock, AlertCircle, Search, RefreshCw } from "lucide-react";
+import { Plus, Filter, Bot, UserRound, CheckCircle2, Clock, AlertCircle, Search, RefreshCw, Sparkles, GitPullRequest } from "lucide-react";
 import { Page, Card, Badge, EmptyState, Table, Btn, SutraLoading } from "@/components/ui";
 import { taskService, Task } from "@/lib/tasks";
 
@@ -37,20 +37,24 @@ export default function Tasks() {
       const matchesSearch = !search || 
         t.title.toLowerCase().includes(search.toLowerCase()) ||
         (t.description && t.description.toLowerCase().includes(search.toLowerCase())) ||
+        (t.execution_summary && t.execution_summary.toLowerCase().includes(search.toLowerCase())) ||
         (t.repository_id && t.repository_id.toLowerCase().includes(search.toLowerCase()));
       
       if (!matchesSearch) return false;
       if (statusFilter === "all") return true;
       if (statusFilter === "active") return t.status !== "completed" && t.status !== "cancelled" && t.status !== "done";
       if (statusFilter === "completed") return t.status === "completed" || t.status === "done";
-      if (statusFilter === "agent") return Boolean(t.assigned_agent_id);
+      if (statusFilter === "agent") return Boolean(t.assigned_agent_id) || t.source === "agent";
+      if (statusFilter === "agent_created") return t.source === "agent";
+      if (statusFilter === "human_created") return t.source !== "agent";
       return t.status === statusFilter;
     });
   }, [tasks, statusFilter, search]);
 
   const activeCount = tasks.filter(t => t.status !== "completed" && t.status !== "cancelled" && t.status !== "done").length;
   const completedCount = tasks.filter(t => t.status === "completed" || t.status === "done").length;
-  const agentCount = tasks.filter(t => Boolean(t.assigned_agent_id)).length;
+  const agentCount = tasks.filter(t => Boolean(t.assigned_agent_id) || t.source === "agent").length;
+  const agentCreatedCount = tasks.filter(t => t.source === "agent").length;
 
   return (
     <Page 
@@ -172,17 +176,32 @@ export default function Tasks() {
               {filteredTasks.map((task) => (
                 <tr key={task.id}>
                   <td>
-                    <Link 
-                      href={`/tasks/${task.id}`}
-                      style={{ fontWeight: 600, color: "var(--text-primary)", textDecoration: "none" }}
-                    >
-                      {task.title}
-                    </Link>
-                    {task.description && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                      <Link 
+                        href={`/tasks/${task.id}`}
+                        style={{ fontWeight: 600, color: "var(--text-primary)", textDecoration: "none" }}
+                      >
+                        {task.title}
+                      </Link>
+                      {task.source === "agent" ? (
+                        <span className="badge indigo" style={{ fontSize: "10px", padding: "1px 6px", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                          <Sparkles size={10} /> Agent-created
+                        </span>
+                      ) : (
+                        <span className="badge gray" style={{ fontSize: "10px", padding: "1px 6px" }}>
+                          Human-created
+                        </span>
+                      )}
+                    </div>
+                    {task.execution_summary ? (
+                      <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: "4px", maxWidth: "520px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.4 }}>
+                        <span style={{ color: "var(--cyan)", fontWeight: 500 }}>Summary:</span> {task.execution_summary}
+                      </div>
+                    ) : task.description ? (
                       <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px", maxWidth: "440px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {task.description}
                       </div>
-                    )}
+                    ) : null}
                   </td>
                   <td>
                     <span style={{ fontSize: "12px", fontFamily: "var(--font-mono, monospace)", color: "var(--text-secondary)" }}>

@@ -18,6 +18,7 @@ from app.models.repository import Repository
 from app.models.agent_session import AgentSession
 from app.models.task import Task
 from app.models.user import User
+from app.models.agent_repository_access import AgentRepositoryAccess
 from app.services.authorization_service import AuthorizationService
 from app.services.ci_sandbox import CISandbox
 from app.services.pull_request_service import PullRequestService
@@ -435,6 +436,282 @@ class TaskService:
 
         self.db.flush()
 
+        return task
+
+    @staticmethod
+    def _normalize_title(request_text: str) -> str:
+        if not request_text:
+            return "Untitled Task"
+        clean = " ".join(request_text.strip().split())
+        for delim in [".\n", ". ", "\n", ";"]:
+            if delim in clean:
+                first_part = clean.split(delim)[0].strip()
+                if first_part and len(first_part) >= 5:
+                    clean = first_part
+                    break
+        if len(clean) > 80:
+            truncated = clean[:77].rsplit(" ", 1)[0]
+            clean = (truncated if truncated else clean[:77]) + "..."
+        if clean:
+            clean = clean[0].upper() + clean[1:]
+        return clean[:255]
+
+    def create_and_claim_agent_task(
+        self,
+        session: AgentSession,
+        title: Optional[str] = None,
+        description: Optional[str] = None,
+        repository: Optional[str] = None,
+        priority: str = Task.PRIORITY_MEDIUM,
+        task_type: str = Task.TYPE_FEATURE,
+    ) -> Task:
+        """Create a new SUTRA Task from a user engineering request and immediately claim it.
+
+        Preserves:
+          - Real user intent text in description
+          - Normalized concise title
+          - Repository identity
+          - Agent identity
+          - AgentSession identity
+          - Authenticated human owner (agent.owner_id, no fake users)
+          - Source marked as 'agent'
+        """
+        # 1. Validate session and resolve agent
+        now = datetime.now(timezone.utc)
+        expires_at = self._normalize_datetime(session.expires_at)
+        last_seen_at = self._normalize_datetime(session.last_seen_at)
+
+        if session.status != "active":
+            raise PermissionError("Agent session is not active")
+        if expires_at is None or expires_at <= now:
+            raise PermissionError("Agent session expired")
+        if last_seen_at is not None and (now - last_seen_at).total_seconds() > 120:
+            raise PermissionError("Agent session expired due to inactivity")
+
+        agent = self.db.scalar(
+            select(Agent).where(
+                Agent.id == session.agent_id,
+                Agent.is_active.is_(True),
+                Agent.status == "active",
+            )
+        )
+        if not agent:
+            raise PermissionError("Agent is inactive or revoked")
+
+        # 2. Resolve and authorize repository
+        repo = None
+        if repository:
+            repo = self.db.scalar(
+                select(Repository).where(
+                    (Repository.id == repository) | (Repository.slug == repository) | (Repository.name == repository),
+                    Repository.deleted_at.is_(None),
+                )
+            )
+            if not repo:
+                raise ValueError(f"Repository '{repository}' not found")
+
+            # Check agent access grant
+            access = self.db.scalar(
+                select(AgentRepositoryAccess).where(
+                    AgentRepositoryAccess.agent_id == agent.id,
+                    AgentRepositoryAccess.repository_id == repo.id,
+                    AgentRepositoryAccess.enabled.is_(True),
+                )
+            )
+            if not access:
+                raise PermissionError(f"Agent does not have repository access grant for '{repo.slug}'")
+            try:
+                perms = json.loads(access.permissions or "[]")
+            except Exception:
+                perms = []
+            if perms and "change.create" not in perms and "repository.write" not in perms:
+                raise PermissionError(f"Agent lacks change.create or repository.write permission for '{repo.slug}'")
+        else:
+            access_rows = self.db.execute(
+                select(AgentRepositoryAccess, Repository)
+                .join(Repository, Repository.id == AgentRepositoryAccess.repository_id)
+                .where(
+                    AgentRepositoryAccess.agent_id == agent.id,
+                    AgentRepositoryAccess.enabled.is_(True),
+                    Repository.deleted_at.is_(None),
+                )
+            ).all()
+
+            if len(access_rows) == 1:
+                repo = access_rows[0][1]
+            elif len(access_rows) == 0:
+                raise PermissionError("No enabled repository access grant is available for this agent")
+            else:
+                repo_names = [r.slug for _, r in access_rows]
+                raise ValueError(f"Multiple repositories available ({', '.join(repo_names)}). Please specify 'repository'.")
+
+        # 3. Normalize title & preserve original request text in description
+        if not title and not description:
+            raise ValueError("Either 'title' or 'description' (user request) must be provided")
+
+        if title and description:
+            normalized_title = self._normalize_title(title)
+            final_description = description
+        elif title and not description:
+            normalized_title = self._normalize_title(title)
+            final_description = title
+        else:
+            normalized_title = self._normalize_title(description or "")
+            final_description = description
+
+        if priority not in {Task.PRIORITY_LOW, Task.PRIORITY_MEDIUM, Task.PRIORITY_HIGH, Task.PRIORITY_CRITICAL}:
+            priority = Task.PRIORITY_MEDIUM
+
+        if task_type not in {Task.TYPE_FEATURE, Task.TYPE_BUGFIX, Task.TYPE_REFACTOR, Task.TYPE_SECURITY, Task.TYPE_DOCUMENTATION}:
+            task_type = Task.TYPE_FEATURE
+
+        # 4. Create and bind task to agent session
+        task = Task(
+            id=str(uuid4()),
+            repository_id=repo.id,
+            created_by=agent.owner_id,  # Real human owner who authorized the agent (no fake users)
+            assigned_agent_id=agent.id,
+            assigned_user_id=None,
+            claimed_by_session_id=session.id,
+            lease_expires_at=now + timedelta(seconds=self.AGENT_TASK_LEASE_SECONDS),
+            title=normalized_title,
+            description=final_description,
+            status=Task.STATUS_IN_PROGRESS,
+            priority=priority,
+            task_type=task_type,
+            source="agent",
+            started_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+        self.db.add(task)
+        self.db.flush()
+
+        self._record_task_event(
+            task,
+            TaskEvent.EVENT_CREATED,
+            actor_id=agent.id,
+            session_id=session.id,
+            to_status=Task.STATUS_OPEN,
+            metadata={
+                "task_id": task.id,
+                "repository_id": repo.id,
+                "title": normalized_title,
+                "source": "agent",
+            },
+        )
+
+        self._record_task_event(
+            task,
+            TaskEvent.EVENT_CLAIMED,
+            actor_id=agent.id,
+            session_id=session.id,
+            from_status=Task.STATUS_OPEN,
+            to_status=Task.STATUS_IN_PROGRESS,
+            metadata={
+                "task_id": task.id,
+                "session_id": session.id,
+                "lease_expires_at": task.lease_expires_at.isoformat() if task.lease_expires_at else None,
+            },
+        )
+        self.db.flush()
+        return task
+
+    def complete_agent_task(
+        self,
+        task_id: str,
+        session: AgentSession,
+        outcome: str = "completed",
+        execution_summary: Optional[str] = None,
+        validation_summary: Optional[str] = None,
+    ) -> Task:
+        """Completes, blocks, or cancels an agent task under sovereign governance.
+
+        Enforces strict safeguards:
+          - Verifies agent assignment and session claim
+          - Forbids marking task completed if linked Pull Request is still pending human review/approval or failing CI
+          - Records execution summary and validation summary on the Task record
+        """
+        task = self._get_task_for_update(task_id)
+        self._validate_agent_session_for_task(task, session)
+
+        if task.claimed_by_session_id and task.claimed_by_session_id != session.id:
+            raise PermissionError("Task is claimed by another session")
+
+        now = datetime.now(timezone.utc)
+        previous_status = task.status
+
+        normalized_outcome = outcome.lower().strip() if outcome else "completed"
+
+        if normalized_outcome in ("completed", Task.STATUS_COMPLETED):
+            # Check if linked Pull Request exists
+            if task.resulting_pull_request_id:
+                pr = self.db.scalar(select(PullRequest).where(PullRequest.id == task.resulting_pull_request_id))
+                if pr and pr.status != "merged":
+                    from app.services.governance_service import GovernanceService, GovernanceVerdict
+                    gov_svc = GovernanceService(self.db)
+                    gov = gov_svc.evaluate_pull_request(pr.id)
+                    gov_verdict = gov.get("verdict") if isinstance(gov, dict) else getattr(gov, "verdict", None)
+                    ready_for_merge = gov.get("ready_for_merge", False) if isinstance(gov, dict) else getattr(gov, "ready_for_merge", False)
+                    if (
+                        gov_verdict in {
+                            GovernanceVerdict.NEEDS_REVIEW,
+                            GovernanceVerdict.READY_FOR_APPROVAL,
+                            GovernanceVerdict.BLOCKED,
+                            GovernanceVerdict.CI_PENDING,
+                            GovernanceVerdict.CI_FAILED,
+                            GovernanceVerdict.POLICY_FAILED,
+                        }
+                        or not ready_for_merge
+                    ):
+                        pr_num = getattr(pr, "number", None) or pr.id[:8]
+                        raise PermissionError(
+                            f"Cannot mark task completed: Linked Pull Request #{pr_num} requires human review and approval before completion (Governance verdict: {gov_verdict})."
+                        )
+            target_status = Task.STATUS_COMPLETED
+            task.completed_at = now
+            task.claimed_by_session_id = None
+            task.lease_expires_at = None
+        elif normalized_outcome in ("blocked", Task.STATUS_BLOCKED):
+            target_status = Task.STATUS_BLOCKED
+        elif normalized_outcome in ("cancelled", Task.STATUS_CANCELLED):
+            target_status = Task.STATUS_CANCELLED
+            task.cancelled_at = now
+            task.claimed_by_session_id = None
+            task.lease_expires_at = None
+        else:
+            target_status = Task.STATUS_COMPLETED
+            task.completed_at = now
+            task.claimed_by_session_id = None
+            task.lease_expires_at = None
+
+        task.status = target_status
+        task.updated_at = now
+        if execution_summary:
+            task.execution_summary = execution_summary
+        if validation_summary:
+            task.validation_summary = validation_summary
+
+        event_type = (
+            TaskEvent.EVENT_COMPLETED
+            if target_status == Task.STATUS_COMPLETED
+            else (TaskEvent.EVENT_BLOCKED if target_status == Task.STATUS_BLOCKED else TaskEvent.EVENT_CANCELLED)
+        )
+        self._record_task_event(
+            task,
+            event_type,
+            actor_id=session.agent_id,
+            session_id=session.id,
+            from_status=previous_status,
+            to_status=target_status,
+            metadata={
+                "task_id": task.id,
+                "outcome": normalized_outcome,
+                "execution_summary": execution_summary,
+                "validation_summary": validation_summary,
+            },
+        )
+        self.db.flush()
         return task
 
     def heartbeat_agent_task(

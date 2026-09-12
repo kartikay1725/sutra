@@ -17,6 +17,7 @@ import { environmentService, type Environment, type Deployment } from '../lib/en
 import { ConnectSutraButton, ConnectSutraModal, type SutraConnectionState, CANONICAL_MCP_ENDPOINT, getOAuthAuthorizeUrl } from './sutra-connect';
 import { generatePkceSession, saveBrowserTestSession } from '../lib/pkce';
 import { EngineeringTimeline } from './EngineeringTimeline';
+import { SutraAgentInstructions } from './SutraAgentInstructions';
 
 function tone(status: string) {
   const s = status.toLowerCase();
@@ -2241,6 +2242,9 @@ export function RealAgents() {
             </div>
           </Card>
         </div>
+
+        {/* Canonical SUTRA Agent Instructions Section */}
+        <SutraAgentInstructions />
 
         {/* 8 Curated Tools Contract Table */}
         <Card>

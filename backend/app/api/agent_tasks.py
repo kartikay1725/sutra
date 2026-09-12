@@ -51,6 +51,10 @@ class AgentTaskResponse(BaseModel):
     started_at: datetime | None
     completed_at: datetime | None
 
+    source: str | None = None
+    execution_summary: str | None = None
+    validation_summary: str | None = None
+
 
 def _response(task: Task) -> AgentTaskResponse:
     return AgentTaskResponse(
@@ -62,12 +66,15 @@ def _response(task: Task) -> AgentTaskResponse:
         status=task.status,
         priority=task.priority,
         task_type=task.task_type,
+        source=task.source,
         claimed_by_session_id=task.claimed_by_session_id,
         lease_expires_at=task.lease_expires_at,
         resulting_change_id=task.resulting_change_id,
         resulting_pull_request_id=task.resulting_pull_request_id,
         started_at=task.started_at,
         completed_at=task.completed_at,
+        execution_summary=task.execution_summary,
+        validation_summary=task.validation_summary,
     )
 
 

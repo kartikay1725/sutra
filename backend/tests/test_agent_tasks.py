@@ -1117,3 +1117,204 @@ def test_agent_task_execution_is_idempotent(
         == first_change_id
     )
 
+
+def test_create_and_claim_agent_task_mode_b(client, db):
+    from app.services.task_service import TaskService
+    from app.models.agent_repository_access import AgentRepositoryAccess
+
+    owner = make_user(db)
+    agent, raw_token = make_agent(db, owner.id)
+    repository = make_repository(db, owner)
+
+    access = AgentRepositoryAccess(
+        agent_id=agent.id,
+        repository_id=repository.id,
+        enabled=True,
+    )
+    db.add(access)
+    db.commit()
+
+    session_data = create_session(client, raw_token)
+    session = get_session(db, session_data["session_id"])
+
+    task_service = TaskService(db)
+    task = task_service.create_and_claim_agent_task(
+        session=session,
+        title="Fix OAuth token expiration bug",
+        description="Users report 401 when token expires after 1 hour. Please fix.",
+        repository=repository.name,
+    )
+
+    assert task.id is not None
+    assert task.title == "Fix OAuth token expiration bug"
+    assert task.description == "Users report 401 when token expires after 1 hour. Please fix."
+    assert task.source == "agent"
+    assert task.created_by == owner.id
+    assert task.assigned_agent_id == agent.id
+    assert task.claimed_by_session_id == session.id
+    assert task.status == Task.STATUS_IN_PROGRESS
+    assert task.lease_expires_at is not None
+
+
+def test_create_and_claim_agent_task_auto_resolve_repository(client, db):
+    from app.services.task_service import TaskService
+    from app.models.agent_repository_access import AgentRepositoryAccess
+
+    owner = make_user(db)
+    agent, raw_token = make_agent(db, owner.id)
+    repository = make_repository(db, owner)
+
+    access = AgentRepositoryAccess(
+        agent_id=agent.id,
+        repository_id=repository.id,
+        enabled=True,
+    )
+    db.add(access)
+    db.commit()
+
+    session_data = create_session(client, raw_token)
+    session = get_session(db, session_data["session_id"])
+
+    task_service = TaskService(db)
+    # Repository omitted -> should auto-resolve to the single authorized repo
+    task = task_service.create_and_claim_agent_task(
+        session=session,
+        description="Add health check endpoint and verify return code.",
+    )
+
+    assert task.repository_id == repository.id
+    assert task.title == "Add health check endpoint and verify return code."
+    assert task.source == "agent"
+
+
+def test_create_and_claim_agent_task_unauthorized_repository(client, db):
+    from app.services.task_service import TaskService
+
+    owner = make_user(db)
+    agent, raw_token = make_agent(db, owner.id)
+    unauthorized_repo = make_repository(db, owner)
+
+    session_data = create_session(client, raw_token)
+    session = get_session(db, session_data["session_id"])
+
+    task_service = TaskService(db)
+    with pytest.raises(PermissionError, match="does not have repository access grant"):
+        task_service.create_and_claim_agent_task(
+            session=session,
+            description="Unauthorized change request",
+            repository=unauthorized_repo.name,
+        )
+
+
+def test_complete_agent_task_stores_summaries(client, db):
+    from app.services.task_service import TaskService
+    from app.models.agent_repository_access import AgentRepositoryAccess
+
+    owner = make_user(db)
+    agent, raw_token = make_agent(db, owner.id)
+    repository = make_repository(db, owner)
+
+    access = AgentRepositoryAccess(
+        agent_id=agent.id,
+        repository_id=repository.id,
+        enabled=True,
+    )
+    db.add(access)
+    db.commit()
+
+    session_data = create_session(client, raw_token)
+    session = get_session(db, session_data["session_id"])
+
+    task_service = TaskService(db)
+    task = task_service.create_and_claim_agent_task(
+        session=session,
+        title="Documentation update",
+        description="Update README with architecture diagrams.",
+    )
+
+    completed_task = task_service.complete_agent_task(
+        task_id=task.id,
+        session=session,
+        outcome="completed",
+        execution_summary="Updated README.md with comprehensive mermaid diagrams.",
+        validation_summary="Markdown linter passed with 0 warnings.",
+    )
+
+    assert completed_task.status == Task.STATUS_COMPLETED
+    assert completed_task.execution_summary == "Updated README.md with comprehensive mermaid diagrams."
+    assert completed_task.validation_summary == "Markdown linter passed with 0 warnings."
+    assert completed_task.completed_at is not None
+
+
+def test_complete_agent_task_blocked_by_unmerged_pr(client, db):
+    from app.services.task_service import TaskService
+    from app.models.agent_repository_access import AgentRepositoryAccess
+    from app.models.actor import Actor
+    from app.models.change import Change
+    from app.models.pull_request import PullRequest
+
+    owner = make_user(db)
+    agent, raw_token = make_agent(db, owner.id)
+    repository = make_repository(db, owner)
+
+    access = AgentRepositoryAccess(
+        agent_id=agent.id,
+        repository_id=repository.id,
+        enabled=True,
+    )
+    db.add(access)
+
+    actor = db.scalar(select(Actor).where(Actor.id == agent.id))
+    if not actor:
+        actor = Actor(
+            id=agent.id,
+            type="agent",
+            name=agent.name,
+        )
+        db.add(actor)
+        db.flush()
+
+    task = make_task(db, repository, owner, agent)
+
+    change = Change(
+        id=str(uuid4()),
+        repository_id=repository.id,
+        actor_id=actor.id,
+        status="proposed",
+        intent="Test intent",
+        operation_key=str(uuid4()),
+    )
+    db.add(change)
+    db.flush()
+
+    pr = PullRequest(
+        id=str(uuid4()),
+        repository_id=repository.id,
+        author_id=actor.id,
+        source_change_id=change.id,
+        title="Unmerged Governed PR",
+        target_branch="main",
+        source_commit="1111111111111111111111111111111111111111",
+        target_commit="0000000000000000000000000000000000000000",
+        status=PullRequest.STATUS_OPEN,
+    )
+    db.add(pr)
+    task.resulting_pull_request_id = pr.id
+    task.status = Task.STATUS_IN_PROGRESS
+    db.commit()
+
+    session_data = create_session(client, raw_token)
+    session = get_session(db, session_data["session_id"])
+    task.claimed_by_session_id = session.id
+    task.lease_expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+    db.commit()
+
+    task_service = TaskService(db)
+    with pytest.raises(PermissionError, match="Cannot mark task completed"):
+        task_service.complete_agent_task(
+            task_id=task.id,
+            session=session,
+            outcome="completed",
+            execution_summary="Attempting premature completion.",
+        )
+

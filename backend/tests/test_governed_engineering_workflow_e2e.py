@@ -269,6 +269,13 @@ async def test_canonical_end_to_end_governed_engineering_workflow(workflow_envir
             assert init_res.status_code == 200, f"MCP initialize failed: {init_res.text}"
             mcp_session_id = init_res.headers.get("mcp-session-id")
 
+            # Initialized notification
+            await client.post(
+                "/v1/mcp",
+                json={"jsonrpc": "2.0", "method": "notifications/initialized"},
+                headers={"mcp-session-id": mcp_session_id, "Authorization": f"Bearer {env['session_token']}", "Accept": "application/json, text/event-stream"},
+            )
+
             async def call_mcp_tool(name: str, arguments: dict):
                 res = await client.post(
                     "/v1/mcp",

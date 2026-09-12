@@ -34,17 +34,47 @@ logger = logging.getLogger("sutra.mcp.server")
 mcp_server = MCPServer(
     name="sutra",
     instructions=(
-        "SUTRA is an AI-native engineering control plane. It governs the full lifecycle: "
-        "Task → Change → Commit → PR → CI → Governance → Human Approval → Merge. "
-        "SUTRA controls all code submission — do NOT use terminal git push; "
-        "use sutra_push_commit so commits are attributable to this session. "
-        "Externally-pushed commits cannot receive SUTRA governance status. "
-        "Always begin by calling sutra_get_context."
+        "SUTRA is an AI-native engineering control plane governing repository changes across the full lifecycle: "
+        "Task -> Change -> Commit -> PR -> CI -> Governance -> Human Approval -> Merge.\n\n"
+        "ENGINEERING BOUNDARY:\n"
+        "- Terminal/local tools are appropriate for: reading files, editing files, running tests, "
+        "running local builds, and git inspection (status, diff, log).\n"
+        "- SUTRA MCP tools MUST be used for governed repository operations: starting tasks, declaring changes, "
+        "creating and pushing commits, opening Pull Requests, lifecycle tracking, governance evaluations, and merge requests.\n"
+        "- SUTRA does not replace GitHub or local git inspection; it governs repository changes and code submission "
+        "with cryptographic provenance so commits and PRs are verifiable.\n\n"
+        "INTENT -> TOOL MAPPING (Natural Engineering Language):\n"
+        "- 'start working on this' / 'fix this bug' / 'implement feature' / 'new coding request' -> sutra_start_task "
+        "(Creates task automatically; do NOT ask the user for a Task ID!)\n"
+        "- 'who am I' / 'check permissions' / 'check session' -> sutra_get_context\n"
+        "- 'search codebase architecture' / 'find symbol' / 'explore dependencies' -> sutra_search_knowledge\n"
+        "- 'track this change' / 'start code change' / 'allocate feature branch' -> sutra_declare_change\n"
+        "- 'commit this' / 'push this change' / 'create a commit' / 'push commit' -> sutra_push_commit "
+        "(Use this instead of terminal git commit/git push for governed work)\n"
+        "- 'open a PR' / 'create a pull request' / 'submit PR for review' -> sutra_open_pull_request "
+        "(Use this instead of gh pr create/direct PR creation)\n"
+        "- 'what's the status?' / 'where is my PR?' / 'what's blocking?' -> sutra_get_status\n"
+        "- 'can this merge?' / 'why can't this merge?' / 'is CI passing?' -> sutra_get_governance\n"
+        "- 'request merge' / 'ready to merge' / 'handover for merge' -> sutra_request_merge "
+        "(Human approval is always required; agents cannot merge directly)\n"
+        "- 'who wrote this commit?' / 'check commit provenance' -> sutra_get_provenance\n"
+        "- 'file a bug' / 'create an issue' / 'report technical debt' -> sutra_create_issue\n"
+        "- 'finish the task' / 'mark task complete' / 'summarize validation' -> sutra_complete_task\n\n"
+        "CANONICAL WORKFLOW:\n"
+        "1. sutra_start_task: Claim or auto-create the engineering task from user request.\n"
+        "2. sutra_declare_change: Allocate the git feature branch and establish tracked change record.\n"
+        "3. sutra_push_commit: Submit file modifications and commit message with SUTRA cryptographic provenance.\n"
+        "4. sutra_open_pull_request: Open the linked GitHub PR and trigger CI/governance evaluation.\n"
+        "5. sutra_get_governance / sutra_get_status: Check CI checks and merge readiness.\n"
+        "6. sutra_complete_task: Record implementation and test validation summary.\n\n"
+        "LEGACY TOOL NOTE:\n"
+        "- sutra_submit_change is deprecated for new work. Always use the canonical 3-step pipeline: "
+        "sutra_declare_change -> sutra_push_commit -> sutra_open_pull_request."
     ),
     version="0.4.0",
 )
 
-# 2. Register the 8 curated agent tools
+# 2. Register curated SUTRA tools
 register_sutra_tools(mcp_server)
 
 # 3. Configure transport security settings

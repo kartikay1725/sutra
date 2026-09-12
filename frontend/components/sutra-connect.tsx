@@ -839,7 +839,8 @@ export function ConnectSutraModal({
               </div>
 
               <Link
-                href="/docs"
+                href="/docs#mcp-integration"
+                onClick={onClose}
                 className="btn"
                 style={{
                   display: 'inline-flex',
@@ -856,6 +857,55 @@ export function ConnectSutraModal({
                 }}
               >
                 <span>Read Documentation</span>
+                <I.ExternalLink size={13} />
+              </Link>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 12,
+                background: 'rgba(56, 189, 248, 0.04)',
+                padding: '12px 16px',
+                borderRadius: 10,
+                border: '1px solid rgba(56, 189, 248, 0.15)',
+                marginTop: 12,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <I.FileCode2 size={18} style={{ color: '#38bdf8' }} />
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#f8fafc' }}>
+                    SUTRA Agent Instructions <span style={{ fontSize: 11, color: '#38bdf8', fontWeight: 500 }}>(Optional but recommended)</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#94a3b8' }}>
+                    Add canonical AGENTS.md instructions to reinforce tool selection in your repository.
+                  </div>
+                </div>
+              </div>
+
+              <Link
+                href="/docs#mcp-integration"
+                onClick={onClose}
+                className="btn"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 14px',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  borderRadius: 8,
+                  background: 'rgba(56, 189, 248, 0.15)',
+                  border: '1px solid rgba(56, 189, 248, 0.35)',
+                  color: '#38bdf8',
+                  textDecoration: 'none',
+                }}
+              >
+                <span>View Instructions</span>
                 <I.ExternalLink size={13} />
               </Link>
             </div>
