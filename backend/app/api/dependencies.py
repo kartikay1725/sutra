@@ -27,7 +27,7 @@ def _resolve_raw_token(
 
 
 def get_current_user(
-    request: Request,
+    request: Request = None,
     credentials: HTTPAuthorizationCredentials | None = Depends(
         bearer_scheme
     ),
@@ -77,7 +77,7 @@ def get_current_user(
 
 
 def get_current_user_optional(
-    request: Request,
+    request: Request = None,
     credentials: HTTPAuthorizationCredentials | None = Depends(
         bearer_scheme
     ),

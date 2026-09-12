@@ -4,7 +4,7 @@ import re
 from typing import Optional, Union
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
@@ -80,6 +80,7 @@ class DiscussionCommentResponse(BaseModel):
 
 
 def get_discussion_principal(
+    request: Request = None,
     authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> tuple[str, Union[User, Agent], Optional[AgentSession]]:
@@ -125,7 +126,7 @@ def get_discussion_principal(
 
     # Human User JWT
     credentials = HTTPAuthorizationCredentials(scheme=scheme, credentials=token)
-    user = get_current_user(credentials=credentials, db=db)
+    user = get_current_user(request=request, credentials=credentials, db=db)
     return "user", user, None
 
 

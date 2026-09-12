@@ -7,6 +7,7 @@ from fastapi import (
     Header,
     HTTPException,
     Query,
+    Request,
     status,
 )
 from fastapi.security import HTTPAuthorizationCredentials
@@ -45,6 +46,7 @@ router = APIRouter(
 # ---------------------------------------------------------------------------
 
 def get_graph_principal(
+    request: Request = None,
     authorization: str | None = Header(
         default=None,
     ),
@@ -117,6 +119,7 @@ def get_graph_principal(
     )
 
     user = get_current_user(
+        request=request,
         credentials=credentials,
         db=db,
     )
