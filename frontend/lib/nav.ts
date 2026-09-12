@@ -2,7 +2,7 @@ import { I } from "./icons";
 
 export const globalNav = [
   {label:"Workspace", items:[
-    ["/home","Home",I.Home],[ "/my-work","My Work",I.BriefcaseBusiness],[ "/explore","Explore",I.Compass],
+    ["/home","Home",I.Home],[ "/my-work","My Work",I.BriefcaseBusiness],
     ["/repositories","Repositories",I.Box],["/agents","Agents",I.Bot],["/docs","Documentation",I.Book],[ "/notifications","Notifications",I.Bell],
   ]},
   // {label:"Organization", items:[

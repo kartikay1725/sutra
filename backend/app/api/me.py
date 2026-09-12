@@ -50,10 +50,11 @@ def get_my_work(
             or_(
                 Task.assigned_user_id == current_user.id,
                 Task.created_by == current_user.id,
+                Repository.owner_id == current_user.id,
             )
         )
         .order_by(Task.updated_at.desc())
-        .limit(15)
+        .limit(50)
     ).all()
 
     results = []

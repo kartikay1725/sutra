@@ -14,7 +14,7 @@ import { agentService, type Agent, type AgentRegistration } from '../lib/agents'
 import { ciService, type CIJob, type CILog, type PRChecksResponse } from '../lib/ci';
 import { governanceService, type GovernanceEvaluation } from '../lib/governance';
 import { environmentService, type Environment, type Deployment } from '../lib/environments';
-import { ConnectSutraButton, ConnectSutraModal, type SutraConnectionState, CANONICAL_MCP_ENDPOINT, getOAuthAuthorizeUrl } from './sutra-connect';
+import { ConnectSutraButton, ConnectSutraModal, type SutraConnectionState, CANONICAL_API_ORIGIN, CANONICAL_MCP_ENDPOINT, getOAuthAuthorizeUrl } from './sutra-connect';
 import { generatePkceSession, saveBrowserTestSession } from '../lib/pkce';
 import { EngineeringTimeline } from './EngineeringTimeline';
 import { SutraAgentInstructions } from './SutraAgentInstructions';
@@ -961,6 +961,9 @@ export function RealPullRequestDetail() {
   const [checksData, setChecksData] = useState<PRChecksResponse | null>(null);
   const [govData, setGovData] = useState<GovernanceEvaluation | null>(null);
   const [evaluatingGov, setEvaluatingGov] = useState(false);
+  const [syncingChecks, setSyncingChecks] = useState(false);
+  const [showCiTemplate, setShowCiTemplate] = useState(false);
+  const [copiedCiTemplate, setCopiedCiTemplate] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -978,6 +981,20 @@ export function RealPullRequestDetail() {
     } catch (e: any) { setError(e?.message || 'Failed to load pull request'); }
   };
   useEffect(() => { void load(); }, [prId]);
+
+  const handleSyncChecks = async () => {
+    setSyncingChecks(true);
+    try {
+      const refreshed = await ciService.syncPRChecks(prId);
+      setChecksData(refreshed);
+      const updatedGov = await governanceService.evaluatePRGovernance(prId).catch(() => null);
+      if (updatedGov) setGovData(updatedGov);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to sync checks with GitHub');
+    } finally {
+      setSyncingChecks(false);
+    }
+  };
 
   const handleReevaluateGovernance = async () => {
     setEvaluatingGov(true);
@@ -1052,7 +1069,13 @@ export function RealPullRequestDetail() {
       <Stat label="Status" value={pr.status} />
       <Stat 
         label="CI Checks" 
-        value={checksData ? `${checksData.summary.passed}/${checksData.summary.total} Passed` : (pr.checks_summary ? `${pr.checks_summary.passed}/${pr.checks_summary.total} Passed` : 'Pending')} 
+        value={
+          checksData?.summary?.total === 0 
+            ? 'No CI File (Not Blocked)' 
+            : checksData 
+              ? `${checksData.summary.passed}/${checksData.summary.total} Passed` 
+              : (pr.checks_summary ? `${pr.checks_summary.passed}/${pr.checks_summary.total} Passed` : 'Pending')
+        } 
       />
       <Stat label="Branch Flow" value={`${headRef} → ${baseRef}`} />
       <Stat label="Governance" value={`${reviews.filter((r: any) => r.status === 'approved').length} approvals`} />
@@ -1205,8 +1228,8 @@ export function RealPullRequestDetail() {
               HEAD: {checksData.head_sha.slice(0, 8)}
             </span>
           )}
-          <Badge tone={checksData?.governance_verdict === 'READY FOR GOVERNANCE' ? 'green' : checksData?.governance_verdict === 'BLOCKED BY CI' ? 'red' : 'aqua'}>
-            {checksData?.governance_verdict || pr.checks_verdict || 'PENDING CI'}
+          <Badge tone={checksData?.summary?.total === 0 ? 'aqua' : checksData?.governance_verdict === 'READY FOR GOVERNANCE' ? 'green' : checksData?.governance_verdict === 'BLOCKED BY CI' ? 'red' : 'aqua'}>
+            {checksData?.summary?.total === 0 ? 'NO CI FILE · NOT BLOCKED' : (checksData?.governance_verdict || pr.checks_verdict || 'PENDING CI')}
           </Badge>
         </div>
       </div>
@@ -1217,78 +1240,204 @@ export function RealPullRequestDetail() {
             <span style={{ 
               textTransform: 'capitalize', 
               fontWeight: 600, 
-              color: checksData?.overall_status === 'passed' ? 'var(--green)' : checksData?.overall_status === 'failed' ? '#ff4d4f' : 'var(--cyan)' 
+              color: checksData?.summary?.total === 0 ? 'var(--cyan)' : checksData?.overall_status === 'passed' ? 'var(--green)' : checksData?.overall_status === 'failed' ? '#ff4d4f' : 'var(--cyan)' 
             }}>
-              {checksData?.overall_status === 'passed' ? 'Passing' : checksData?.overall_status === 'failed' ? 'Failing' : checksData?.overall_status === 'running' ? 'Running' : 'No Checks Reported'}
+              {checksData?.summary?.total === 0 ? 'No CI File Configured' : checksData?.overall_status === 'passed' ? 'Passing' : checksData?.overall_status === 'failed' ? 'Failing' : checksData?.overall_status === 'running' ? 'Running' : 'No Checks Reported'}
             </span>
             <span className="sub" style={{ fontSize: 13 }}>
-              ({checksData?.summary.passed || 0} passed, {checksData?.summary.failed || 0} failed, {checksData?.summary.running || 0} running)
+              {checksData?.summary?.total === 0 ? '(PR merge is not blocked)' : `(${checksData?.summary.passed || 0} passed, {checksData?.summary.failed || 0} failed, {checksData?.summary.running || 0} running)`}
             </span>
           </div>
-          {pr.github_html_url && (
-            <a
-              href={pr.github_html_url}
-              target="_blank"
-              rel="noopener noreferrer"
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => void handleSyncChecks()}
+              disabled={syncingChecks}
               className="btn outline"
               style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '4px 10px' }}
+              title="Synchronize check runs from GitHub Actions"
             >
-              <I.ExternalLink size={13} /> View on GitHub
-            </a>
-          )}
+              {syncingChecks ? <I.Loader size={13} /> : <I.RefreshCw size={13} />}
+              <span>{syncingChecks ? 'Syncing…' : 'Sync GitHub Checks'}</span>
+            </button>
+            {pr.github_html_url && (
+              <a
+                href={pr.github_html_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn outline"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '4px 10px' }}
+              >
+                <I.ExternalLink size={13} /> View on GitHub
+              </a>
+            )}
+          </div>
         </div>
 
         {(!checksData?.checks || checksData.checks.length === 0) ? (
-          <div className="sub" style={{ padding: '12px 0' }}>No check runs reported for commit {checksData?.head_sha?.slice(0, 8) || 'HEAD'}.</div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {checksData.checks.map((chk) => (
-              <div
-                key={chk.id}
-                style={{
+          <div style={{
+            padding: '18px 20px',
+            borderRadius: 12,
+            background: 'rgba(56, 189, 248, 0.04)',
+            border: '1px solid rgba(56, 189, 248, 0.2)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: '50%',
+                  background: 'rgba(56, 189, 248, 0.12)',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '10px 14px',
-                  borderRadius: 8,
-                  background: 'rgba(255, 255, 255, 0.02)',
-                  border: '1px solid var(--line)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  {chk.status === 'passed' ? (
-                    <I.CheckCircle2 size={16} style={{ color: 'var(--green)' }} />
-                  ) : chk.status === 'failed' ? (
-                    <I.XCircle size={16} style={{ color: '#ff4d4f' }} />
-                  ) : chk.status === 'running' ? (
-                    <I.Loader size={16} style={{ color: 'var(--cyan)' }} />
-                  ) : (
-                    <I.CircleDot size={16} style={{ color: 'var(--muted)' }} />
-                  )}
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>{chk.name}</div>
-                    <div className="meta" style={{ fontSize: 12 }}>
-                      Source: {chk.source} {chk.started_at ? `· ${fmtDate(chk.started_at)}` : ''}
-                    </div>
+                  justifyContent: 'center',
+                  color: 'var(--cyan)',
+                  flexShrink: 0,
+                }}>
+                  <I.Info size={18} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--foreground)' }}>
+                    No CI workflow file found in codebase · Cannot run CI checks
+                  </div>
+                  <div className="meta" style={{ fontSize: 12, marginTop: 2 }}>
+                    If you want automated verification, please create a <code style={{ color: 'var(--cyan)', padding: '2px 5px', borderRadius: 4, background: 'rgba(255,255,255,0.05)' }}>.github/workflows/ci.yml</code> file.
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <Badge tone={chk.status === 'passed' ? 'green' : chk.status === 'failed' ? 'red' : 'aqua'}>
-                    {chk.conclusion || chk.status}
-                  </Badge>
-                  {chk.details_url && (
-                    <a
-                      href={chk.details_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: 'var(--cyan)', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, textDecoration: 'none' }}
-                    >
-                      <span>Details</span> <I.ExternalLink size={12} />
-                    </a>
-                  )}
-                </div>
               </div>
-            ))}
+              <Badge tone="green" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <I.CheckCircle2 size={12} /> PR Merge Not Blocked
+              </Badge>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
+              <button
+                type="button"
+                onClick={() => setShowCiTemplate(!showCiTemplate)}
+                className="btn outline"
+                style={{ fontSize: 12, padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <I.FileCode2 size={13} />
+                <span>{showCiTemplate ? 'Hide ci.yml Template' : 'View ci.yml Template'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const tmpl = `name: CI\n\non:\n  push:\n    branches: [ main, master ]\n  pull_request:\n    branches: [ main, master ]\n\njobs:\n  test:\n    name: Test & Verify\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: actions/setup-python@v5\n        with:\n          python-version: '3.11'\n      - name: Install dependencies\n        run: |\n          python -m pip install --upgrade pip\n          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi\n          pip install pytest pytest-cov httpx || true\n      - name: Run Tests\n        run: pytest\n`;
+                  void navigator.clipboard.writeText(tmpl);
+                  setCopiedCiTemplate(true);
+                  setTimeout(() => setCopiedCiTemplate(false), 2000);
+                }}
+                className="btn outline"
+                style={{ fontSize: 12, padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                {copiedCiTemplate ? <I.Check size={13} style={{ color: 'var(--green)' }} /> : <I.Copy size={13} />}
+                <span>{copiedCiTemplate ? 'Copied to Clipboard!' : 'Copy ci.yml Template'}</span>
+              </button>
+
+              <span className="sub" style={{ fontSize: 12 }}>
+                SUTRA governance automatically waives CI requirements when no CI file is present.
+              </span>
+            </div>
+
+            {showCiTemplate && (
+              <pre style={{
+                margin: 0,
+                marginTop: 8,
+                padding: '12px 14px',
+                borderRadius: 8,
+                background: 'rgba(0, 0, 0, 0.4)',
+                border: '1px solid var(--line)',
+                fontSize: 12,
+                fontFamily: 'monospace',
+                overflowX: 'auto',
+                color: 'var(--foreground)',
+              }}>
+{`name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    name: Test & Verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install pytest pytest-cov httpx || true
+      - name: Run Tests
+        run: pytest`}
+              </pre>
+            )}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {checksData.checks.map((chk) => {
+              const isPassed = chk.sutra_state === 'passed' || chk.status === 'passed';
+              const isFailed = chk.sutra_state === 'failed' || chk.status === 'failed';
+              const isRunning = chk.sutra_state === 'running' || chk.status === 'running' || chk.status === 'in_progress';
+              const linkUrl = chk.html_url || chk.details_url;
+              return (
+                <div
+                  key={chk.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '10px 14px',
+                    borderRadius: 8,
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    border: '1px solid var(--line)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {isPassed ? (
+                      <I.CheckCircle2 size={16} style={{ color: 'var(--green)' }} />
+                    ) : isFailed ? (
+                      <I.XCircle size={16} style={{ color: '#ff4d4f' }} />
+                    ) : isRunning ? (
+                      <I.Loader size={16} style={{ color: 'var(--cyan)' }} />
+                    ) : (
+                      <I.CircleDot size={16} style={{ color: 'var(--muted)' }} />
+                    )}
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{chk.name}</div>
+                      <div className="meta" style={{ fontSize: 12 }}>
+                        Runner: {chk.app_name || (chk.source === 'github' ? 'GitHub Actions' : 'SUTRA CI')} {chk.started_at ? `· ${fmtDate(chk.started_at)}` : ''}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <Badge tone={isPassed ? 'green' : isFailed ? 'red' : 'aqua'}>
+                      {chk.conclusion || chk.sutra_state || chk.status}
+                    </Badge>
+                    {linkUrl && (
+                      <a
+                        href={linkUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: 'var(--cyan)', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, textDecoration: 'none' }}
+                      >
+                        <span>View Run</span> <I.ExternalLink size={12} />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -1787,6 +1936,25 @@ export function RealAgents() {
     }
   }, null, 2);
 
+  const [apiSnippetFormat, setApiSnippetFormat] = useState<'curl_session' | 'curl_status' | 'python'>('curl_session');
+
+  const restApiEndpoint = `${CANONICAL_API_ORIGIN}/v1`;
+
+  const curlSessionSnippet = `curl -X POST "${restApiEndpoint}/agents/session" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Basic <prefix:agent_token>"`;
+
+  const curlStatusSnippet = `curl -X GET "${restApiEndpoint}/lifecycle/status?task_id=$TASK_ID" \\
+  -H "Authorization: Bearer $SESSION_TOKEN"`;
+
+  const pythonApiSnippet = `import httpx
+
+# Exchange token or query lifecycle
+res = httpx.get("${restApiEndpoint}/lifecycle/status",
+                params={"task_id": "task_123"},
+                headers={"Authorization": "Bearer " + session_token})
+print(res.json())`;
+
   const mcpToolsList = [
     { name: 'sutra_get_context', category: 'Context & Policy', desc: 'Fetches repository rules, active branch policies, open tasks, and engineering standards.' },
     { name: 'sutra_search_knowledge', category: 'Context & Policy', desc: 'Searches the verified institutional Knowledge Graph and codebase intelligence.' },
@@ -2108,7 +2276,7 @@ export function RealAgents() {
         </div>
 
         {/* Fallback Cards Section */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: 20 }}>
           {/* CARD 1: Custom MCP Settings */}
           <Card style={{ border: '1px solid rgba(6, 182, 212, 0.25)', background: 'linear-gradient(180deg, rgba(6, 182, 212, 0.04) 0%, var(--surface) 100%)' }}>
             <div className="card-pad" style={{ padding: '24px' }}>
@@ -2208,34 +2376,116 @@ export function RealAgents() {
           {/* CARD 2: API Integration */}
           <Card style={{ border: '1px solid rgba(255, 255, 255, 0.1)', background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, var(--surface) 100%)' }}>
             <div className="card-pad" style={{ padding: '24px', display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <Badge tone="amber">Card 2 · Fallback</Badge>
-                <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>API Integration</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Badge tone="amber">Card 2 · Fallback</Badge>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>API Integration</h3>
+                </div>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>REST / CI Pipelines</span>
               </div>
               <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.5 }}>
                 Fallback for automated pipelines, CI/CD runners, and background services that cannot use the remote MCP OAuth flow.
                 Integrate directly via SUTRA REST APIs with policy and provenance checks.
               </p>
 
-              <div style={{ marginTop: 'auto', background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                  <I.Book size={18} style={{ color: 'var(--cyan)' }} />
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>SUTRA API & Documentation</div>
+              {/* REST API Base URL */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                  Canonical REST API Base URL:
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 14 }}>
-                  Comprehensive guides on repository reconciliation, branch governance, and change promotion.
+                <div style={{ display: 'flex', alignItems: 'center', background: '#07090e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 12px', gap: 8 }}>
+                  <code style={{ flex: 1, fontSize: 13, color: '#f59e0b', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                    {restApiEndpoint}
+                  </code>
+                  <button
+                    type="button"
+                    className="btn"
+                    style={{ padding: '4px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
+                    onClick={() => copyToClipboard(restApiEndpoint, 'rest_endpoint')}
+                  >
+                    {copiedKey === 'rest_endpoint' ? <I.Check size={12} style={{ color: 'var(--green)' }} /> : <I.Copy size={12} />}
+                    {copiedKey === 'rest_endpoint' ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Snippet Format Selector */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+                {[
+                  { id: 'curl_session', label: 'cURL (Session)' },
+                  { id: 'curl_status', label: 'cURL (Lifecycle)' },
+                  { id: 'python', label: 'Python SDK' },
+                ].map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setApiSnippetFormat(c.id as any)}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: 6,
+                      fontSize: 12,
+                      fontWeight: apiSnippetFormat === c.id ? 600 : 400,
+                      background: apiSnippetFormat === c.id ? 'rgba(245, 158, 11, 0.18)' : 'rgba(255, 255, 255, 0.03)',
+                      color: apiSnippetFormat === c.id ? '#fbbf24' : 'var(--muted)',
+                      border: apiSnippetFormat === c.id ? '1px solid rgba(245, 158, 11, 0.35)' : '1px solid transparent',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Snippet Box */}
+              <div style={{ position: 'relative', background: '#07090D', border: '1px solid var(--line)', borderRadius: 8, padding: 12, marginBottom: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase' }}>
+                    {apiSnippetFormat === 'curl_session' && 'Terminal · Exchange Session'}
+                    {apiSnippetFormat === 'curl_status' && 'Terminal · Query Lifecycle'}
+                    {apiSnippetFormat === 'python' && 'Python 3 · HTTPX Client'}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn"
+                    style={{ padding: '2px 8px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}
+                    onClick={() => {
+                      const snippet = apiSnippetFormat === 'curl_session' ? curlSessionSnippet : apiSnippetFormat === 'curl_status' ? curlStatusSnippet : pythonApiSnippet;
+                      copyToClipboard(snippet, 'api_snippet');
+                    }}
+                  >
+                    {copiedKey === 'api_snippet' ? <I.Check size={11} style={{ color: 'var(--green)' }} /> : <I.Copy size={11} />}
+                    {copiedKey === 'api_snippet' ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+                <pre style={{ margin: 0, fontSize: 12, color: '#f59e0b', fontFamily: 'monospace', overflowX: 'auto', whiteSpace: 'pre' }}>
+                  {apiSnippetFormat === 'curl_session' && curlSessionSnippet}
+                  {apiSnippetFormat === 'curl_status' && curlStatusSnippet}
+                  {apiSnippetFormat === 'python' && pythonApiSnippet}
+                </pre>
+              </div>
+
+              {/* Documentation link box */}
+              <div style={{ background: 'rgba(0,0,0,0.3)', padding: '14px 16px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginTop: 'auto' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <I.Book size={18} style={{ color: 'var(--amber)' }} />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>SUTRA API & Documentation</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                      Reconciliation, branch governance, and provenance endpoints.
+                    </div>
+                  </div>
                 </div>
                 <Link
-                  href="/docs"
+                  href="/docs#api-reference"
                   className="btn"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '6px 14px', borderRadius: 6 }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '5px 12px', borderRadius: 6 }}
                 >
                   <span>Explore Documentation</span>
                   <I.ExternalLink size={12} />
                 </Link>
               </div>
 
-              <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)' }}>
+              <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--muted)' }}>
                 <I.Lock size={13} style={{ color: 'var(--amber)' }} />
                 <span>Zero privileged credentials exposed in the browser.</span>
               </div>

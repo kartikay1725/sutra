@@ -29,14 +29,17 @@ export interface CILog {
 export interface NormalizedCheck {
   id: string;
   name: string;
-  status: "pending" | "running" | "passed" | "failed" | "cancelled" | "skipped" | "neutral";
+  status: "pending" | "running" | "passed" | "failed" | "cancelled" | "skipped" | "neutral" | string;
   conclusion: string | null;
+  sutra_state?: string;
   started_at: string | null;
   completed_at: string | null;
   details_url: string | null;
+  html_url?: string | null;
   source: string;
+  app_name?: string;
   required: boolean;
-  job_id: string | null;
+  job_id?: string | null;
 }
 
 export interface PRChecksSummary {
@@ -53,8 +56,10 @@ export interface PRChecksResponse {
   head_sha: string | null;
   summary: PRChecksSummary;
   overall_status: "passed" | "failed" | "running" | "pending" | "none";
-  governance_verdict: "READY FOR GOVERNANCE" | "BLOCKED BY CI" | "CHECKS IN PROGRESS" | "NO CHECKS REPORTED" | string;
+  governance_verdict: "READY FOR GOVERNANCE" | "BLOCKED BY CI" | "CHECKS IN PROGRESS" | "NO CHECKS REPORTED" | "NO CI FILE CONFIGURED" | string;
   checks: NormalizedCheck[];
+  has_ci_file?: boolean;
+  message?: string | null;
 }
 
 export const ciService = {
@@ -66,6 +71,13 @@ export const ciService = {
   /** Get authoritative normalized checks and governance verdict for a Pull Request. */
   async getPRChecks(prId: string): Promise<PRChecksResponse> {
     return apiAuth<PRChecksResponse>(`/v1/pull-requests/${prId}/checks`);
+  },
+
+  /** Sync GitHub Actions check runs for a Pull Request and return refreshed checks. */
+  async syncPRChecks(prId: string): Promise<PRChecksResponse> {
+    return apiAuth<PRChecksResponse>(`/v1/pull-requests/${prId}/checks/sync`, {
+      method: "POST",
+    });
   },
 
   /** Get a single CI job. */

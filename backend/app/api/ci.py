@@ -79,6 +79,8 @@ class PRChecksResponse(BaseModel):
     ready_for_governance: bool
     summary: PRChecksSummaryItem
     checks: list[NormalizedCheckItem]
+    has_ci_file: bool = True
+    message: str | None = None
 
 
 class CreateCheckRunRequest(BaseModel):
@@ -112,10 +114,15 @@ def create_ci_job(
             pull_request_id=pull_request_id,
             actor_id=current_user.id,
         )
-        # Execute run synchronously for API trigger
-        executed_job = svc.run_execution(job.id, worker_id=f"api_worker_{current_user.id[:8]}")
-        db.commit()
-        return executed_job
+        if job.runner_type == "github_actions":
+            svc.sync_github_checks(pull_request_id, actor_id=current_user.id)
+            db.commit()
+            return job
+        else:
+            # Execute run synchronously for local isolated_process API trigger
+            executed_job = svc.run_execution(job.id, worker_id=f"api_worker_{current_user.id[:8]}")
+            db.commit()
+            return executed_job
     except PermissionError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -319,6 +326,46 @@ def get_pull_request_checks(
     try:
         data = svc.get_pr_checks(pull_request_id, current_user.id)
         return data
+    except PermissionError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="PullRequest not found",
+        )
+    except ValueError as e:
+        msg = str(e)
+        if "not found" in msg.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=msg,
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg,
+        )
+
+
+@router.post(
+    "/v1/pull-requests/{pull_request_id}/checks/sync",
+    response_model=PRChecksResponse,
+    summary="Sync GitHub Actions Check Runs",
+    description="Synchronizes pull request CI check runs from GitHub Actions and returns the refreshed checks status.",
+)
+def sync_pull_request_checks(
+    pull_request_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not re.match(UUID_PATTERN, pull_request_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="PullRequest not found",
+        )
+
+    svc = CIService(db)
+    try:
+        svc.sync_github_checks(pull_request_id, current_user.id)
+        db.commit()
+        return svc.get_pr_checks(pull_request_id, current_user.id)
     except PermissionError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

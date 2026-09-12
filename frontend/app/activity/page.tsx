@@ -150,14 +150,8 @@ export default function ActivityPage() {
             <select
               value={selectedRepo}
               onChange={(e) => setSelectedRepo(e.target.value)}
-              style={{
-                background: "var(--surface, #1e1e24)",
-                color: "inherit",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: 8,
-                padding: "6px 12px",
-                fontSize: 13,
-              }}
+              className="select"
+              style={{ height: 34, minWidth: 160, fontSize: 13 }}
             >
               <option value="all">All Repositories</option>
               {repositories.map((r) => (
@@ -173,14 +167,8 @@ export default function ActivityPage() {
             <select
               value={actorFilter}
               onChange={(e) => setActorFilter(e.target.value)}
-              style={{
-                background: "var(--surface, #1e1e24)",
-                color: "inherit",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: 8,
-                padding: "6px 12px",
-                fontSize: 13,
-              }}
+              className="select"
+              style={{ height: 34, minWidth: 140, fontSize: 13 }}
             >
               <option value="all">All Actors</option>
               <option value="human">Humans</option>

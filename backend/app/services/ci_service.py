@@ -148,6 +148,7 @@ class CIService:
                 "Source Change or resulting commit not found"
             )
 
+        runner_type = "github_actions" if repo.provider_type == "github" else "isolated_process"
         job = CIJob(
             id=str(uuid4()),
             pull_request_id=pr.id,
@@ -157,7 +158,7 @@ class CIService:
             target_branch=pr.target_branch,
             status=CIJob.STATUS_QUEUED,
             trigger=trigger,
-            runner_type="isolated_process",
+            runner_type=runner_type,
         )
 
         self.db.add(job)
@@ -238,7 +239,10 @@ class CIService:
                 repo,
             )
 
-        return self.db.scalars(
+        if repo and repo.provider_type == "github":
+            self.sync_github_checks(pull_request_id, actor_id)
+
+        raw_jobs = self.db.scalars(
             select(CIJob)
             .where(
                 CIJob.pull_request_id
@@ -248,6 +252,15 @@ class CIService:
                 CIJob.created_at.desc()
             )
         ).all()
+
+        if repo and repo.provider_type == "github":
+            return [
+                j for j in raw_jobs
+                if not (j.runner_type == "isolated_process" and j.failure_reason and "Docker container runtime is unavailable" in j.failure_reason)
+                and not (j.runner_type == "github_actions" and j.trigger == "pull_request" and not j.started_at and not j.completed_at)
+            ]
+
+        return raw_jobs
 
     def cancel_job(
         self,
@@ -323,6 +336,123 @@ class CIService:
             worker_id,
         )
 
+    def sync_github_checks(
+        self,
+        pull_request_id: str,
+        actor_id: Optional[str] = None,
+    ) -> List[CIJob]:
+        pr = self.db.scalar(
+            select(PullRequest).where(
+                PullRequest.id == pull_request_id
+            )
+        )
+        if not pr:
+            raise ValueError("PullRequest not found")
+
+        repo = self.db.scalar(
+            select(Repository).where(
+                Repository.id == pr.repository_id,
+                Repository.deleted_at.is_(None),
+            )
+        )
+        if not repo or repo.provider_type != "github":
+            return []
+
+        if actor_id:
+            self._authorize_user(actor_id, repo)
+
+        head_sha = pr.source_commit
+        if not head_sha:
+            change = self.db.scalar(
+                select(Change).where(Change.id == pr.source_change_id)
+            )
+            head_sha = change.resulting_commit if change else None
+
+        if not head_sha:
+            return []
+
+        provider = self._get_provider(repo)
+        if not provider:
+            return []
+
+        synced_jobs = []
+        try:
+            owner = repo.provider_owner or "kartikay1725"
+            gh_check_runs = provider.list_check_runs(owner, repo.name, head_sha)
+            sorted_check_runs = sorted(gh_check_runs, key=lambda c: c.get("id", 0))
+            for cr in sorted_check_runs:
+                check_name = cr.get("name") or f"check_{cr['id']}"
+                job_trigger = check_name[:50]
+                existing_job = self.db.scalar(
+                    select(CIJob).where(
+                        CIJob.pull_request_id == pr.id,
+                        CIJob.commit_sha == head_sha,
+                        CIJob.trigger == job_trigger,
+                    )
+                )
+                conc = (cr.get("conclusion") or "").lower()
+                st = (cr.get("status") or "").lower()
+                if conc == "success":
+                    j_status = CIJob.STATUS_PASSED
+                elif conc in ("failure", "timed_out", "action_required"):
+                    j_status = CIJob.STATUS_FAILED
+                elif conc in ("cancelled", "skipped", "neutral"):
+                    j_status = CIJob.STATUS_CANCELLED if conc == "cancelled" else CIJob.STATUS_PASSED
+                elif st in ("in_progress", "running"):
+                    j_status = CIJob.STATUS_RUNNING
+                else:
+                    j_status = CIJob.STATUS_QUEUED
+
+                started_dt = None
+                if cr.get("started_at"):
+                    try:
+                        started_dt = datetime.fromisoformat(cr["started_at"].replace("Z", "+00:00"))
+                    except Exception:
+                        pass
+
+                completed_dt = None
+                if cr.get("completed_at"):
+                    try:
+                        completed_dt = datetime.fromisoformat(cr["completed_at"].replace("Z", "+00:00"))
+                    except Exception:
+                        pass
+
+                output_url = cr.get("html_url") or cr.get("details_url")
+
+                if not existing_job:
+                    new_job = CIJob(
+                        id=str(uuid4()),
+                        pull_request_id=pr.id,
+                        repository_id=repo.id,
+                        change_id=pr.source_change_id,
+                        commit_sha=head_sha,
+                        target_branch=pr.target_branch,
+                        status=j_status,
+                        trigger=job_trigger,
+                        runner_type="github_actions",
+                        output_log=output_url,
+                        failure_reason=conc if j_status == CIJob.STATUS_FAILED else None,
+                        started_at=started_dt,
+                        completed_at=completed_dt,
+                    )
+                    self.db.add(new_job)
+                    synced_jobs.append(new_job)
+                else:
+                    existing_job.status = j_status
+                    existing_job.runner_type = "github_actions"
+                    if output_url:
+                        existing_job.output_log = output_url
+                    if completed_dt:
+                        existing_job.completed_at = completed_dt
+                    if j_status == CIJob.STATUS_FAILED:
+                        existing_job.failure_reason = conc
+                    synced_jobs.append(existing_job)
+            self.db.flush()
+        except Exception as e:
+            logger.warning(f"Could not sync GitHub check runs for {head_sha}: {e}")
+
+        return synced_jobs
+
     def get_pr_checks(
         self,
         pull_request_id: str,
@@ -355,81 +485,8 @@ class CIService:
             )
             head_sha = change.resulting_commit if change else None
 
-        if repo.provider_type == "github" and head_sha:
-            provider = self._get_provider(repo)
-            if provider:
-                try:
-                    owner = repo.provider_owner or "kartikay1725"
-                    gh_check_runs = provider.list_check_runs(owner, repo.name, head_sha)
-                    # Sort check runs by id ascending so the most recent check run takes precedence
-                    sorted_check_runs = sorted(gh_check_runs, key=lambda c: c.get("id", 0))
-                    for cr in sorted_check_runs:
-                        check_name = cr.get("name") or f"check_{cr['id']}"
-                        job_trigger = check_name[:50]
-                        existing_job = self.db.scalar(
-                            select(CIJob).where(
-                                CIJob.pull_request_id == pr.id,
-                                CIJob.commit_sha == head_sha,
-                                CIJob.trigger == job_trigger,
-                            )
-                        )
-                        conc = (cr.get("conclusion") or "").lower()
-                        st = (cr.get("status") or "").lower()
-                        if conc == "success":
-                            j_status = CIJob.STATUS_PASSED
-                        elif conc in ("failure", "timed_out", "action_required"):
-                            j_status = CIJob.STATUS_FAILED
-                        elif conc in ("cancelled", "skipped", "neutral"):
-                            j_status = CIJob.STATUS_CANCELLED if conc == "cancelled" else CIJob.STATUS_PASSED
-                        elif st in ("in_progress", "running"):
-                            j_status = CIJob.STATUS_RUNNING
-                        else:
-                            j_status = CIJob.STATUS_QUEUED
-
-                        started_dt = None
-                        if cr.get("started_at"):
-                            try:
-                                started_dt = datetime.fromisoformat(cr["started_at"].replace("Z", "+00:00"))
-                            except Exception:
-                                pass
-
-                        completed_dt = None
-                        if cr.get("completed_at"):
-                            try:
-                                completed_dt = datetime.fromisoformat(cr["completed_at"].replace("Z", "+00:00"))
-                            except Exception:
-                                pass
-
-                        output_url = cr.get("html_url") or cr.get("details_url")
-
-                        if not existing_job:
-                            new_job = CIJob(
-                                id=str(uuid4()),
-                                pull_request_id=pr.id,
-                                repository_id=repo.id,
-                                change_id=pr.source_change_id,
-                                commit_sha=head_sha,
-                                target_branch=pr.target_branch,
-                                status=j_status,
-                                trigger=job_trigger,
-                                runner_type="github_actions",
-                                output_log=output_url,
-                                failure_reason=conc if j_status == CIJob.STATUS_FAILED else None,
-                                started_at=started_dt,
-                                completed_at=completed_dt,
-                            )
-                            self.db.add(new_job)
-                        else:
-                            existing_job.status = j_status
-                            if output_url:
-                                existing_job.output_log = output_url
-                            if completed_dt:
-                                existing_job.completed_at = completed_dt
-                            if j_status == CIJob.STATUS_FAILED:
-                                existing_job.failure_reason = conc
-                    self.db.flush()
-                except Exception as e:
-                    logger.warning(f"Could not sync GitHub check runs for {head_sha}: {e}")
+        if repo.provider_type == "github":
+            self.sync_github_checks(pull_request_id, actor_id=actor_id)
 
         # Query all jobs associated with the PR head commit
         jobs = []
@@ -442,7 +499,22 @@ class CIService:
             ).all()
 
         checks_list = []
+        has_specific_gh_jobs = any(
+            (j.runner_type == "github_actions" or (j.trigger and j.trigger.startswith("github_check_")))
+            and j.trigger != "pull_request"
+            for j in jobs
+        )
+
+        owner = repo.provider_owner or "kartikay1725"
         for j in jobs:
+            # If repository is on GitHub, disregard local isolated_process errors caused by missing host Docker
+            if repo.provider_type == "github" and j.runner_type == "isolated_process" and j.failure_reason and "Docker container runtime is unavailable" in j.failure_reason:
+                continue
+
+            # For GitHub repositories, skip placeholder dispatch jobs (only display actual GitHub check runs)
+            if repo.provider_type == "github" and j.runner_type == "github_actions" and j.trigger == "pull_request":
+                continue
+
             is_github = j.runner_type == "github_actions" or (j.trigger and j.trigger.startswith("github_check_"))
             name = j.trigger or "verification"
 
@@ -468,6 +540,10 @@ class CIService:
                 sutra_state = "pending"
                 status_val = "queued"
 
+            output_url = j.output_log if (j.output_log and j.output_log.startswith("http")) else None
+            if not output_url and is_github:
+                output_url = f"https://github.com/{owner}/{repo.name}/actions"
+
             checks_list.append({
                 "id": j.id,
                 "name": name,
@@ -475,8 +551,8 @@ class CIService:
                 "status": status_val,
                 "conclusion": conclusion,
                 "sutra_state": sutra_state,
-                "html_url": j.output_log if (j.output_log and j.output_log.startswith("http")) else None,
-                "details_url": j.output_log if (j.output_log and j.output_log.startswith("http")) else None,
+                "html_url": output_url,
+                "details_url": output_url,
                 "started_at": j.started_at.isoformat() if j.started_at else None,
                 "completed_at": j.completed_at.isoformat() if j.completed_at else None,
                 "source": "github" if is_github else "sutra",
@@ -490,10 +566,16 @@ class CIService:
         running = sum(1 for c in checks_list if c["sutra_state"] in ("running", "in_progress"))
         pending = sum(1 for c in checks_list if c["sutra_state"] in ("pending", "queued"))
 
+        has_ci_file = True
+        message = None
+
         if total == 0:
             overall_status = "none"
-            governance_verdict = "NO CHECKS REPORTED"
-            ready_for_governance = False
+            governance_verdict = "NO CI FILE CONFIGURED"
+            # Never block a PR from being merged if there is no CI file and CI checks cannot be run
+            ready_for_governance = True
+            has_ci_file = False
+            message = "No CI file found in codebase. Cannot run CI checks. If you want automated checks, please create a .github/workflows/ci.yml file."
         elif failed > 0:
             overall_status = "failed"
             governance_verdict = "BLOCKED BY CI"
@@ -514,6 +596,8 @@ class CIService:
             "overall_status": overall_status,
             "governance_verdict": governance_verdict,
             "ready_for_governance": ready_for_governance,
+            "has_ci_file": has_ci_file,
+            "message": message,
             "summary": {
                 "total": total,
                 "passed": passed,

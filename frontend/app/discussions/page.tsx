@@ -81,18 +81,11 @@ export default function DiscussionsGlobalPage() {
             <select
               value={selectedRepo}
               onChange={(e) => handleRepoChange(e.target.value)}
-              style={{
-                padding: "8px 14px",
-                borderRadius: 8,
-                border: "1px solid var(--line)",
-                background: "var(--bg-subtle)",
-                color: "var(--fg)",
-                fontSize: 14,
-                cursor: "pointer",
-              }}
+              className="select"
+              style={{ height: 38, minWidth: 180, fontSize: 13 }}
             >
               {repositories.map((r) => (
-                <option key={r.id} value={r.name} style={{ background: "var(--bg)" }}>
+                <option key={r.id} value={r.name}>
                   {r.name}
                 </option>
               ))}

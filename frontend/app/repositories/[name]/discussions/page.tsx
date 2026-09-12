@@ -112,10 +112,11 @@ export default function DiscussionsPage({ params }: { params: Promise<{ name: st
             <select 
               value={sortOrder} 
               onChange={(e) => setSortOrder(e.target.value as any)}
-              style={{ padding: "8px 12px", borderRadius: "6px", border: "1px solid var(--line)", background: "transparent", color: "var(--fg)", fontSize: "14px", cursor: "pointer" }}
+              className="select"
+              style={{ height: 38, minWidth: 190, fontSize: 13 }}
             >
-              <option value="newest" style={{ background: "var(--bg)" }}>Sort by: Latest activity</option>
-              <option value="oldest" style={{ background: "var(--bg)" }}>Sort by: Oldest</option>
+              <option value="newest">Sort by: Latest activity</option>
+              <option value="oldest">Sort by: Oldest</option>
             </select>
             <Btn primary onClick={() => window.open(`https://github.com/${encodeURIComponent(user?.username || "github")}/${encodeURIComponent(repoId)}/discussions`, "_blank", "noopener,noreferrer")}>
               <I.ExternalLink size={14} style={{ marginRight: 6 }} />

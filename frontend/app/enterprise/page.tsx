@@ -148,7 +148,7 @@ export default function EnterpriseDashboard() {
                 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px", background: "var(--bg-subtle)", borderRadius: "6px" }}>
                   <span>Required Approvals</span>
-                  <select className="btn" defaultValue={policies.minimum_pr_approvals}>
+                  <select className="select" defaultValue={policies.minimum_pr_approvals}>
                     <option value="0">0 (No approvals)</option>
                     <option value="1">1 Approval</option>
                     <option value="2">2 Approvals</option>

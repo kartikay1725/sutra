@@ -12,6 +12,7 @@ import {
   type NotificationItem,
 } from "@/lib/notifications";
 import NewTaskModal from "@/components/NewTaskModal";
+import { taskService } from "@/lib/tasks";
 import {
   issueService,
   type Issue,
@@ -686,20 +687,17 @@ export function MyWork() {
     prId?: string;
   };
 
+  const router = useRouter();
   const [workItems, setWorkItems] = useState<WorkRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isNewTaskModalOpen, setIsNewTaskModalOpen] =
-  useState(false);
-  const [selectedTaskId, setSelectedTaskId] =
-    useState<string | null>(null);
 
   const loadWork = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const [tasks, prs] = await Promise.all([
+      const [meWorkRes, allTasksRes, prsRes, repositories] = await Promise.all([
         apiAuth<
           Array<{
             id: string;
@@ -708,7 +706,8 @@ export function MyWork() {
             status: string;
             updated_at: string;
           }>
-        >("/v1/me/work"),
+        >("/v1/me/work").catch(() => []),
+        taskService.listAllTasks().catch(() => []),
         apiAuth<
           Array<{
             id: string;
@@ -724,36 +723,46 @@ export function MyWork() {
             merged_at: string | null;
             closed_at: string | null;
           }>
-        >("/v1/pull-requests?limit=50"),
+        >("/v1/pull-requests?limit=50").catch(() => []),
+        repositoryService.listRepositories().catch(() => []),
       ]);
 
-      const taskRows: WorkRow[] = tasks.map((task) => ({
-        ...task,
-        type: "task",
-      }));
-
-      /*
-       * The current /v1/pull-requests endpoint is already
-       * authenticated and scoped by the backend to the
-       * current user. Do not fabricate PR ownership on
-       * the frontend.
-       *
-       * Repository names are resolved from the user's
-       * repository list.
-       */
-      const repositories =
-        await repositoryService.listRepositories();
-
       const repoById = new Map(
-        repositories.map((repo) => [
-          repo.id,
-          repo,
-        ]),
+        repositories.map((repo) => [repo.id, repo]),
       );
 
-      const prRows: WorkRow[] = prs.map((pr) => {
-        const repository =
-          repoById.get(pr.repository_id);
+      const taskMap = new Map<string, WorkRow>();
+
+      // 1. Add tasks from /v1/me/work
+      for (const task of meWorkRes) {
+        taskMap.set(task.id, {
+          id: task.id,
+          title: task.title,
+          repo_name: task.repo_name || "Repository",
+          status: task.status,
+          updated_at: task.updated_at,
+          type: "task",
+        });
+      }
+
+      // 2. Add and enrich with workspace tasks from /v1/tasks
+      for (const task of allTasksRes) {
+        if (!taskMap.has(task.id)) {
+          const repo = repoById.get(task.repository_id);
+          taskMap.set(task.id, {
+            id: task.id,
+            title: task.title,
+            repo_name: repo?.name || "Repository",
+            status: task.status,
+            updated_at: task.updated_at || task.created_at,
+            type: "task",
+          });
+        }
+      }
+
+      // 3. Add pull requests
+      const prRows: WorkRow[] = prsRes.map((pr) => {
+        const repository = repoById.get(pr.repository_id);
 
         return {
           id: `pr-${pr.id}`,
@@ -764,12 +773,12 @@ export function MyWork() {
             repository?.name ||
             "Repository",
           status: pr.status,
-          updated_at: pr.updated_at,
+          updated_at: pr.updated_at || pr.created_at,
         };
       });
 
       const combined = [
-        ...taskRows,
+        ...Array.from(taskMap.values()),
         ...prRows,
       ].sort(
         (a, b) =>
@@ -874,15 +883,12 @@ export function MyWork() {
   const openTask = (
     item: WorkRow,
   ) => {
-    if (item.type === "task") {
-      setSelectedTaskId(item.id);
+    if (item.repo_name && item.repo_name !== "Repository") {
+      router.push(`/repositories/${encodeURIComponent(item.repo_name)}`);
       return;
     }
 
-    if (item.prId) {
-      window.location.href =
-        `/pull-requests/${item.prId}`;
-    }
+    router.push("/repositories");
   };
 
   return (
@@ -891,38 +897,7 @@ export function MyWork() {
         eyebrow="Personal queue"
         title="My Work"
         sub="Your real tasks and pull requests from SUTRA."
-        action={
-          <button
-            className="btn primary"
-            type="button"
-            onClick={() => {
-              setIsNewTaskModalOpen(true);
-            }}
-          >
-            <I.Plus size={14} />
-            New Task
-          </button>
-        }
       />
-      {isNewTaskModalOpen && (
-        <NewTaskModal
-          onClose={() =>
-            setIsNewTaskModalOpen(false)
-          }
-          onSuccess={() => {
-            setIsNewTaskModalOpen(false);
-            void loadWork();
-          }}
-        />
-      )}
-      {selectedTaskId && (
-        <TaskModal
-          taskId={selectedTaskId}
-          onClose={() =>
-            setSelectedTaskId(null)
-          }
-        />
-      )}
 
       {error && (
         <Card
@@ -4365,9 +4340,6 @@ export function RepoSettings() {
                   )
                 }
                 disabled={savingGeneral}
-                style={{
-                  appearance: "none",
-                }}
               >
                 {branches.map(
                   (branch) => (

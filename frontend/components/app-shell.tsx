@@ -75,7 +75,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const globalWorkspaceNav = [
     { label: "Home", href: "/", icon: Home },
     { label: "My Work", href: "/my-work", icon: ListTodo },
-    { label: "Explore", href: "/explore", icon: Compass },
     { label: "Repositories", href: "/repositories", icon: FolderGit2 },
     { label: "Agents", href: "/agents", icon: Bot },
     { label: "Intelligence", href: "/intelligence", icon: Activity },

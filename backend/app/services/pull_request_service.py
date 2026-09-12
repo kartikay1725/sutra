@@ -450,23 +450,15 @@ class PullRequestService:
                         )
 
                 # Automatic CI dispatch upon opening an eligible Pull Request
-                if change and change.resulting_commit:
+                if change and change.resulting_commit and repository.provider_type != "github":
                     try:
                         from app.services.ci_service import CIService
                         ci_svc = CIService(self.db)
-                        ci_job = ci_svc.create_job(
+                        ci_svc.create_job(
                             pull_request_id=pr.id,
                             actor_id=author_id,
                             trigger="pull_request",
                         )
-                        running_job = self.db.scalar(
-                            select(CIJob).where(
-                                CIJob.repository_id == repository.id,
-                                CIJob.status == CIJob.STATUS_RUNNING,
-                            )
-                        )
-                        if not running_job and ci_job:
-                            ci_svc.run_execution(ci_job.id, worker_id=f"api_worker_{uuid4().hex[:8]}")
                     except Exception:
                         pass
             now = datetime.now(timezone.utc)

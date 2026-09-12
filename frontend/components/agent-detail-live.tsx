@@ -236,18 +236,10 @@ export function AgentDetailLive() {
           <div className="field" style={{ flex: 1, margin: 0 }}>
             <label className="label">Add repository access</label>
             <select
-              className="input"
+              className="input select"
               value={selectedRepoId}
               onChange={(e) => setSelectedRepoId(e.target.value)}
               disabled={granting}
-              style={{
-                width: "100%",
-                padding: "8px 12px",
-                borderRadius: "6px",
-                backgroundColor: "rgba(255,255,255,0.03)",
-                border: "1px solid var(--line)",
-                color: "#fff"
-              }}
             >
               <option value="">Select a repository...</option>
               {allRepos

@@ -366,28 +366,39 @@ export default function TaskPage() {
           <div className="statlabel">Validation</div>
           <div style={{marginTop:10}}>
             {checks ? (
-              <>
-                <div className={`statusline ${checks.overall_status === 'passed' ? 'green' : checks.overall_status === 'failed' ? 'red' : 'cyan'}`}>
-                  {checks.overall_status === 'passed' ? <CheckCircle2 size={14} /> : <Play size={14} />}
-                  {checks.summary.passed} / {checks.summary.total} checks passing
-                </div>
-                <div style={{ marginTop: 8, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <ShieldCheck size={14} style={{ color: checks.governance_verdict === 'READY FOR GOVERNANCE' ? 'var(--green)' : 'var(--amber)' }} />
-                  <span>Verdict: <strong>{checks.governance_verdict}</strong></span>
-                </div>
-                {checks.checks.length > 0 && (
-                  <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {checks.checks.slice(0, 3).map(chk => (
-                      <div key={chk.id} style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ color: chk.status === 'passed' ? 'var(--green)' : chk.status === 'failed' ? '#ff4d4f' : 'var(--cyan)' }}>
-                          {chk.status === 'passed' ? '✓' : chk.status === 'failed' ? '✗' : '●'}
-                        </span>
-                        <span>{chk.name}</span>
-                      </div>
-                    ))}
+              checks.summary.total === 0 ? (
+                <>
+                  <div className="statusline green" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <CheckCircle2 size={14} /> No CI file · Not blocked
                   </div>
-                )}
-              </>
+                  <div style={{ marginTop: 6, fontSize: 11, color: 'var(--muted)' }}>
+                    No CI workflow file found in codebase. Automated checks waived; PR merge is not blocked.
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className={`statusline ${checks.overall_status === 'passed' ? 'green' : checks.overall_status === 'failed' ? 'red' : 'cyan'}`}>
+                    {checks.overall_status === 'passed' ? <CheckCircle2 size={14} /> : <Play size={14} />}
+                    {checks.summary.passed} / {checks.summary.total} checks passing
+                  </div>
+                  <div style={{ marginTop: 8, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <ShieldCheck size={14} style={{ color: checks.governance_verdict === 'READY FOR GOVERNANCE' ? 'var(--green)' : 'var(--amber)' }} />
+                    <span>Verdict: <strong>{checks.governance_verdict}</strong></span>
+                  </div>
+                  {checks.checks.length > 0 && (
+                    <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {checks.checks.slice(0, 3).map(chk => (
+                        <div key={chk.id} style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ color: chk.status === 'passed' ? 'var(--green)' : chk.status === 'failed' ? '#ff4d4f' : 'var(--cyan)' }}>
+                            {chk.status === 'passed' ? '✓' : chk.status === 'failed' ? '✗' : '●'}
+                          </span>
+                          <span>{chk.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )
             ) : isCompleted || isInProgress ? (
               <>
                 <div className={`statusline ${isCompleted ? 'green' : 'amber'}`}><CheckCircle2 size={14}/> {isCompleted ? '18 / 18 tests passing' : 'Running tests...'}</div>

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Search, Book, ChevronRight, ArrowLeft, ExternalLink, HelpCircle } from "lucide-react";
+import { Search, Book, ChevronRight, ArrowLeft, ExternalLink, HelpCircle, Menu, X } from "lucide-react";
 import { sections, DocSection } from "./content/data";
 import { useRouter } from "next/navigation";
 import { authService } from "@/lib/auth";
@@ -9,6 +9,7 @@ import { authService } from "@/lib/auth";
 export default function DocsPage() {
   const [activeSection, setActiveSection] = useState("sutra-overview");
   const [searchQuery, setSearchQuery] = useState("");
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const router = useRouter();
 
   // Sync with hash on load
@@ -33,21 +34,19 @@ export default function DocsPage() {
   const activeDoc = sections.find((sec) => sec.id === activeSection) || sections[0];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#090C10", overflow: "hidden", color: "#F2F5F8" }}>
-      {/* Header bar with Back button */}
-      <div
-        style={{
-          flexShrink: 0,
-          height: 58,
-          borderBottom: "1px solid #212836",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 24px",
-          background: "#10151C",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+    <div className="docs-page">
+      {/* Header bar with Back button and mobile drawer trigger */}
+      <div className="docs-header">
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button
+            onClick={() => setMobileSidebarOpen((prev) => !prev)}
+            className="docs-mobile-menu-btn"
+            aria-label="Toggle navigation menu"
+          >
+            {mobileSidebarOpen ? <X size={15} /> : <Menu size={15} />}
+            <span>Sections</span>
+          </button>
+
           <button
             onClick={() => {
               if (authService.isAuthenticated()) {
@@ -72,11 +71,13 @@ export default function DocsPage() {
             }}
           >
             <ArrowLeft size={14} />
-            Back to App
+            Back
           </button>
           <div style={{ fontWeight: 700, fontSize: 15, color: "#F2F5F8", display: "flex", alignItems: "center", gap: 8 }}>
             <Book size={17} style={{ color: "#3B82F6" }} />
-            SUTRA Documentation & Guides
+            <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              SUTRA Docs
+            </span>
           </div>
         </div>
 
@@ -108,19 +109,15 @@ export default function DocsPage() {
         </div>
       </div>
 
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+      <div className="docs-body">
+        {/* Mobile Backdrop */}
+        <div
+          className={`docs-sidebar-backdrop ${mobileSidebarOpen ? "open" : ""}`}
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+
         {/* Docs Sidebar */}
-        <aside
-          className="no-scrollbar"
-          style={{
-            width: 290,
-            borderRight: "1px solid #212836",
-            display: "flex",
-            flexDirection: "column",
-            background: "#10151C",
-            flexShrink: 0,
-          }}
-        >
+        <aside className={`docs-sidebar ${mobileSidebarOpen ? "open" : ""}`}>
           <div style={{ padding: "16px 14px", borderBottom: "1px solid #212836" }}>
             <div
               style={{
@@ -151,7 +148,7 @@ export default function DocsPage() {
             </div>
           </div>
 
-          <div className="no-scrollbar" style={{ flex: 1, overflowY: "auto", padding: "12px 0" }}>
+          <div style={{ flex: 1, overflowY: "auto", padding: "12px 0" }}>
             {/* Categories */}
             {Array.from(new Set(filteredSections.map((s) => s.category))).map((cat) => (
               <div key={cat} style={{ marginBottom: 18 }}>
@@ -173,7 +170,10 @@ export default function DocsPage() {
                   .map((sec) => (
                     <button
                       key={sec.id}
-                      onClick={() => setActiveSection(sec.id)}
+                      onClick={() => {
+                        setActiveSection(sec.id);
+                        setMobileSidebarOpen(false);
+                      }}
                       style={{
                         display: "flex",
                         alignItems: "center",
@@ -206,18 +206,7 @@ export default function DocsPage() {
         </aside>
 
         {/* Content Pane */}
-        <main
-          className="no-scrollbar"
-          style={{
-            flex: 1,
-            padding: "40px 60px",
-            overflowY: "auto",
-            display: "flex",
-            flexDirection: "column",
-            gap: 24,
-            background: "#090C10",
-          }}
-        >
+        <main className="docs-content-pane">
           <div style={{ borderBottom: "1px solid #212836", paddingBottom: 20 }}>
             <div
               style={{
@@ -230,7 +219,7 @@ export default function DocsPage() {
             >
               {activeDoc.category}
             </div>
-            <h1 style={{ fontSize: 30, fontWeight: 700, marginTop: 8, color: "#F2F5F8" }}>
+            <h1 style={{ fontSize: 28, fontWeight: 700, marginTop: 8, color: "#F2F5F8", wordBreak: "break-word" }}>
               {activeDoc.title}
             </h1>
           </div>
@@ -241,6 +230,7 @@ export default function DocsPage() {
               lineHeight: 1.7,
               color: "#A8B1BD",
               maxWidth: 920,
+              width: "100%",
             }}
           >
             {activeDoc.content}

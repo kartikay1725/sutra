@@ -12,6 +12,20 @@
   --text: #F2F5F8;
   --text-secondary: #A8B1BD;
   --muted: #707A88;
+  --fg: #F2F5F8;
+  --card: #10151C;
+  --bg-card: #10151C;
+  --card-hover: #171D26;
+  --card-border: #212836;
+  --border: #212836;
+  --border-subtle: #171D26;
+  --bg-subtle: #121822;
+
+  --cyan: #38BDF8;
+  --cyan-dim: rgba(56, 189, 248, 0.12);
+  --violet: #A855F7;
+  --violet-dim: rgba(168, 85, 247, 0.12);
+  --color-yellow: #F59E0B;
   
   --blue: #3B82F6;
   --blue-hover: #60A5FA;
@@ -49,6 +63,7 @@ html {
   color: var(--text-primary);
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
+  max-width: 100vw;
 }
 
 body {
@@ -59,6 +74,52 @@ body {
   color: var(--text-primary);
   line-height: 1.5;
   overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* ==========================================================================
+   Universal Sleek Custom Scrollbar & No-Extra-Scrollbars System
+   ========================================================================== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  transition: background 0.15s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+/* Hide scrollbars where scrolling is horizontal or non-visual without breaking scroll */
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.no-scrollbar,
+.scrollbar-none {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
 }
 
 button, input, textarea, select {
@@ -919,6 +980,82 @@ a {
   border-color: var(--blue);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 }
+
+/* ==========================================================================
+   Modern Unified Select Dropdowns
+   ========================================================================== */
+select,
+select.input,
+select.btn,
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: var(--surface-2);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2338BDF8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 14px;
+  padding: 0 38px 0 14px !important;
+  color: var(--text-primary);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  height: 42px;
+  font-size: 13px;
+  font-weight: 500;
+  outline: none;
+  line-height: 40px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, transform 0.1s ease;
+  max-width: 100%;
+}
+
+select.btn {
+  height: 34px;
+  line-height: 32px;
+  padding: 0 32px 0 12px !important;
+  background-position: right 10px center;
+  background-size: 12px;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+}
+
+select:hover,
+select.input:hover,
+select.btn:hover {
+  border-color: rgba(56, 189, 248, 0.45);
+  background-color: #19212c;
+}
+
+select:focus,
+select.input:focus,
+select.btn:focus {
+  border-color: #38BDF8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.22);
+  background-color: #151C25;
+}
+
+select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(40%);
+}
+
+select option {
+  background-color: #10151C;
+  color: #F2F5F8;
+  padding: 10px 14px;
+  font-size: 13px;
+}
+
+select optgroup {
+  background-color: #090C10;
+  color: #38BDF8;
+  font-weight: 700;
+  padding: 6px 12px;
+}
+
 .field { margin-bottom: 16px; }
 .label {
   font-size: 12px;
@@ -1689,6 +1826,177 @@ a {
 
   .auth-card {
     padding: 28px 20px;
+  }
+}
+
+/* ==========================================================================
+   Documentation Page Mobile Adaptations & Zero Overflow
+   ========================================================================== */
+.docs-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  height: 100dvh;
+  background: #090C10;
+  overflow: hidden;
+  color: #F2F5F8;
+  max-width: 100vw;
+}
+
+.docs-header {
+  flex-shrink: 0;
+  height: 58px;
+  border-bottom: 1px solid #212836;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  background: #10151C;
+  max-width: 100vw;
+}
+
+.docs-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  max-width: 100vw;
+}
+
+.docs-sidebar {
+  width: 290px;
+  border-right: 1px solid #212836;
+  display: flex;
+  flex-direction: column;
+  background: #10151C;
+  flex-shrink: 0;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.docs-content-pane {
+  flex: 1;
+  padding: 36px 48px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  background: #090C10;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.docs-mobile-menu-btn {
+  display: none;
+}
+
+.docs-sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .docs-header {
+    padding: 0 14px;
+    height: 52px;
+  }
+
+  .docs-mobile-menu-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 6px;
+    background: #171D26;
+    border: 1px solid #212836;
+    color: #F2F5F8;
+    cursor: pointer;
+  }
+
+  .docs-sidebar {
+    position: fixed;
+    top: 52px;
+    bottom: 0;
+    left: 0;
+    width: 280px;
+    z-index: 100;
+    transform: translateX(-100%);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+  }
+
+  .docs-sidebar.mobile-open,
+  .docs-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .docs-sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 52px 0 0 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 99;
+  }
+
+  .docs-sidebar-backdrop.open,
+  .docs-sidebar-backdrop.mobile-open {
+    display: block;
+  }
+
+  .docs-content-pane {
+    padding: 20px 16px 40px;
+  }
+}
+
+/* ==========================================================================
+   Universal Mobile Viewport & Overflow Shields
+   ========================================================================== */
+img, video, canvas, svg {
+  max-width: 100%;
+  height: auto;
+}
+
+pre {
+  max-width: 100%;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+code {
+  word-break: break-word;
+}
+
+.code, .terminal, .diff {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.card, .card-pad {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .actions, .topactions {
+    flex-direction: column;
+    align-items: stretch !important;
+    width: 100%;
+  }
+
+  .actions .btn, .topactions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .field {
+    width: 100%;
+  }
+
+  .two {
+    grid-template-columns: 1fr !important;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
   }
 }
 

@@ -125,16 +125,18 @@ export function TaskModal({ taskId, onClose }: { taskId: string, onClose: () => 
       position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
       backgroundColor: "rgba(0,0,0,0.7)", backdropFilter: "blur(12px)",
       zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center",
-      padding: 24
+      padding: "min(24px, 3vw)",
+      boxSizing: "border-box"
     }}>
       
       {showNoAgentsPrompt && (
         <div style={{
           position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 200,
           display: "flex", alignItems: "center", justifyContent: "center",
-          backgroundColor: "rgba(0,0,0,0.85)", backdropFilter: "blur(4px)"
+          backgroundColor: "rgba(0,0,0,0.85)", backdropFilter: "blur(4px)",
+          padding: 16
         }}>
-          <div style={{ padding: 40, background: "linear-gradient(135deg, #1A1A1F 0%, #121214 100%)", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", width: 440, textAlign: "center", boxShadow: "0 24px 64px rgba(0,0,0,0.8)" }}>
+          <div style={{ padding: "clamp(24px, 4vw, 40px)", background: "linear-gradient(135deg, #1A1A1F 0%, #121214 100%)", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", width: "min(100%, 440px)", textAlign: "center", boxShadow: "0 24px 64px rgba(0,0,0,0.8)" }}>
             <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(255,100,100,0.1)", color: "#FF6B6B", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
               <Bot size={32} />
             </div>
@@ -156,10 +158,10 @@ export function TaskModal({ taskId, onClose }: { taskId: string, onClose: () => 
         boxShadow: "0 24px 64px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)"
       }}>
         {/* Header Area */}
-        <div style={{ padding: "40px 40px 32px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div style={{ flex: 1, paddingRight: 24 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+        <div style={{ padding: "clamp(20px, 4vw, 40px) clamp(20px, 4vw, 40px) 24px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
+            <div style={{ flex: "1 1 260px", minWidth: 0, paddingRight: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
                 <span style={{ fontSize: 12, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, background: "rgba(255,255,255,0.05)", padding: "4px 10px", borderRadius: 100 }}>
                   Task #{taskId.slice(0, 8)}
                 </span>
@@ -167,12 +169,12 @@ export function TaskModal({ taskId, onClose }: { taskId: string, onClose: () => 
                   {task.status.replace("_", " ")}
                 </Badge>
               </div>
-              <h2 style={{ fontSize: 28, margin: "0 0 12px 0", fontWeight: 600, color: "#fff", lineHeight: 1.2 }}>{task.title}</h2>
-              <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 16, margin: 0, lineHeight: 1.6 }}>
+              <h2 style={{ fontSize: "clamp(20px, 3vw, 28px)", margin: "0 0 12px 0", fontWeight: 600, color: "#fff", lineHeight: 1.2, wordBreak: "break-word" }}>{task.title}</h2>
+              <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 15, margin: 0, lineHeight: 1.6, wordBreak: "break-word" }}>
                 {task.description || "No description provided."}
               </p>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               {isOpen && (
                  <button className="btn outline" onClick={handleDispatchNext} disabled={assigning} style={{ padding: "10px 16px", borderRadius: 10, fontSize: 14 }}>
                    Auto-Dispatch
@@ -191,8 +193,8 @@ export function TaskModal({ taskId, onClose }: { taskId: string, onClose: () => 
         </div>
 
         {/* Content Area */}
-        <div style={{ padding: 40 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20, marginBottom: 32 }}>
+        <div style={{ padding: "clamp(16px, 4vw, 40px)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))", gap: 20, marginBottom: 32 }}>
             
             {/* Agent Status */}
             <PremiumCard title="Agent Status">
@@ -293,7 +295,7 @@ export function TaskModal({ taskId, onClose }: { taskId: string, onClose: () => 
           </div>
 
           {(isInProgress || isCompleted) && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: 20 }}>
               
               <PremiumCard title="Timeline">
                 <div style={{ display: "flex", flexDirection: "column", gap: 20, padding: "10px 0" }}>
