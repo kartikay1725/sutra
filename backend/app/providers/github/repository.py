@@ -787,6 +787,158 @@ class GitHubRepositoryProvider(RepositoryProvider):
         res.raise_for_status()
         return res.json()
 
+    def create_governed_commit(
+        self,
+        owner: str,
+        name: str,
+        branch: str,
+        commit_message: str,
+        file_patches: List[Dict[str, Any]],
+        author_name: str,
+        author_email: str,
+        base_branch: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a commit on a SUTRA-governed branch via the GitHub Git Data API.
+
+        Uses the GitHub App installation token (contents: write). The agent never
+        needs to call git push — SUTRA executes the commit atomically.
+
+        Args:
+            owner: Repository owner/org.
+            name: Repository name.
+            branch: Feature branch to commit onto (created from base_branch if absent).
+            commit_message: Git commit message.
+            file_patches: List of dicts with keys:
+                - path (str): file path relative to repo root.
+                - content (str): UTF-8 text content of the file.
+                - mode (str, optional): git blob mode, default "100644".
+                - operation (str, optional): "upsert" (default) or "delete".
+            author_name: Committer name for the Git commit object.
+            author_email: Committer email for the Git commit object.
+            base_branch: Branch to branch off if `branch` doesn't exist yet.
+
+        Returns:
+            Dict with keys: commit_sha, branch, tree_sha, parent_sha, html_url.
+
+        Raises:
+            ValueError: on GitHub API errors or missing data.
+        """
+        headers = self._get_installation_headers(owner, name)
+
+        # ── 1. Resolve HEAD of target branch (create it if missing) ──────────
+        ref_res = self._client.get(
+            f"/repos/{owner}/{name}/git/ref/heads/{branch}",
+            headers=headers,
+        )
+        if ref_res.status_code == 404:
+            # Branch doesn't exist — create it from base_branch HEAD
+            base = base_branch or "main"
+            base_ref_res = self._client.get(
+                f"/repos/{owner}/{name}/git/ref/heads/{base}",
+                headers=headers,
+            )
+            base_ref_res.raise_for_status()
+            base_sha = base_ref_res.json()["object"]["sha"]
+            create_ref_res = self._client.post(
+                f"/repos/{owner}/{name}/git/refs",
+                headers=headers,
+                json={"ref": f"refs/heads/{branch}", "sha": base_sha},
+            )
+            create_ref_res.raise_for_status()
+            parent_sha = base_sha
+        else:
+            ref_res.raise_for_status()
+            parent_sha = ref_res.json()["object"]["sha"]
+
+        # ── 2. Resolve current tree SHA from parent commit ───────────────────
+        parent_commit_res = self._client.get(
+            f"/repos/{owner}/{name}/git/commits/{parent_sha}",
+            headers=headers,
+        )
+        parent_commit_res.raise_for_status()
+        parent_tree_sha = parent_commit_res.json()["tree"]["sha"]
+
+        # ── 3. Build tree entries from file_patches ──────────────────────────
+        tree_entries: List[Dict[str, Any]] = []
+        for patch in file_patches:
+            op = patch.get("operation", "upsert")
+            file_path = patch["path"].lstrip("/")
+            if op == "delete":
+                tree_entries.append({
+                    "path": file_path,
+                    "mode": patch.get("mode", "100644"),
+                    "type": "blob",
+                    "sha": None,  # null SHA = deletion
+                })
+            else:
+                # Create blob
+                content_str = patch.get("content", "")
+                blob_res = self._client.post(
+                    f"/repos/{owner}/{name}/git/blobs",
+                    headers=headers,
+                    json={
+                        "content": content_str,
+                        "encoding": "utf-8",
+                    },
+                )
+                blob_res.raise_for_status()
+                blob_sha = blob_res.json()["sha"]
+                tree_entries.append({
+                    "path": file_path,
+                    "mode": patch.get("mode", "100644"),
+                    "type": "blob",
+                    "sha": blob_sha,
+                })
+
+        # ── 4. Create new tree ───────────────────────────────────────────────
+        tree_res = self._client.post(
+            f"/repos/{owner}/{name}/git/trees",
+            headers=headers,
+            json={"base_tree": parent_tree_sha, "tree": tree_entries},
+        )
+        tree_res.raise_for_status()
+        new_tree_sha = tree_res.json()["sha"]
+
+        # ── 5. Create commit object ──────────────────────────────────────────
+        now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        commit_res = self._client.post(
+            f"/repos/{owner}/{name}/git/commits",
+            headers=headers,
+            json={
+                "message": commit_message,
+                "tree": new_tree_sha,
+                "parents": [parent_sha],
+                "author": {"name": author_name, "email": author_email, "date": now_iso},
+                "committer": {"name": author_name, "email": author_email, "date": now_iso},
+            },
+        )
+        commit_res.raise_for_status()
+        commit_data = commit_res.json()
+        new_commit_sha = commit_data["sha"]
+
+        # ── 6. Advance branch ref (fast-forward only) ────────────────────────
+        update_res = self._client.patch(
+            f"/repos/{owner}/{name}/git/refs/heads/{branch}",
+            headers=headers,
+            json={"sha": new_commit_sha, "force": False},
+        )
+        if update_res.status_code == 409:
+            raise ValueError(
+                f"Branch '{branch}' changed during governed commit creation. Retry."
+            )
+        update_res.raise_for_status()
+
+        html_url = (
+            f"https://github.com/{owner}/{name}/commit/{new_commit_sha}"
+        )
+        return {
+            "commit_sha": new_commit_sha,
+            "branch": branch,
+            "tree_sha": new_tree_sha,
+            "parent_sha": parent_sha,
+            "html_url": html_url,
+        }
+
     def create_pull_request(
         self,
         owner: str,

@@ -34,10 +34,12 @@ logger = logging.getLogger("sutra.mcp.server")
 mcp_server = MCPServer(
     name="sutra",
     instructions=(
-        "SUTRA is an AI-native engineering control plane that coordinates, audits, "
-        "and governs autonomous coding agents. Code cannot be merged into production "
-        "branches without satisfying SUTRA's 4-pillar governance policy and human approval. "
-        "Always begin your interaction by calling sutra_get_context."
+        "SUTRA is an AI-native engineering control plane. It governs the full lifecycle: "
+        "Task → Change → Commit → PR → CI → Governance → Human Approval → Merge. "
+        "SUTRA controls all code submission — do NOT use terminal git push; "
+        "use sutra_push_commit so commits are attributable to this session. "
+        "Externally-pushed commits cannot receive SUTRA governance status. "
+        "Always begin by calling sutra_get_context."
     ),
     version="0.4.0",
 )

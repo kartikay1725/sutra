@@ -3,6 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { I } from '../lib/icons';
+import {
+  createRandomState,
+  generatePkceSession,
+  saveBrowserTestSession,
+  type PkceSession,
+} from '../lib/pkce';
 
 export type SutraConnectionState =
   | 'not_connected'
@@ -20,16 +26,68 @@ export interface SutraConnectModalProps {
   onConnectAttempt?: () => void;
 }
 
-export const CANONICAL_MCP_ENDPOINT = 'https://api.sutra.sudarshanai.com/v1/mcp';
+export const CANONICAL_API_ORIGIN = 'https://api.sutra.sudarshanai.com';
+export const CANONICAL_MCP_ENDPOINT = `${CANONICAL_API_ORIGIN}/v1/mcp`;
+export const CANONICAL_OAUTH_AUTHORIZE_ENDPOINT = `${CANONICAL_API_ORIGIN}/oauth/authorize`;
+export const CANONICAL_OAUTH_CALLBACK_ENDPOINT = `${CANONICAL_API_ORIGIN}/oauth/callback`;
 
-export function getMcpEndpoint(): string {
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    // If running in development on localhost, keep localhost:8000/v1/mcp, otherwise canonical
+/**
+ * Returns the resolved API base origin for SUTRA backend operations.
+ * Strictly uses configured NEXT_PUBLIC_API_URL or CANONICAL_API_ORIGIN.
+ * In local dev (localhost / 127.0.0.1), targets the backend port 8000.
+ * NEVER uses the frontend window.location.origin for backend OAuth endpoints.
+ */
+export function getApiBaseUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.trim()) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '');
+  }
+  if (typeof window !== 'undefined' && window.location?.hostname) {
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      return `${window.location.protocol}//${window.location.hostname}:8000/v1/mcp`;
+      return `${window.location.protocol || 'http:'}//${window.location.hostname}:8000`;
     }
   }
-  return CANONICAL_MCP_ENDPOINT;
+  return CANONICAL_API_ORIGIN;
+}
+
+export function getMcpEndpoint(): string {
+  return `${getApiBaseUrl()}/v1/mcp`;
+}
+
+export interface OAuthAuthorizeUrlOptions {
+  clientId?: string;
+  redirectUri?: string;
+  responseType?: string;
+  scope?: string;
+  state?: string;
+  codeChallenge?: string;
+  codeChallengeMethod?: string;
+}
+
+/**
+ * Constructs the canonical OAuth 2.1 PKCE authorization URL.
+ * Strictly points to the backend API origin (/oauth/authorize), never the frontend origin.
+ */
+export function getOAuthAuthorizeUrl(options?: OAuthAuthorizeUrlOptions): string {
+  const apiBase = getApiBaseUrl();
+  const clientId = options?.clientId || 'sutra-mcp-client';
+  const redirectUri = options?.redirectUri || `${apiBase}/oauth/callback`;
+  const responseType = options?.responseType || 'code';
+  const scope = options?.scope || 'sutra:agent';
+  const state = options?.state || createRandomState();
+  const codeChallenge = options?.codeChallenge || 'E9Melhoa2OwvFrGMTJguCH5rtx64LxU408W32BgV16g';
+  const codeChallengeMethod = options?.codeChallengeMethod || 'S256';
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: responseType,
+    scope: scope,
+    state: state,
+    code_challenge: codeChallenge,
+    code_challenge_method: codeChallengeMethod,
+  });
+
+  return `${apiBase}/oauth/authorize?${params.toString()}`;
 }
 
 export function ConnectSutraButton({
@@ -170,15 +228,35 @@ export function ConnectSutraModal({
 
   if (!isOpen) return null;
 
+  const handleTestBrowserOAuth = async (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    try {
+      const session = await generatePkceSession();
+      saveBrowserTestSession(session);
+      onStateChange?.('awaiting_authorization');
+      const authUrl = getOAuthAuthorizeUrl({
+        state: session.state,
+        codeChallenge: session.challenge,
+        codeChallengeMethod: 'S256',
+      });
+      window.open(authUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      console.error('Failed to initiate browser OAuth test:', err);
+    }
+  };
+
   return (
     <div
-      className="modal-overlay"
+      className="modal-backdrop"
       style={{
         position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(5, 7, 10, 0.78)',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.75)',
         backdropFilter: 'blur(8px)',
-        zIndex: 1000,
+        zIndex: 9999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -814,10 +892,10 @@ export function ConnectSutraModal({
           }}
         >
           <a
-            href="/oauth/authorize?client_id=sutra-mcp-client&redirect_uri=https://api.sutra.sudarshanai.com/oauth/callback&response_type=code&scope=sutra:agent&code_challenge=E9Melhoa2OwvFrGMTJguCH5rtx64LxU408W32BgV16g&code_challenge_method=S256"
+            href={getOAuthAuthorizeUrl()}
             target="_blank"
             rel="noreferrer"
-            onClick={() => onStateChange?.('awaiting_authorization')}
+            onClick={handleTestBrowserOAuth}
             style={{
               fontSize: 13,
               color: '#38bdf8',

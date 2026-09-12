@@ -14,7 +14,9 @@ import { agentService, type Agent, type AgentRegistration } from '../lib/agents'
 import { ciService, type CIJob, type CILog, type PRChecksResponse } from '../lib/ci';
 import { governanceService, type GovernanceEvaluation } from '../lib/governance';
 import { environmentService, type Environment, type Deployment } from '../lib/environments';
-import { ConnectSutraButton, ConnectSutraModal, type SutraConnectionState, CANONICAL_MCP_ENDPOINT } from './sutra-connect';
+import { ConnectSutraButton, ConnectSutraModal, type SutraConnectionState, CANONICAL_MCP_ENDPOINT, getOAuthAuthorizeUrl } from './sutra-connect';
+import { generatePkceSession, saveBrowserTestSession } from '../lib/pkce';
+import { EngineeringTimeline } from './EngineeringTimeline';
 
 function tone(status: string) {
   const s = status.toLowerCase();
@@ -369,6 +371,14 @@ export function RealChangeDetail() {
           </div>
         </Card>
       )}
+
+      {/* Authoritative Engineering Lifecycle Timeline */}
+      <EngineeringTimeline
+        changeId={id}
+        pullRequestId={change.pull_request_id || undefined}
+        taskId={change.task_id || undefined}
+        style={{ marginBottom: 20 }}
+      />
 
       {/* Main Grid: Left Details & Right Metadata Sidebar */}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: 20 }}>
@@ -1047,6 +1057,15 @@ export function RealPullRequestDetail() {
       <Stat label="Governance" value={`${reviews.filter((r: any) => r.status === 'approved').length} approvals`} />
     </div>
 
+    {/* Authoritative Engineering Lifecycle Timeline */}
+    <div style={{ marginTop: 16 }}>
+      <EngineeringTimeline
+        pullRequestId={prId}
+        changeId={pr.source_change_id || undefined}
+        taskId={pr.task_id || undefined}
+      />
+    </div>
+
     {/* SUTRA Context & Provenance Card */}
     <div className="grid g2" style={{ marginTop: 16 }}>
       {/* SUTRA Provenance Card */}
@@ -1723,6 +1742,23 @@ export function RealAgents() {
 
   const mcpEndpoint = CANONICAL_MCP_ENDPOINT;
 
+  const handleTestOAuthFlow = async (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    try {
+      const session = await generatePkceSession();
+      saveBrowserTestSession(session);
+      setConnectionState('awaiting_authorization');
+      const authUrl = getOAuthAuthorizeUrl({
+        state: session.state,
+        codeChallenge: session.challenge,
+        codeChallengeMethod: 'S256',
+      });
+      window.open(authUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      console.error('Failed to initiate OAuth flow test:', err);
+    }
+  };
+
   // Modern Zero-Token OAuth Configuration Snippets
   const cursorOAuthSnippet = JSON.stringify({
     mcpServers: {
@@ -1998,10 +2034,10 @@ export function RealAgents() {
                   state={connectionState}
                 />
                 <a
-                  href="/oauth/authorize?client_id=sutra-mcp-client&redirect_uri=https://api.sutra.sudarshanai.com/oauth/callback&response_type=code&scope=sutra:agent&code_challenge=E9Melhoa2OwvFrGMTJguCH5rtx64LxU408W32BgV16g&code_challenge_method=S256"
+                  href={getOAuthAuthorizeUrl()}
                   target="_blank"
                   rel="noreferrer"
-                  onClick={() => setConnectionState('awaiting_authorization')}
+                  onClick={handleTestOAuthFlow}
                   className="btn"
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 20px', fontWeight: 600, fontSize: 14, borderRadius: 10 }}
                 >

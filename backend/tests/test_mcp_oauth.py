@@ -581,3 +581,68 @@ async def test_mcp_authenticated_call_still_works(setup_oauth_environment):
             sc = payload["result"].get("structuredContent")
             ctx = sc["result"] if isinstance(sc, dict) and "result" in sc else sc
             assert ctx["identity"]["agent_id"] == env["agent"].id
+
+
+@pytest.mark.asyncio
+async def test_oauth_callback_validation(setup_oauth_environment):
+    env = setup_oauth_environment
+    client = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
+
+    # 1. Rejects missing code
+    res_no_code = await client.get("/oauth/callback?state=test_state")
+    assert res_no_code.status_code == 400
+    assert "Missing required authorization code" in res_no_code.text
+
+    # 2. Rejects missing state
+    res_no_state = await client.get("/oauth/callback?code=some_fake_code")
+    assert res_no_state.status_code == 400
+    assert "Missing required state parameter" in res_no_state.text
+
+    # 3. Rejects fake/invalid code
+    res_fake = await client.get("/oauth/callback?code=fake_code_123&state=test_state")
+    assert res_fake.status_code == 400
+    assert "Invalid or Expired Code" in res_fake.text
+
+    # 4. Issue a real authorization code with a known state
+    code_verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+    code_challenge = "E9Melhoa2OwvFrGMTJguCH5rtx64LxU408W32BgV16g"
+    expected_state = f"state_{secrets.token_hex(8)}"
+
+    auth_res = await client.post(
+        "/oauth/authorize",
+        data={
+            "client_id": "sutra-mcp-client",
+            "redirect_uri": "https://api.sutra.sudarshanai.com/oauth/callback",
+            "response_type": "code",
+            "code_challenge": code_challenge,
+            "code_challenge_method": "S256",
+            "state": expected_state,
+            "action": "approve",
+            "agent_id": env["agent"].id,
+        },
+        cookies={"sutra_session": env["owner_token"]},
+        follow_redirects=False,
+    )
+    assert auth_res.status_code == 302
+    redirect_target = auth_res.headers["location"]
+    parsed = urlparse(redirect_target)
+    params = parse_qs(parsed.query)
+    issued_code = params["code"][0]
+    assert params["state"][0] == expected_state
+
+    # 5. Callback rejects mismatched state
+    res_mismatched = await client.get(f"/oauth/callback?code={issued_code}&state=wrong_attacker_state")
+    assert res_mismatched.status_code == 400
+    assert "State Validation Failed" in res_mismatched.text
+
+    # 6. Callback succeeds with valid code AND matching state
+    res_success = await client.get(f"/oauth/callback?code={issued_code}&state={expected_state}")
+    assert res_success.status_code == 200
+    # Must NOT claim "Connected" merely because code exists
+    assert "SUTRA Connected Successfully" not in res_success.text
+    assert "is now authorized" not in res_success.text
+    # Must accurately state authorization code was granted and client must exchange code
+    assert "Authorization Granted" in res_success.text
+    assert "authorization code issued" in res_success.text
+    assert "exchange this code with /oauth/token" in res_success.text
+

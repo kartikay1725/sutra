@@ -198,6 +198,8 @@ class CodeProvenanceService:
         return {
             "source": "sutra",
             "tracked": True,
+            "governed": meta.get("commit_origin") == "sutra_governed",
+            "commit_origin": meta.get("commit_origin", "unknown"),
             "identity_type": "agent",
             "actor_id": actor.id,
             "actor_name": actor.name,
@@ -232,6 +234,7 @@ class CodeProvenanceService:
                 else None
             ),
         }
+
 
     @staticmethod
     def _external(commit_sha: str) -> dict[str, Any]:

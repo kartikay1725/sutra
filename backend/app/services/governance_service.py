@@ -113,6 +113,22 @@ class GovernanceService:
             else:
                 passed.append("Change and commit integrity verified.")
 
+        if change:
+            try:
+                c_meta = json.loads(change.metadata_json or "{}")
+            except Exception:
+                c_meta = {}
+            commit_origin = c_meta.get("commit_origin", "unknown")
+            if commit_origin == "external_unverified":
+                failed.append(
+                    "PR was submitted via external/unverified commit import and cannot "
+                    "receive SUTRA governance approval. Only SUTRA-governed commits are eligible."
+                )
+            elif commit_origin == "sutra_governed":
+                passed.append("Commit origin verified as SUTRA-governed.")
+            elif commit_origin not in ("pending", "unknown"):
+                warnings.append(f"Commit origin is '{commit_origin}'; SUTRA authorship unverifiable.")
+
         head_sha = pr.source_commit or (change.resulting_commit if change else "")
 
         # =================================================================

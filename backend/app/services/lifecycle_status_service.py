@@ -322,15 +322,22 @@ class LifecycleStatusService:
                 })
 
         if change and change.resulting_commit:
+            commit_origin = change_meta.get("commit_origin", "unknown")
+            is_governed = commit_origin == "sutra_governed"
             timeline.append({
                 "stage": LifecycleStage.WORK_SUBMITTED,
-                "title": "Work Submitted & Commit Reconciled",
-                "description": f"Commit {change.resulting_commit[:8]} reconciled into Change #{change.id[:8]}",
+                "title": "Governed Commit Recorded" if is_governed else "External Commit Observed",
+                "description": (
+                    f"Governed commit {change.resulting_commit[:8]} registered under SUTRA Change #{change.id[:8]}"
+                    if is_governed else
+                    f"Commit {change.resulting_commit[:8]} reconciled into Change #{change.id[:8]}"
+                ),
                 "status": "completed",
                 "timestamp": change.created_at.isoformat() if change.created_at else None,
                 "actor_type": "agent",
                 "actor_id": agent.name if agent else "agent",
                 "commit_sha": change.resulting_commit,
+                "commit_origin": commit_origin,
             })
 
         if pr:
