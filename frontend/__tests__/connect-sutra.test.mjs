@@ -155,3 +155,172 @@ test('Connected state renders correctly with active status', () => {
   assert.ok(modalConnectedHtml.includes('Connected (Cursor Agent Pro)'), 'Modal must reflect connected state with agent name');
   assert.ok(modalConnectedHtml.includes('Disconnect'), 'Modal must provide Disconnect action');
 });
+
+test('OAuth authorization URL uses canonical API origin and never frontend origin', () => {
+  assert.strictEqual(
+    sutraConnect.CANONICAL_API_ORIGIN,
+    'https://api.sutra.sudarshanai.com',
+    'CANONICAL_API_ORIGIN constant must be exact canonical API origin'
+  );
+  assert.strictEqual(
+    sutraConnect.CANONICAL_OAUTH_AUTHORIZE_ENDPOINT,
+    'https://api.sutra.sudarshanai.com/oauth/authorize',
+    'CANONICAL_OAUTH_AUTHORIZE_ENDPOINT must point to /oauth/authorize on API origin'
+  );
+  assert.strictEqual(
+    sutraConnect.CANONICAL_OAUTH_CALLBACK_ENDPOINT,
+    'https://api.sutra.sudarshanai.com/oauth/callback',
+    'CANONICAL_OAUTH_CALLBACK_ENDPOINT must point to /oauth/callback on API origin'
+  );
+
+  const rawUrl = sutraConnect.getOAuthAuthorizeUrl();
+  const parsed = new URL(rawUrl);
+
+  assert.strictEqual(parsed.origin, 'https://api.sutra.sudarshanai.com', 'Authorization URL origin must be api.sutra.sudarshanai.com');
+  assert.strictEqual(parsed.pathname, '/oauth/authorize', 'Authorization URL pathname must be /oauth/authorize');
+  assert.notStrictEqual(parsed.origin, 'https://sutra.sudarshanai.com', 'Authorization URL origin must NOT be frontend sutra.sudarshanai.com');
+  assert.strictEqual(rawUrl.startsWith('https://sutra.sudarshanai.com'), false, 'Authorization URL must never start with frontend origin');
+  assert.strictEqual(rawUrl.startsWith('/oauth/authorize'), false, 'Authorization URL must never be a relative path');
+});
+
+test('OAuth authorization URL preserves explicit PKCE parameters when provided', () => {
+  const rawUrl = sutraConnect.getOAuthAuthorizeUrl({
+    state: 'sutra_browser_test',
+    codeChallenge: 'E9Melhoa2OwvFrGMTJguCH5rtx64LxU408W32BgV16g',
+    codeChallengeMethod: 'S256',
+    scope: 'sutra:agent',
+  });
+  const parsed = new URL(rawUrl);
+  const search = parsed.searchParams;
+
+  assert.strictEqual(search.get('response_type'), 'code', 'Must include response_type=code');
+  assert.strictEqual(search.get('client_id'), 'sutra-mcp-client', 'Must include client_id=sutra-mcp-client');
+  assert.strictEqual(search.get('redirect_uri'), 'https://api.sutra.sudarshanai.com/oauth/callback', 'redirect_uri must be API callback endpoint');
+  assert.strictEqual(search.get('state'), 'sutra_browser_test', 'Must preserve state parameter');
+  assert.strictEqual(search.get('code_challenge'), 'E9Melhoa2OwvFrGMTJguCH5rtx64LxU408W32BgV16g', 'Must preserve code_challenge');
+  assert.strictEqual(search.get('code_challenge_method'), 'S256', 'Must use code_challenge_method=S256');
+  assert.strictEqual(search.get('scope'), 'sutra:agent', 'Must include scope=sutra:agent');
+});
+
+test('OAuth authorization URL generates a unique state per attempt when not specified', () => {
+  const url1 = sutraConnect.getOAuthAuthorizeUrl();
+  const url2 = sutraConnect.getOAuthAuthorizeUrl();
+  const state1 = new URL(url1).searchParams.get('state');
+  const state2 = new URL(url2).searchParams.get('state');
+
+  assert.ok(state1, 'State 1 must be present');
+  assert.ok(state2, 'State 2 must be present');
+  assert.notStrictEqual(state1, state2, 'State must be unique across authorization attempts');
+  assert.ok(state1.startsWith('sutra_test_'), 'State must carry sutra_test_ prefix');
+  assert.ok(state2.startsWith('sutra_test_'), 'State must carry sutra_test_ prefix');
+});
+
+test('PKCE utility generates fresh verifiers and derives correct S256 challenge', async () => {
+  const pkceModule = loadTsxModule('lib/pkce.ts');
+  const session1 = await pkceModule.generatePkceSession();
+  const session2 = await pkceModule.generatePkceSession();
+
+  // Freshness & Uniqueness
+  assert.notStrictEqual(session1.verifier, session2.verifier, 'Verifier must be cryptographically unique per attempt');
+  assert.notStrictEqual(session1.challenge, session2.challenge, 'Challenge must be unique per attempt');
+  assert.notStrictEqual(session1.state, session2.state, 'State must be unique per attempt');
+
+  // Length requirements (RFC 7636 Section 4.1: 43 - 128 chars)
+  assert.ok(session1.verifier.length >= 43 && session1.verifier.length <= 128, 'Verifier must satisfy RFC 7636 length requirements');
+
+  // Cryptographic accuracy: S256 challenge must match SHA-256 base64url of verifier
+  const expectedChallenge = await pkceModule.deriveCodeChallengeS256(session1.verifier);
+  assert.strictEqual(session1.challenge, expectedChallenge, 'Derived S256 challenge must match SHA-256 hash of verifier');
+});
+
+test('Browser test session is stored strictly in sessionStorage, never in localStorage', async () => {
+  const pkceModule = loadTsxModule('lib/pkce.ts');
+  const session = await pkceModule.generatePkceSession();
+
+  const mockSessionStorage = {};
+  const mockLocalStorage = {};
+
+  globalThis.window = {
+    sessionStorage: {
+      setItem: (k, v) => { mockSessionStorage[k] = v; },
+      getItem: (k) => mockSessionStorage[k] || null,
+      removeItem: (k) => { delete mockSessionStorage[k]; },
+    },
+    localStorage: {
+      setItem: (k, v) => { mockLocalStorage[k] = v; },
+      getItem: (k) => mockLocalStorage[k] || null,
+      removeItem: (k) => { delete mockLocalStorage[k]; },
+    },
+  };
+
+  try {
+    pkceModule.saveBrowserTestSession(session);
+
+    // Verify sessionStorage has the data
+    const stored = pkceModule.getBrowserTestSession();
+    assert.ok(stored, 'Session must be stored in sessionStorage');
+    assert.strictEqual(stored.verifier, session.verifier, 'Stored verifier must match');
+    assert.strictEqual(stored.state, session.state, 'Stored state must match');
+
+    // Verify localStorage was NEVER touched
+    assert.strictEqual(
+      Object.keys(mockLocalStorage).length,
+      0,
+      'localStorage must NEVER contain verifiers, tokens, or codes'
+    );
+
+    // Clear session
+    pkceModule.clearBrowserTestSession();
+    assert.strictEqual(pkceModule.getBrowserTestSession(), null, 'Session must be cleared');
+  } finally {
+    delete globalThis.window;
+  }
+});
+
+test('OAuth URL construction respects NEXT_PUBLIC_API_URL when configured', () => {
+  const origEnv = process.env.NEXT_PUBLIC_API_URL;
+  try {
+    process.env.NEXT_PUBLIC_API_URL = 'https://custom-api.example.com';
+    const rawUrl = sutraConnect.getOAuthAuthorizeUrl();
+    const parsed = new URL(rawUrl);
+
+    assert.strictEqual(parsed.origin, 'https://custom-api.example.com', 'Must respect configured NEXT_PUBLIC_API_URL');
+    assert.strictEqual(parsed.searchParams.get('redirect_uri'), 'https://custom-api.example.com/oauth/callback', 'Must adjust redirect_uri to configured API origin');
+  } finally {
+    if (origEnv !== undefined) {
+      process.env.NEXT_PUBLIC_API_URL = origEnv;
+    } else {
+      delete process.env.NEXT_PUBLIC_API_URL;
+    }
+  }
+});
+
+test('ConnectSutraModal renders OAuth launch link pointing to canonical API origin, never relative path', () => {
+  const html = ReactDOMServer.renderToString(
+    React.createElement(sutraConnect.ConnectSutraModal, {
+      isOpen: true,
+      onClose: () => {},
+      connectionState: 'not_connected',
+    })
+  );
+
+  assert.ok(
+    html.includes('href="https://api.sutra.sudarshanai.com/oauth/authorize?'),
+    'Modal link must point directly to canonical API authorize endpoint'
+  );
+  assert.strictEqual(
+    html.includes('href="/oauth/authorize'),
+    false,
+    'Modal link must never use a relative path /oauth/authorize'
+  );
+  assert.strictEqual(
+    html.includes('href="https://sutra.sudarshanai.com/oauth/authorize'),
+    false,
+    'Modal link must never point to the frontend domain'
+  );
+  assert.ok(
+    html.includes('Test Browser OAuth Authorization Flow'),
+    'Must render link text "Test Browser OAuth Authorization Flow"'
+  );
+});
+

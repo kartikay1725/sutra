@@ -199,6 +199,7 @@ class AgentChangeService:
             "branch": resolved_branch,
             "base_branch": resolved_base_branch,
             "source": "agent",
+            "commit_origin": "pending",  # Updated to 'sutra_governed' by push_governed_commit or 'external_unverified' by import path
             "intent": intent,
             "risk_level": risk_level,
         }
@@ -365,6 +366,12 @@ class AgentChangeService:
             change.metadata_json = json.dumps(meta, sort_keys=True)
 
             # Record event
+            commit_origin = "unknown"
+            try:
+                _meta = json.loads(change.metadata_json or "{}")
+                commit_origin = _meta.get("commit_origin", "unknown")
+            except Exception:
+                pass
             event = ChangeEvent(
                 id=str(uuid4()),
                 change_id=change.id,
@@ -372,11 +379,16 @@ class AgentChangeService:
                 event_type="change.commit_attached",
                 from_status="proposed",
                 to_status="recorded",
-                reason="Commit recorded by authenticated agent on GitHub substrate.",
+                reason=(
+                    f"Commit {resulting_commit[:8]} registered via SUTRA-governed push. "
+                    f"Session: {session.id[:8]}. Origin: {commit_origin}."
+                ),
                 metadata_json=json.dumps({
                     "commit_sha": resulting_commit,
+                    "commit_origin": commit_origin,
                     "task_id": task.id,
                     "agent_id": agent.id,
+                    "session_id": session.id,
                 }),
                 created_at=datetime.now(timezone.utc),
             )
@@ -393,6 +405,181 @@ class AgentChangeService:
             actor=actor,
             resulting_commit=resulting_commit,
         )
+
+    def push_governed_commit(
+        self,
+        *,
+        session: AgentSession,
+        task: Task,
+        change: "Change",
+        file_patches: list,
+        commit_message: str,
+    ) -> dict:
+        """Execute a SUTRA-governed commit via the GitHub App installation token.
+
+        The agent never calls git push. SUTRA uses its GitHub App token to:
+          1. Create blobs for each file patch.
+          2. Build a tree on top of the current branch HEAD.
+          3. Create a commit object authored by the SUTRA App.
+          4. Advance the branch ref (fast-forward only).
+
+        On success:
+          - Sets change.resulting_commit = new SHA.
+          - Sets change.status = 'recorded'.
+          - Updates change.metadata_json[commit_origin] = 'sutra_governed'.
+          - Creates a ChangeEvent stamped with session + task.
+
+        Returns:
+            Dict with commit_sha, branch, html_url.
+
+        Raises:
+            PermissionError: session/task validation failure.
+            ValueError: commit cannot be created (bad branch, empty patches, etc.).
+        """
+        agent, actor, repository = self._validate_session_and_task(session, task)
+
+        if not isinstance(self.provider, GitHubRepositoryProvider) or not repository.provider_owner:
+            raise ValueError(
+                "push_governed_commit requires a GitHub-backed repository with a configured SUTRA GitHub App."
+            )
+
+        if change.actor_id != actor.id:
+            raise PermissionError("Agent does not own this change.")
+
+        if change.status != "proposed":
+            raise ValueError(
+                f"Only proposed changes can receive a governed commit (current status: '{change.status}')."
+            )
+
+        if not file_patches:
+            raise ValueError("file_patches must contain at least one file entry.")
+
+        # Enforce change.commit capability
+        AuthorizationService.require(
+            actor=actor,
+            repository=repository,
+            capability=AuthorizationService.CHANGE_COMMIT,
+            db=self.db,
+        )
+
+        try:
+            meta = json.loads(change.metadata_json or "{}")
+        except Exception:
+            meta = {}
+
+        branch = meta.get("branch") or f"agent/{agent.name.lower().replace(' ', '-')}/task-{task.id[:8]}"
+        base_branch = meta.get("base_branch") or getattr(repository, "default_branch", None) or "main"
+
+        # Derive author identity from agent record
+        author_name = f"SUTRA Agent [{agent.name}]"
+        author_email = f"sutra-agent+{agent.id[:8]}@sutra.ai"
+
+        # Execute SUTRA-governed commit via GitHub App
+        result = self.provider.create_governed_commit(
+            owner=repository.provider_owner,
+            name=repository.name,
+            branch=branch,
+            commit_message=commit_message,
+            file_patches=file_patches,
+            author_name=author_name,
+            author_email=author_email,
+            base_branch=base_branch,
+        )
+
+        new_sha = result["commit_sha"]
+
+        # Stamp the change with the governed SHA
+        change.resulting_commit = new_sha
+        change.status = "recorded"
+        change.updated_at = datetime.now(timezone.utc)
+
+        meta["resulting_commit"] = new_sha
+        meta["committed_at"] = datetime.now(timezone.utc).isoformat()
+        meta["commit_origin"] = "sutra_governed"
+        meta["commit_html_url"] = result.get("html_url")
+        change.metadata_json = json.dumps(meta, sort_keys=True)
+
+        # Sync ChangeFiles from GitHub diff
+        if change.base_commit:
+            try:
+                from app.models.change_file import ChangeFile
+                from sqlalchemy import select as _select
+                diff_stats = self.provider.get_diff_stats(
+                    owner=repository.provider_owner,
+                    name=repository.name,
+                    base=change.base_commit,
+                    head=new_sha,
+                )
+                existing_files = self.db.scalars(
+                    _select(ChangeFile).where(ChangeFile.change_id == change.id)
+                ).all()
+                for ef in existing_files:
+                    self.db.delete(ef)
+                for f in diff_stats.changed_files:
+                    self.db.add(
+                        ChangeFile(
+                            change_id=change.id,
+                            path=f.get("filename") or "unknown",
+                            operation=f.get("status") or "modified",
+                            additions=f.get("additions", 0),
+                            deletions=f.get("deletions", 0),
+                        )
+                    )
+            except Exception:
+                pass  # Non-fatal: diff sync failure doesn't block commit recording
+
+        # Audit ChangeEvent
+        audit_event = ChangeEvent(
+            id=str(uuid4()),
+            change_id=change.id,
+            actor_id=actor.id,
+            event_type="change.commit_governed",
+            from_status="proposed",
+            to_status="recorded",
+            reason=(
+                f"Commit {new_sha[:8]} created by SUTRA GitHub App (governed). "
+                f"Session: {session.id[:8]}. Task: {task.id[:8]}."
+            ),
+            metadata_json=json.dumps({
+                "commit_sha": new_sha,
+                "commit_origin": "sutra_governed",
+                "branch": branch,
+                "task_id": task.id,
+                "agent_id": agent.id,
+                "session_id": session.id,
+                "commit_html_url": result.get("html_url"),
+            }),
+            created_at=datetime.now(timezone.utc),
+        )
+        self.db.add(audit_event)
+
+        # Task event
+        task_event = TaskEvent(
+            id=str(uuid4()),
+            task_id=task.id,
+            actor_id=actor.id,
+            session_id=session.id,
+            event_type="task.governed_commit_pushed",
+            from_status=task.status,
+            to_status=task.status,
+            metadata_json=json.dumps({
+                "task_id": task.id,
+                "change_id": change.id,
+                "commit_sha": new_sha,
+                "commit_origin": "sutra_governed",
+                "branch": branch,
+            }),
+            created_at=datetime.now(timezone.utc),
+        )
+        self.db.add(task_event)
+        self.db.flush()
+
+        return {
+            "commit_sha": new_sha,
+            "branch": branch,
+            "html_url": result.get("html_url"),
+            "commit_origin": "sutra_governed",
+        }
 
     def create_pull_request(
         self,

@@ -418,7 +418,7 @@ def _render_callback_html(
 ) -> str:
     color = "var(--green)" if is_success else "var(--red)"
     icon = "✓" if is_success else "✕"
-    client_line = f"<p style='margin-bottom: 12px; color: var(--text);'><strong>{html.escape(client_name)}</strong> is now authorized.</p>" if client_name else ""
+    client_line = f"<p style='margin-bottom: 12px; color: var(--text);'><strong>{html.escape(client_name)}</strong> authorization code issued.</p>" if client_name else ""
     return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -669,6 +669,7 @@ async def authorize_endpoint(
             "resource": resource,
             "agent_id": agent.id,
             "user_id": current_user.id,
+            "state": state,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -925,7 +926,7 @@ def oauth_callback_endpoint(
 ):
     """
     Browser landing page for OAuth redirects.
-    Provides clear visual feedback for client connection completion.
+    Validates state and code existence without falsely claiming MCP connection completion.
     """
     if error:
         desc = error_description or "The authorization request was cancelled or failed."
@@ -936,20 +937,55 @@ def oauth_callback_endpoint(
         )
         return HTMLResponse(content=html_content, status_code=400)
 
-    if code:
+    if not code:
         html_content = _render_callback_html(
-            title="SUTRA Connected Successfully",
-            message="Your Model Context Protocol (MCP) coding client has been authorized.",
-            is_success=True,
+            title="OAuth Error",
+            message="Missing required authorization code parameter.",
+            is_success=False,
         )
-        return HTMLResponse(content=html_content, status_code=200)
+        return HTMLResponse(content=html_content, status_code=400)
 
+    if not state:
+        html_content = _render_callback_html(
+            title="OAuth Error",
+            message="Missing required state parameter. Authorization request cannot be verified.",
+            is_success=False,
+        )
+        return HTMLResponse(content=html_content, status_code=400)
+
+    # Validate that code actually exists in Redis (issued by SUTRA)
+    code_data = None
+    try:
+        code_data = redis_service.get(f"oauth_code:{code}")
+    except Exception as e:
+        logger.warning(f"Error querying redis for oauth code: {e}")
+
+    if not code_data or not isinstance(code_data, dict):
+        html_content = _render_callback_html(
+            title="Invalid or Expired Code",
+            message="The authorization code is invalid, expired, or has already been used.",
+            is_success=False,
+        )
+        return HTMLResponse(content=html_content, status_code=400)
+
+    # Validate state matches the state issued with this authorization code
+    expected_state = code_data.get("state")
+    if expected_state and state != expected_state:
+        html_content = _render_callback_html(
+            title="State Validation Failed",
+            message="State parameter does not match the authorization request.",
+            is_success=False,
+        )
+        return HTMLResponse(content=html_content, status_code=400)
+
+    client_name = resolve_client_name(code_data.get("client_id", ""))
     html_content = _render_callback_html(
-        title="OAuth Callback",
-        message="No authorization code was provided.",
-        is_success=False,
+        title="Authorization Granted",
+        message=f"An authorization code was successfully granted for {client_name}. To complete connection, your MCP coding client must exchange this code with /oauth/token using its PKCE verifier.",
+        is_success=True,
+        client_name=client_name,
     )
-    return HTMLResponse(content=html_content, status_code=400)
+    return HTMLResponse(content=html_content, status_code=200)
 
 
 # =========================================================================

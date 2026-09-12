@@ -258,10 +258,15 @@ async def test_mcp_streamable_initialize_and_tool_discovery(setup_mcp_environmen
                 "sutra_get_context",
                 "sutra_search_knowledge",
                 "sutra_start_task",
+                "sutra_declare_change",
+                "sutra_push_commit",
+                "sutra_open_pull_request",
+                "sutra_import_external_change",
                 "sutra_submit_change",
                 "sutra_get_status",
                 "sutra_request_merge",
                 "sutra_get_provenance",
+                "sutra_get_governance",
                 "sutra_create_issue",
             }
             assert expected_tools.issubset(tool_names), f"Missing tools: {expected_tools - tool_names}"
@@ -473,4 +478,170 @@ async def test_mcp_permanent_token_auto_creates_session(setup_mcp_environment, d
             assert ctx_data["identity"]["agent_id"] == env["agent"].id
             # A valid session should have been issued
             assert ctx_data["session"]["session_id"] is not None
+
+
+@pytest.mark.asyncio
+async def test_mcp_governed_commit_flow(setup_mcp_environment, db_session, monkeypatch):
+    """Verify the new SUTRA-governed commit tools: declare_change, push_commit, open_pull_request."""
+    env = setup_mcp_environment
+    auth_header = f"Bearer {env['session_token']}"
+
+    # Setup repo as a GitHub-type repo so push_governed_commit accepts it
+    repo = env["repo"]
+    repo.provider_type = "github"
+    repo.provider_owner = "test-org"
+    db_session.commit()
+
+    from app.providers.github.repository import GitHubRepositoryProvider
+    fake_commit_sha = "abcde1234567890abcdef1234567890abcdef12"
+
+    def mock_create_governed_commit(*args, **kwargs):
+        return {
+            "commit_sha": fake_commit_sha,
+            "branch": kwargs.get("branch", "agent/governed-task"),
+            "tree_sha": "tree123",
+            "parent_sha": "parent123",
+            "html_url": f"https://github.com/test-org/{repo.name}/commit/{fake_commit_sha}",
+        }
+
+    from app.providers.base import ProviderBranch, ProviderPullRequest
+    def mock_get_branch(*args, **kwargs):
+        return ProviderBranch(
+            name=kwargs.get("branch", "agent/governed-task"),
+            commit_sha=fake_commit_sha,
+        )
+
+    def mock_create_pull_request(*args, **kwargs):
+        return ProviderPullRequest(
+            number=42,
+            title=kwargs.get("title", "Governed PR"),
+            body=kwargs.get("description", "PR Description"),
+            head_ref=kwargs.get("head_branch", "agent/governed-task"),
+            head_sha=fake_commit_sha,
+            base_ref=kwargs.get("base_branch", "main"),
+            base_sha="parent123",
+            html_url=f"https://github.com/test-org/{repo.name}/pull/42",
+            is_merged=False,
+            mergeable=True,
+        )
+
+    monkeypatch.setattr(GitHubRepositoryProvider, "create_governed_commit", mock_create_governed_commit)
+    monkeypatch.setattr(GitHubRepositoryProvider, "get_branch", mock_get_branch)
+    monkeypatch.setattr(GitHubRepositoryProvider, "create_pull_request", mock_create_pull_request)
+
+    async with run_mcp():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://localhost") as client:
+            init_res = await client.post(
+                "/v1/mcp",
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "initialize",
+                    "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test", "version": "1"}},
+                },
+                headers={"Authorization": auth_header, "Accept": "application/json, text/event-stream"},
+            )
+            session_id = init_res.headers.get("mcp-session-id")
+
+            async def call_tool(tool_id: int, name: str, arguments: dict):
+                res = await client.post(
+                    "/v1/mcp",
+                    json={
+                        "jsonrpc": "2.0",
+                        "id": tool_id,
+                        "method": "tools/call",
+                        "params": {"name": name, "arguments": arguments},
+                    },
+                    headers={
+                        "mcp-session-id": session_id,
+                        "Authorization": auth_header,
+                        "Accept": "application/json, text/event-stream",
+                    },
+                )
+                assert res.status_code == 200
+                lines = [line.strip() for line in res.text.splitlines() if line.startswith("data: ")]
+                payload = json.loads(lines[0][len("data: "):])
+                result = payload["result"]
+                return extract_tool_result(result)
+
+            # 1. Start task
+            start_data = await call_tool(10, "sutra_start_task", {"task_id": env["task"].id})
+            assert start_data["status"] == "claimed"
+            assert "sutra_declare_change" in start_data["instructions"]
+            assert "sutra_push_commit" in start_data["instructions"]
+
+            # 2. Declare change
+            dec_data = await call_tool(
+                11,
+                "sutra_declare_change",
+                {
+                    "task_id": env["task"].id,
+                    "intent": "Governed test change intent",
+                    "branch": "agent/governed-task",
+                    "base_branch": "main",
+                },
+            )
+            assert dec_data["status"] == "declared"
+            change_id = dec_data["change_id"]
+            assert change_id is not None
+
+            # 3. Push governed commit
+            push_data = await call_tool(
+                12,
+                "sutra_push_commit",
+                {
+                    "change_id": change_id,
+                    "commit_message": "feat: implement governed feature",
+                    "file_patches": [
+                        {"path": "src/governed.py", "content": "print('SUTRA governed')\n"}
+                    ],
+                },
+            )
+            assert push_data["status"] == "committed"
+            assert push_data["commit_origin"] == "sutra_governed"
+            assert push_data["commit_sha"] == fake_commit_sha
+
+            # 4. Open PR
+            pr_data = await call_tool(
+                13,
+                "sutra_open_pull_request",
+                {
+                    "change_id": change_id,
+                    "pr_title": "feat: governed PR",
+                    "pr_description": "Pull request opened via sutra_open_pull_request",
+                    "base_branch": "main",
+                },
+            )
+            assert pr_data["status"] == "opened"
+            pr_id = pr_data["pull_request_id"]
+            assert pr_id is not None
+
+            # 5. Check provenance
+            prov_data = await call_tool(
+                14,
+                "sutra_get_provenance",
+                {
+                    "repository_id": repo.id,
+                    "commit_sha": fake_commit_sha,
+                },
+            )
+            prov = prov_data["provenance"]
+            assert prov["governed"] is True
+            assert prov["commit_origin"] == "sutra_governed"
+
+            # 6. Check governance evaluation
+            gov_data = await call_tool(
+                15,
+                "sutra_get_governance",
+                {
+                    "pull_request_id": pr_id,
+                },
+            )
+            assert gov_data["status"] == "success"
+            assert "governance" in gov_data
+            gov_eval = gov_data["governance"]
+            assert "verdict" in gov_eval
+            assert "passed" in gov_eval
+            assert any("Commit origin verified as SUTRA-governed." in p for p in gov_eval.get("passed", []))
+
 

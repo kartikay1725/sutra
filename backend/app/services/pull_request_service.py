@@ -592,14 +592,26 @@ class PullRequestService:
             # Handle action / synchronization
             if action == "synchronize" or (head_sha and head_sha != pr.source_commit):
                 if head_sha and head_sha != old_head:
-                    pr.source_commit = head_sha
-                    if change:
-                        change.resulting_commit = head_sha
-                        approved_head = meta.get("approved_head_sha")
-                        if approved_head and approved_head != head_sha:
-                            meta["approved_head_sha"] = None
-                            if pr.status == PullRequest.STATUS_APPROVED:
-                                pr.status = PullRequest.STATUS_OPEN
+                    is_governed = meta.get("commit_origin") == "sutra_governed"
+                    if is_governed and change and change.resulting_commit and change.resulting_commit != head_sha:
+                        logger.warning(
+                            f"External push detected on SUTRA-governed branch for PR {pr.id[:8]}, "
+                            f"new SHA {head_sha[:8]} != governed SHA {change.resulting_commit[:8]}. "
+                            "Governed Change resulting_commit preserved; PR source_commit updated to trigger governance mismatch."
+                        )
+                        pr.source_commit = head_sha
+                        meta["approved_head_sha"] = None
+                        if pr.status == PullRequest.STATUS_APPROVED:
+                            pr.status = PullRequest.STATUS_OPEN
+                    else:
+                        pr.source_commit = head_sha
+                        if change:
+                            change.resulting_commit = head_sha
+                            approved_head = meta.get("approved_head_sha")
+                            if approved_head and approved_head != head_sha:
+                                meta["approved_head_sha"] = None
+                                if pr.status == PullRequest.STATUS_APPROVED:
+                                    pr.status = PullRequest.STATUS_OPEN
 
             if is_merged:
                 pr.status = PullRequest.STATUS_MERGED

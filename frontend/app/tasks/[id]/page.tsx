@@ -9,6 +9,7 @@ import { Task, taskService } from "@/lib/tasks";
 import { Agent, agentService } from "@/lib/agents";
 import { ciService, type PRChecksResponse } from "@/lib/ci";
 import { governanceService, type GovernanceEvaluation } from "@/lib/governance";
+import { EngineeringTimeline } from "@/components/EngineeringTimeline";
 
 export default function TaskPage() {
   const params = useParams() as any;
@@ -171,6 +172,13 @@ export default function TaskPage() {
           </div>
         </div>
       </Card>
+      {/* Authoritative Engineering Lifecycle Timeline */}
+      <EngineeringTimeline
+        taskId={id}
+        pullRequestId={task.resulting_pull_request_id || undefined}
+        changeId={task.resulting_change_id || undefined}
+        style={{ marginBottom: 20 }}
+      />
 
       {/* Resulting Pull Request Banner if exists */}
       {task.resulting_pull_request_id && (

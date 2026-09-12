@@ -66,6 +66,7 @@ from app.api.insights import router as insights_router, global_router as global_
 from app.api.security import router as security_router
 from app.api.releases import router as releases_router
 from app.api.integrations import router as integrations_router
+from app.api.lifecycle import router as lifecycle_router
 
 from app.api.tasks import (
     router as tasks_router,
@@ -539,6 +540,7 @@ app.include_router(security_router)
 app.include_router(releases_router)
 app.include_router(integrations_router)
 app.include_router(agent_issues_router)
+app.include_router(lifecycle_router)
 
 from app.api.webhooks.github import router as webhooks_router
 app.include_router(webhooks_router)
