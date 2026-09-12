@@ -101,6 +101,7 @@ def get_oauth_authorization_server_metadata(request: Request) -> Dict[str, Any]:
 
 
 @router.get("/.well-known/oauth-protected-resource")
+@router.get("/.well-known/oauth-protected-resource/v1/mcp")
 @router.get("/v1/mcp/.well-known/oauth-protected-resource")
 def get_oauth_protected_resource_metadata(request: Request) -> Dict[str, Any]:
     """RFC 9728: OAuth 2.0 Protected Resource Metadata."""
@@ -118,8 +119,8 @@ def get_oauth_protected_resource_metadata(request: Request) -> Dict[str, Any]:
 # RFC 7591 DYNAMIC CLIENT REGISTRATION (BACKWARD COMPATIBLE FALLBACK)
 # =========================================================================
 
-@router.post("/oauth/register")
-async def register_client_endpoint(request: Request) -> Dict[str, Any]:
+@router.post("/oauth/register", status_code=status.HTTP_201_CREATED)
+async def register_client_endpoint(request: Request) -> JSONResponse:
     """RFC 7591 Dynamic Client Registration endpoint (fallback when CIMD is not used)."""
     try:
         data = await request.json()
@@ -143,7 +144,7 @@ async def register_client_endpoint(request: Request) -> Dict[str, Any]:
     except Exception as e:
         logger.warning(f"Failed to cache registered client: {e}")
 
-    return client_info
+    return JSONResponse(content=client_info, status_code=status.HTTP_201_CREATED)
 
 
 # =========================================================================

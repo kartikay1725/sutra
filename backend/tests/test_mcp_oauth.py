@@ -187,7 +187,7 @@ async def test_oauth_metadata_discovery():
                 "redirect_uris": ["https://ide.local/oauth/callback"],
             },
         )
-        assert reg_res.status_code == 200
+        assert reg_res.status_code == 201
         reg_data = reg_res.json()
         assert reg_data["client_id"].startswith("sutra_client_")
         assert "authorization_code" in reg_data["grant_types"]
@@ -441,7 +441,7 @@ async def test_cimd_still_works():
                 "redirect_uris": ["https://ide.client.com/oauth/callback"],
             },
         )
-        assert res.status_code == 200
+        assert res.status_code == 201
         data = res.json()
         assert data["client_id"].startswith("sutra_client_")
         assert "authorization_code" in data["grant_types"]
@@ -645,4 +645,50 @@ async def test_oauth_callback_validation(setup_oauth_environment):
     assert "Authorization Granted" in res_success.text
     assert "authorization code issued" in res_success.text
     assert "exchange this code with /oauth/token" in res_success.text
+
+
+@pytest.mark.asyncio
+async def test_rfc7591_registration_returns_201_created_and_valid_body():
+    """Verify RFC 7591 dynamic client registration strictly returns HTTP 201 Created with valid body."""
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://api.sutra.sudarshanai.com") as client:
+        res = await client.post(
+            "/oauth/register",
+            json={
+                "client_name": "Antigravity IDE",
+                "redirect_uris": ["https://antigravity.google/oauth-callback"],
+            },
+        )
+        assert res.status_code == 201, f"Expected 201 Created, got {res.status_code}"
+        data = res.json()
+        assert data["client_id"].startswith("sutra_client_")
+        assert data["client_name"] == "Antigravity IDE"
+        assert data["redirect_uris"] == ["https://antigravity.google/oauth-callback"]
+        assert data["token_endpoint_auth_method"] == "none"
+        assert data["grant_types"] == ["authorization_code", "refresh_token"]
+        assert data["response_types"] == ["code"]
+
+
+@pytest.mark.asyncio
+async def test_rfc9728_path_aware_protected_resource_metadata():
+    """Verify RFC 9728 path-aware protected resource metadata endpoint returns 200 with canonical metadata."""
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://api.sutra.sudarshanai.com") as client:
+        # Path-aware endpoint
+        res = await client.get("/.well-known/oauth-protected-resource/v1/mcp")
+        assert res.status_code == 200, f"Expected 200 OK, got {res.status_code}"
+        data = res.json()
+        assert data["resource"] == "https://api.sutra.sudarshanai.com/v1/mcp"
+        assert data["authorization_servers"] == ["https://api.sutra.sudarshanai.com"]
+        assert data["scopes_supported"] == ["sutra:agent"]
+        assert data["bearer_methods_supported"] == ["header"]
+
+        # Root endpoint consistency check
+        res_root = await client.get("/.well-known/oauth-protected-resource")
+        assert res_root.status_code == 200
+        assert res_root.json() == data
+
+        # Subpath endpoint consistency check
+        res_sub = await client.get("/v1/mcp/.well-known/oauth-protected-resource")
+        assert res_sub.status_code == 200
+        assert res_sub.json() == data
+
 
