@@ -30,6 +30,7 @@ import { repositoryService } from "@/lib/repositories";
 import { authService } from "@/lib/auth";
 
 import * as I from "lucide-react";
+import { CIWorkflowSetupCard } from "@/components/CIWorkflowSetupCard";
 
 function timeAgo(
   dateStr: string | null | undefined,
@@ -548,6 +549,14 @@ export default function CIPage({
           ))}
         </div>
 
+        {/* GitHub Actions Setup & CI Policy Card */}
+        <div style={{ marginBottom: 20 }}>
+          <CIWorkflowSetupCard
+            repoName={repoName}
+            defaultExpanded={jobs.length === 0}
+          />
+        </div>
+
         {loading ? (
           <Card>
             <div
@@ -564,45 +573,40 @@ export default function CIPage({
             </div>
           </Card>
         ) : recent.length === 0 ? (
-          <Card>
-            <div
-              className="card-pad"
-              style={{
-                textAlign: "center",
-                paddingTop: 56,
-                paddingBottom: 56,
-              }}
-            >
-              <I.PlaySquare
-                size={30}
-                style={{
-                  opacity: 0.35,
-                  marginBottom: 12,
-                }}
-              />
-
-              <div className="h2">
-                {jobs.length ===
-                0
-                  ? "No CI runs yet"
-                  : "No matching CI runs"}
-              </div>
-
+          jobs.length === 0 ? null : (
+            <Card>
               <div
-                className="sub"
+                className="card-pad"
                 style={{
-                  maxWidth: 460,
-                  margin:
-                    "8px auto 0",
+                  textAlign: "center",
+                  paddingTop: 56,
+                  paddingBottom: 56,
                 }}
               >
-                {jobs.length ===
-                0
-                  ? "CI runs will appear here when a Pull Request is validated."
-                  : "Try another status filter."}
+                <I.PlaySquare
+                  size={30}
+                  style={{
+                    opacity: 0.35,
+                    marginBottom: 12,
+                  }}
+                />
+
+                <div className="h2">
+                  No matching CI runs
+                </div>
+
+                <div
+                  className="sub"
+                  style={{
+                    maxWidth: 460,
+                    margin: "8px auto 0",
+                  }}
+                >
+                  Try selecting another status filter above.
+                </div>
               </div>
-            </div>
-          </Card>
+            </Card>
+          )
         ) : (
           <Card
             style={{

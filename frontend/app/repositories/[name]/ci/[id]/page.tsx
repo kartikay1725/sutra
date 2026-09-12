@@ -609,6 +609,34 @@ export default function CIDetailPage({
               </Btn>
             )}
 
+            {(() => {
+              const extUrl = (logs?.output_log && logs.output_log.startsWith('http')) ? logs.output_log : (job?.output_log && job.output_log.startsWith('http') ? job.output_log : null);
+              if (!extUrl) return null;
+              return (
+                <a
+                  href={extUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    textDecoration: "none",
+                    padding: "6px 12px",
+                    borderRadius: 6,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    background: "rgba(56, 189, 248, 0.12)",
+                    border: "1px solid rgba(56, 189, 248, 0.3)",
+                    color: "#38bdf8",
+                  }}
+                >
+                  <I.ExternalLink size={13} />
+                  Open on GitHub
+                </a>
+              );
+            })()}
+
             {pr && (
               <Btn
                 onClick={() =>
@@ -800,50 +828,116 @@ export default function CIDetailPage({
               </div>
             </div>
 
-            <div
-              style={{
-                minHeight: 460,
-                maxHeight: 680,
-                overflowY:
-                  "auto",
-                padding: 18,
-                background:
-                  "#090d13",
-                color:
-                  "#d7dee8",
-                fontFamily:
-                  "monospace",
-                fontSize: 12,
-                lineHeight: 1.75,
-                whiteSpace:
-                  "pre-wrap",
-                wordBreak:
-                  "break-word",
-              }}
-            >
-              {logLoading ? (
-                <span
+            {(() => {
+              const extUrl = (logs?.output_log && logs.output_log.startsWith('http')) ? logs.output_log : (job?.output_log && job.output_log.startsWith('http') ? job.output_log : null);
+              if (extUrl) {
+                return (
+                  <div
+                    style={{
+                      padding: "48px 24px",
+                      textAlign: "center",
+                      background: "rgba(56, 189, 248, 0.03)",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 16,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 52,
+                        height: 52,
+                        borderRadius: 14,
+                        background: "rgba(56, 189, 248, 0.12)",
+                        border: "1px solid rgba(56, 189, 248, 0.3)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#38bdf8",
+                      }}
+                    >
+                      <I.Workflow size={26} />
+                    </div>
+
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 18,
+                          fontWeight: 700,
+                          color: "#f8fafc",
+                          letterSpacing: "-0.01em",
+                        }}
+                      >
+                        GitHub Actions Cloud Runner
+                      </div>
+                      <div
+                        className="sub"
+                        style={{
+                          maxWidth: 520,
+                          margin: "8px auto 0",
+                          lineHeight: 1.6,
+                        }}
+                      >
+                        This verification check executed natively in GitHub Actions. Complete step logs, annotations, and artifacts are streamed and hosted securely on GitHub.
+                      </div>
+                    </div>
+
+                    <a
+                      href={extUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 8,
+                        marginTop: 8,
+                        padding: "10px 20px",
+                        borderRadius: 8,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        background: "#38bdf8",
+                        color: "#0f172a",
+                        textDecoration: "none",
+                        boxShadow: "0 2px 10px rgba(56, 189, 248, 0.3)",
+                      }}
+                    >
+                      <I.ExternalLink size={15} />
+                      View Execution on GitHub Actions
+                    </a>
+                  </div>
+                );
+              }
+
+              return (
+                <div
                   style={{
-                    color:
-                      "#8893a3",
+                    minHeight: 460,
+                    maxHeight: 680,
+                    overflowY: "auto",
+                    padding: 18,
+                    background: "#090d13",
+                    color: "#d7dee8",
+                    fontFamily: "monospace",
+                    fontSize: 12,
+                    lineHeight: 1.75,
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
                   }}
                 >
-                  Loading runner output…
-                </span>
-              ) : logs?.output_log ? (
-                logs.output_log
-              ) : (
-                <span
-                  style={{
-                    color:
-                      "#8893a3",
-                  }}
-                >
-                  No log output has been
-                  recorded for this run yet.
-                </span>
-              )}
-            </div>
+                  {logLoading ? (
+                    <span style={{ color: "#8893a3" }}>
+                      Loading runner output…
+                    </span>
+                  ) : logs?.output_log ? (
+                    logs.output_log
+                  ) : (
+                    <span style={{ color: "#8893a3" }}>
+                      No log output has been recorded for this run yet.
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
           </Card>
 
           {/* Metadata */}

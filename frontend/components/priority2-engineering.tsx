@@ -18,6 +18,7 @@ import { ConnectSutraButton, ConnectSutraModal, type SutraConnectionState, CANON
 import { generatePkceSession, saveBrowserTestSession } from '../lib/pkce';
 import { EngineeringTimeline } from './EngineeringTimeline';
 import { SutraAgentInstructions } from './SutraAgentInstructions';
+import { CIWorkflowSetupCard } from './CIWorkflowSetupCard';
 
 function tone(status: string) {
   const s = status.toLowerCase();
@@ -2570,7 +2571,53 @@ export function RealCI() {
   const load=async()=>{setLoading(true);try{const rows=await apiAuth<PullRequest[]>('/v1/pull-requests?limit=100');setPrs(rows);const results=await Promise.all(rows.map(async pr=>(await ciService.listJobsForPR(pr.id).catch(()=>[])).map(j=>({...j,prTitle:pr.title}))));setJobs(results.flat().sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime()));}finally{setLoading(false);}};
   useEffect(()=>{void load();},[]);
   const running=jobs.filter(j=>j.status==='running').length, passed=jobs.filter(j=>j.status==='passed').length, failed=jobs.filter(j=>j.status==='failed').length;
-  return <><PageHead eyebrow="Delivery" title="CI / Pipelines" sub="Real CI jobs attached to pull requests." action={<RealButton onClick={()=>void load()}><I.Activity size={14}/> Refresh</RealButton>} /><div className="grid g4"><Stat label="Running" value={String(running)}/><Stat label="Passed" value={String(passed)}/><Stat label="Failed" value={String(failed)}/><Stat label="Total jobs" value={String(jobs.length)}/></div><Card style={{marginTop:14}}>{loading?<div className="card-pad"><div className="sub">Loading CI jobs…</div></div>:jobs.length===0?<div className="card-pad"><div className="sub">No CI jobs found.</div></div>:<div className="list">{jobs.map(j=><Link href={`/ci/${j.id}`} className="list-row" key={j.id}><I.Workflow size={14}/><div style={{flex:1}}><div className="title-sm">{j.prTitle}</div><div className="meta">{j.commit_sha.slice(0,8)} · {fmtDate(j.created_at)}</div></div><Badge tone={tone(j.status)}>{j.status}</Badge></Link>)}</div>}</Card></>;
+  return (
+    <>
+      <PageHead
+        eyebrow="Delivery"
+        title="CI / Pipelines"
+        sub="Automated verification powered by GitHub Actions. Merges are never blocked if no CI file exists."
+        action={<RealButton onClick={()=>void load()}><I.Activity size={14}/> Refresh</RealButton>}
+      />
+      <div className="grid g4">
+        <Stat label="Running" value={String(running)}/>
+        <Stat label="Passed" value={String(passed)}/>
+        <Stat label="Failed" value={String(failed)}/>
+        <Stat label="Total jobs" value={String(jobs.length)}/>
+      </div>
+
+      <CIWorkflowSetupCard defaultExpanded={jobs.length === 0} style={{ marginTop: 14 }} />
+
+      <Card style={{marginTop:14}}>
+        <div className="card-head">
+          <div className="h2">Recent CI Runs</div>
+          <Badge tone="aqua">{jobs.length} runs</Badge>
+        </div>
+        {loading ? (
+          <div className="card-pad"><div className="sub">Loading CI jobs…</div></div>
+        ) : jobs.length===0 ? (
+          <div className="card-pad">
+            <div className="sub" style={{ lineHeight: 1.6 }}>
+              No CI runs have been reported yet. Create a <code style={{ color: '#38bdf8', background: 'rgba(56, 189, 248, 0.1)', padding: '2px 6px', borderRadius: 4 }}>.github/workflows/ci.yml</code> file using the template above to enable automated checks on every pull request.
+            </div>
+          </div>
+        ) : (
+          <div className="list">
+            {jobs.map(j=>(
+              <Link href={`/ci/${j.id}`} className="list-row" key={j.id}>
+                <I.Workflow size={14}/>
+                <div style={{flex:1}}>
+                  <div className="title-sm">{j.prTitle}</div>
+                  <div className="meta">{j.commit_sha.slice(0,8)} · {fmtDate(j.created_at)} · {j.runner_type || 'github_actions'}</div>
+                </div>
+                <Badge tone={tone(j.status)}>{j.status}</Badge>
+              </Link>
+            ))}
+          </div>
+        )}
+      </Card>
+    </>
+  );
 }
 
 export function RealCIJob() {
@@ -2581,7 +2628,70 @@ export function RealCIJob() {
   const cancel=async()=>{if(!job||job.status!=='running')return;setBusy(true);try{await ciService.cancelJob(job.pull_request_id,job.id);await load();}finally{setBusy(false);}};
   if(loading)return <div className="card-pad"><div className="sub">Loading CI job…</div></div>;
   if(!job)return <div className="card-pad"><div className="sub">CI job not found.</div></div>;
-  return <><PageHead eyebrow={`CI #${job.id.slice(0,8)}`} title={prTitle} sub={`Commit ${job.commit_sha.slice(0,12)} · ${job.status}`} action={job.status==='running'?<RealButton onClick={()=>void cancel()} disabled={busy}>Cancel</RealButton>:undefined}/><div className="grid g3"><Stat label="Status" value={job.status}/><Stat label="Exit code" value={job.exit_code == null ? '—' : String(job.exit_code)}/><Stat label="Trigger" value={job.trigger}/></div><Card style={{marginTop:14}}><div className="card-head"><div className="h2">Logs</div><Badge tone={tone(job.status)}>{job.status}</Badge></div><div className="terminal"><div style={{whiteSpace:'pre-wrap'}}>{logs?.output_log || 'No logs available.'}</div></div></Card></>;
+
+  const isExternalGh = (logs?.output_log && logs.output_log.startsWith('http')) || (job.output_log && job.output_log.startsWith('http')) || job.runner_type === 'github_actions';
+  const externalUrl = (logs?.output_log && logs.output_log.startsWith('http')) ? logs.output_log : (job.output_log && job.output_log.startsWith('http') ? job.output_log : null);
+
+  return (
+    <>
+      <PageHead
+        eyebrow={`CI #${job.id.slice(0,8)}`}
+        title={prTitle}
+        sub={`Commit ${job.commit_sha.slice(0,12)} · ${job.status}`}
+        action={
+          <div style={{ display: 'flex', gap: 8 }}>
+            {externalUrl && (
+              <a
+                href={externalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn primary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
+              >
+                <I.ExternalLink size={14} /> Open GitHub Actions
+              </a>
+            )}
+            {job.status==='running' && (
+              <RealButton onClick={()=>void cancel()} disabled={busy}>Cancel</RealButton>
+            )}
+          </div>
+        }
+      />
+      <div className="grid g3">
+        <Stat label="Status" value={job.status}/>
+        <Stat label="Runner" value={job.runner_type || 'github_actions'}/>
+        <Stat label="Trigger" value={job.trigger}/>
+      </div>
+      <Card style={{marginTop:14}}>
+        <div className="card-head">
+          <div className="h2">{isExternalGh ? 'GitHub Actions Execution' : 'Logs'}</div>
+          <Badge tone={tone(job.status)}>{job.status}</Badge>
+        </div>
+        {externalUrl ? (
+          <div className="card-pad" style={{ textAlign: 'center', padding: '36px 20px', background: 'rgba(56, 189, 248, 0.03)' }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8', marginBottom: 14 }}>
+              <I.Workflow size={24} />
+            </div>
+            <div className="h2" style={{ marginBottom: 6 }}>GitHub Actions Cloud Runner</div>
+            <div className="sub" style={{ maxWidth: 540, margin: '0 auto 20px', lineHeight: 1.6 }}>
+              This check run executed natively on GitHub Actions. Detailed step-by-step logs, test outputs, and runner artifacts are hosted securely on GitHub.
+            </div>
+            <a
+              href={externalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn primary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none', padding: '10px 18px', fontSize: 13 }}
+            >
+              <I.ExternalLink size={14} /> View Execution on GitHub Actions
+            </a>
+          </div>
+        ) : (
+          <div className="terminal"><div style={{whiteSpace:'pre-wrap'}}>{logs?.output_log || 'No logs available.'}</div></div>
+        )}
+      </Card>
+    </>
+  );
 }
 
 export function RealDeployments() {

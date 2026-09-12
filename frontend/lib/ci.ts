@@ -12,6 +12,7 @@ export interface CIJob {
   runner_type: string;
   exit_code: number | null;
   failure_reason: string | null;
+  output_log?: string | null;
   worker_id: string | null;
   started_at: string | null;
   completed_at: string | null;
