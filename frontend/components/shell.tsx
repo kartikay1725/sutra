@@ -280,7 +280,29 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
           </div>
         </div>
       </header>
-      <div className="content">{children}</div>
+      <div className="content" style={{ flex: 1 }}>{children}</div>
+      <footer
+        style={{
+          borderTop: "1px solid var(--line)",
+          background: "var(--surface)",
+          padding: "18px 28px",
+          marginTop: "auto",
+          fontSize: 12,
+          color: "var(--muted)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 12,
+        }}
+      >
+        <div>© {new Date().getFullYear()} SUTRA. A Sudarshan Harness Product. All rights reserved.</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <span>Contact us at <a href="mailto:sutra@sudarshanai.com" style={{ color: "#60A5FA", textDecoration: "none" }}>sutra@sudarshanai.com</a></span>
+          <span>•</span>
+          <span>AI-Native Engineering Control Plane</span>
+        </div>
+      </footer>
     </main>
   </div>
 }

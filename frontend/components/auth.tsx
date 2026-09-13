@@ -306,6 +306,9 @@ export function Login() {
             <BookOpen size={13} />
             Need help? Read Quickstart Guide
           </Link>
+          <div style={{ marginTop: 10, fontSize: 11, color: "#707A88" }}>
+            Contact us at <a href="mailto:sutra@sudarshanai.com" style={{ color: "#60A5FA", textDecoration: "none" }}>sutra@sudarshanai.com</a>
+          </div>
         </div>
       </div>
     </div>
@@ -528,6 +531,9 @@ export function Signup() {
             <BookOpen size={13} />
             Need help? Read Quickstart Guide
           </Link>
+          <div style={{ marginTop: 10, fontSize: 11, color: "#707A88" }}>
+            Contact us at <a href="mailto:sutra@sudarshanai.com" style={{ color: "#60A5FA", textDecoration: "none" }}>sutra@sudarshanai.com</a>
+          </div>
         </div>
       </div>
     </div>

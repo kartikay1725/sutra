@@ -286,9 +286,9 @@ All backend endpoints are served under `/v1` by FastAPI:
 
 ---
 
-## 9. Product Status: Private Beta
+## 9. Product Status: Beta
 
-SUTRA is currently in **Private Beta**.
+SUTRA is currently in **Beta**.
 
 It is actively running live end-to-end engineering lifecycles with GitHub, but has the following known operational limitations:
 - **Asynchronous Worker Topology**: Background workers currently run in-process or via lightweight scheduler; a dedicated Celery/Temporal distributed worker tier is recommended for high-volume enterprise deployments.

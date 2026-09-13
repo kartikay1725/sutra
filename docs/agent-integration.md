@@ -1,6 +1,6 @@
 # SUTRA External Agent Integration Guide
 
-> **Version**: 0.4.0 (Private Beta)  
+> **Version**: 0.4.0 (Beta)  
 > **Source of Truth**: This document reflects the current SUTRA API implementation and verified control-plane boundaries.
 
 ---

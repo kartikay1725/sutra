@@ -235,6 +235,30 @@ export default function DocsPage() {
           >
             {activeDoc.content}
           </div>
+
+          <footer
+            style={{
+              borderTop: "1px solid #212836",
+              marginTop: 64,
+              paddingTop: 28,
+              paddingBottom: 28,
+              fontSize: 12,
+              color: "#707A88",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 12,
+              maxWidth: 920,
+            }}
+          >
+            <div>© {new Date().getFullYear()} SUTRA. A Sudarshan Harness Product. All rights reserved.</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <span>Contact us at <a href="mailto:sutra@sudarshanai.com" style={{ color: "#60A5FA", textDecoration: "none" }}>sutra@sudarshanai.com</a></span>
+              <span>•</span>
+              <span>AI-Native Engineering Control Plane</span>
+            </div>
+          </footer>
         </main>
       </div>
     </div>

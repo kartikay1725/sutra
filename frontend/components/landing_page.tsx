@@ -1397,6 +1397,9 @@ export function LandingPage() {
             <Link href="/register" style={{ color: "#3B82F6", textDecoration: "none", fontWeight: 600 }}>
               Join the Beta
             </Link>
+            <a href="mailto:sutra@sudarshanai.com" style={{ color: "#A8B1BD", textDecoration: "none" }}>
+              Contact Us
+            </a>
           </div>
         </div>
 
@@ -1416,7 +1419,11 @@ export function LandingPage() {
           }}
         >
           <div>© {new Date().getFullYear()} SUTRA. A Sudarshan Harness Product. All rights reserved.</div>
-          <div>AI-Native Engineering Control Plane</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <span>Contact us at <a href="mailto:sutra@sudarshanai.com" style={{ color: "#60A5FA", textDecoration: "none" }}>sutra@sudarshanai.com</a></span>
+            <span>•</span>
+            <span>AI-Native Engineering Control Plane</span>
+          </div>
         </div>
       </footer>
 

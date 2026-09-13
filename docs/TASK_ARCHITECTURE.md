@@ -1,6 +1,6 @@
 # SUTRA — Task & Agent Execution Architecture
 
-> **Version**: 0.4.0 (Private Beta)  
+> **Version**: 0.4.0 (Beta)  
 > **Source of Truth**: Reflects the current SUTRA Control Plane and Task Command Center.
 
 ---

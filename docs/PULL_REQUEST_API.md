@@ -1,6 +1,6 @@
 # SUTRA — Pull Request Architecture & API Reference
 
-> **Version**: 0.4.0 (Private Beta)  
+> **Version**: 0.4.0 (Beta)  
 > **Source of Truth**: Reflects the current SUTRA Control Plane and GitHub Substrate integration.
 
 ---

@@ -1,6 +1,7 @@
 "use client";
 
 import { Page, Card, Badge } from "@/components/ui";
+import { AppShell } from "@/components/shell";
 import { Shield, Activity, Users, Settings, Search, RefreshCw, Key, ShieldCheck } from "lucide-react";
 import { useState, useEffect } from "react";
 import { apiPublic } from "@/lib/api";
@@ -42,11 +43,12 @@ export default function EnterpriseDashboard() {
   };
 
   return (
-    <Page
-      eyebrow="Organization Settings"
-      title="Enterprise Controls"
-      description="Manage compliance, security policies, and identity access."
-    >
+    <AppShell isPublic>
+      <Page
+        eyebrow="Organization Settings"
+        title="Enterprise Controls"
+        description="Manage compliance, security policies, and identity access."
+      >
       <div style={{ display: "flex", gap: "20px", marginBottom: "20px" }}>
         <button 
           onClick={() => setActiveTab("audit")}
@@ -193,6 +195,7 @@ export default function EnterpriseDashboard() {
           )}
         </>
       )}
-    </Page>
+      </Page>
+    </AppShell>
   );
 }
