@@ -38,10 +38,12 @@ from app.models.agent_repository_access import AgentRepositoryAccess
 from app.models.agent_session import AgentSession
 from app.models.change import Change
 from app.models.change_review import ChangeReview
+from app.models.ci_job import CIJob
 from app.models.pull_request import PullRequest
 from app.models.repository import Repository
 from app.models.task import Task
 from app.models.user import User
+from app.services.ci_service import CIService
 from app.services.lifecycle_status_service import (
     LifecycleNextActor,
     LifecycleOverallState,
@@ -222,7 +224,7 @@ def workflow_environment(db_session):
 
 
 @pytest.mark.asyncio
-async def test_canonical_end_to_end_governed_engineering_workflow(workflow_environment, db_session):
+async def test_canonical_end_to_end_governed_engineering_workflow(workflow_environment, db_session, monkeypatch):
     """
     Executes the full 12-step canonical engineering lifecycle:
     1. Agent Context Discovery (sutra_get_context)
@@ -238,6 +240,18 @@ async def test_canonical_end_to_end_governed_engineering_workflow(workflow_envir
     11. Task Completion & Final Timeline Verification
     12. Code Provenance Verification (sutra_get_provenance)
     """
+    monkeypatch.setattr(
+        "app.services.ci_sandbox.CISandbox.is_docker_available",
+        lambda cls: True,
+    )
+    monkeypatch.setattr(
+        "app.services.ci_sandbox.CISandbox.run_container_verification",
+        lambda *args, **kwargs: {
+            "exit_code": 0,
+            "output_log": "All tests passed successfully.\n",
+            "timed_out": False,
+        },
+    )
     env = workflow_environment
     agent_headers = {
         "Authorization": f"Bearer {env['session_token']}",
@@ -373,6 +387,21 @@ async def test_canonical_end_to_end_governed_engineering_workflow(workflow_envir
             assert db_change.status in ("proposed", "recorded")
             assert db_pr.source_commit == child_commit
             assert db_pr.status == PullRequest.STATUS_OPEN
+
+            # -----------------------------------------------------------------
+            # Asynchronous CI Execution: Dispatch and complete the queued CI job
+            # -----------------------------------------------------------------
+            queued_job = db_session.scalar(
+                select(CIJob).where(
+                    CIJob.pull_request_id == pr_id,
+                    CIJob.status == CIJob.STATUS_QUEUED,
+                )
+            )
+            assert queued_job is not None, "Expected an asynchronously queued CI job for the pull request"
+            ci_svc = CIService(db_session)
+            executed_job = ci_svc.run_execution(queued_job.id, worker_id="e2e_ci_worker")
+            db_session.commit()
+            assert executed_job.status == CIJob.STATUS_PASSED
 
             # -----------------------------------------------------------------
             # STEP 5: Lifecycle Status Query (PR Opened, Awaiting Review)
