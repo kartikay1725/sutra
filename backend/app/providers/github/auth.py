@@ -1,4 +1,4 @@
-﻿from _pytest import fixtures
+from _pytest import fixtures
 import time
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
@@ -98,13 +98,77 @@ class GitHubAppAuthService:
             )
 
         data = res.json()
-        data = res.json()
         return {
             "token": data["token"],
             "expires_at": data["expires_at"],
             "permissions": data.get("permissions", permissions),
             "repositories": [r["name"] if isinstance(r, dict) else r for r in data.get("repositories", repositories)],
         }
+
+    def get_installation_id_cached(self, owner: str, repo: str) -> int:
+        """
+        Query App installation ID with Redis cache (24h TTL) and safe fallback.
+        """
+        from app.core.redis_service import redis_service
+
+        cache_key = f"github:install_id:{owner.lower()}:{repo.lower()}"
+        try:
+            cached_id = redis_service.get(cache_key)
+            if cached_id is not None:
+                return int(cached_id)
+        except Exception:
+            # Fall back to direct fetch if Redis is unavailable
+            pass
+
+        inst_id = self.get_installation_id(owner, repo)
+        try:
+            redis_service.set(cache_key, inst_id, ex=86400)
+        except Exception:
+            pass
+        return inst_id
+
+    def create_installation_token_cached(
+        self,
+        installation_id: int,
+        repositories: Optional[List[str]] = None,
+        permissions: Optional[Dict[str, str]] = None,
+        ttl_seconds: int = 3000,
+    ) -> Dict[str, Any]:
+        """
+        Negotiate an installation access token with Redis caching (50 min TTL).
+        If Redis is unavailable, falls back directly to GitHub API without creating
+        an unsafe in-memory credential cache.
+        """
+        import hashlib
+        import json
+        from app.core.redis_service import redis_service
+
+        perms = permissions or {}
+        repos = sorted(repositories or [])
+        perm_repr = json.dumps({"p": perms, "r": repos}, sort_keys=True)
+        perm_hash = hashlib.sha256(perm_repr.encode()).hexdigest()[:16]
+        cache_key = f"github:install_token:{installation_id}:{perm_hash}"
+
+        try:
+            cached = redis_service.get(cache_key)
+            if cached and isinstance(cached, dict) and cached.get("token"):
+                return cached
+        except Exception:
+            # Safe direct-fetch fallback if Redis is unavailable
+            pass
+
+        token_data = self.create_installation_token(
+            installation_id=installation_id,
+            repositories=repositories or [],
+            permissions=perms,
+        )
+
+        try:
+            redis_service.set(cache_key, token_data, ex=ttl_seconds)
+        except Exception as e:
+            logger.warning(f"Failed to cache installation token in Redis: {e}")
+
+        return token_data
 
     def revoke_installation_token(self, token: str) -> bool:
         """

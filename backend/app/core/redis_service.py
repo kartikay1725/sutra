@@ -130,6 +130,18 @@ class RedisService:
             raise
 
     @classmethod
+    def delete_by_pattern(cls, pattern: str) -> int:
+        try:
+            client = cls.get_client()
+            keys = list(client.scan_iter(match=pattern, count=100))
+            if keys:
+                return client.delete(*keys)
+            return 0
+        except Exception as e:
+            logger.error(f"Redis delete_by_pattern failed for pattern {pattern}: {e}")
+            return 0
+
+    @classmethod
     def exists(cls, key: str) -> bool:
         try:
             client = cls.get_client()

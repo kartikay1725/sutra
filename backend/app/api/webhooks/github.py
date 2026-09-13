@@ -26,11 +26,36 @@ from app.providers.events import (
 from app.services.git_push_event_service import GitPushEventService
 from app.services.pull_request_service import PullRequestService
 from app.services import knowledge_graph_service
+from app.core.redis_service import redis_service
 
 logger = logging.getLogger("sutra.api.webhooks.github")
 router = APIRouter(prefix="/v1/webhooks", tags=["webhooks"])
 
 webhook_adapter = GitHubWebhookAdapter()
+
+
+def _invalidate_repo_cache(repo_id: str, event_type: str) -> None:
+    """
+    Invalidate affected Redis response cache keys on webhook events.
+    """
+    try:
+        if event_type == "push":
+            redis_service.delete(f"github:cache:branches:{repo_id}")
+            redis_service.delete_by_pattern(f"github:cache:commits:{repo_id}:*")
+            redis_service.delete_by_pattern(f"github:cache:tree:{repo_id}:*")
+            redis_service.delete_by_pattern(f"github:cache:file:{repo_id}:*")
+            redis_service.delete_by_pattern(f"github:cache:blame:{repo_id}:*")
+        elif event_type in ("issues", "issue_comment"):
+            redis_service.delete_by_pattern(f"github:cache:issues:{repo_id}:*")
+        elif event_type == "pull_request":
+            redis_service.delete(f"github:cache:branches:{repo_id}")
+            redis_service.delete_by_pattern(f"github:cache:pr:{repo_id}:*")
+            redis_service.delete_by_pattern(f"github:cache:commits:{repo_id}:*")
+        elif event_type == "check_run":
+            redis_service.delete_by_pattern(f"github:cache:ci:{repo_id}:*")
+            redis_service.delete_by_pattern(f"github:cache:pr:{repo_id}:*")
+    except Exception as e:
+        logger.warning(f"Cache invalidation failed for repo {repo_id} on {event_type}: {e}")
 
 
 def _resolve_repository(db: Session, event) -> Repository | None:
@@ -176,6 +201,7 @@ async def handle_github_webhook(
                     before_refs=before_refs,
                     after_refs=after_refs,
                 )
+                _invalidate_repo_cache(repo.id, "push")
                 return {
                     "status": "processed",
                     "event": "push",
@@ -259,6 +285,7 @@ async def handle_github_webhook(
                         job.failure_reason = conclusion
 
                 db.commit()
+                _invalidate_repo_cache(repo.id, "check_run")
                 return {
                     "status": "processed",
                     "event": "check_run",
@@ -351,6 +378,7 @@ async def handle_github_webhook(
             issue.updated_at = parsed_updated_at or now
             issue.closed_at = parsed_closed_at
 
+        repo.github_objects_synced_at = now
         db.commit()
         db.refresh(issue)
 
@@ -360,6 +388,8 @@ async def handle_github_webhook(
             db.commit()
         except Exception as e:
             logger.warning(f"Failed to update Knowledge Graph on issue webhook: {e}")
+
+        _invalidate_repo_cache(repo.id, "issues")
 
         return {
             "status": "processed",
@@ -422,7 +452,9 @@ async def handle_github_webhook(
             )
             db.add(c)
 
+        repo.github_objects_synced_at = now
         db.commit()
+        _invalidate_repo_cache(repo.id, "issue_comment")
         return {
             "status": "processed",
             "event": "issue_comment",
@@ -479,6 +511,8 @@ async def handle_github_webhook(
             db.commit()
         except Exception as e:
             logger.warning(f"Failed to update Knowledge Graph on PR webhook: {e}")
+
+        _invalidate_repo_cache(repo.id, "pull_request")
 
         return {
             "status": "processed",

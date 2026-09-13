@@ -1,4 +1,5 @@
 import { apiAuth } from "./api";
+import { clientCache, CACHE_TTL } from "./cache";
 
 export interface PullRequest {
   id: string;
@@ -121,61 +122,106 @@ export const pullRequestService = {
     target_branch: string;
     is_draft: boolean;
   }): Promise<PullRequest> {
-    return apiAuth<PullRequest>(`/v1/pull-requests`, {
+    const res = await apiAuth<PullRequest>(`/v1/pull-requests`, {
       method: "POST",
       body: JSON.stringify(payload),
     });
+    clientCache.invalidatePrefix("prs:");
+    return res;
   },
 
   // Backend uses repository_id (UUID), but we resolve it from owner/name first
-  async listPRs(repositoryId: string, statusFilter?: string): Promise<PullRequest[]> {
+  async listPRs(repositoryId: string, statusFilter?: string, options?: { forceRefresh?: boolean }): Promise<PullRequest[]> {
     const params = new URLSearchParams({ limit: "50" });
     if (statusFilter) params.set("status", statusFilter);
-    return apiAuth<PullRequest[]>(`/v1/repositories/${repositoryId}/pull-requests?${params}`);
+    const key = `prs:repo:${repositoryId}:${statusFilter || "all"}`;
+    return clientCache.fetch<PullRequest[]>(
+      key,
+      () => apiAuth<PullRequest[]>(`/v1/repositories/${repositoryId}/pull-requests?${params}`),
+      {
+        ...CACHE_TTL.PULL_REQUESTS,
+        forceRefresh: options?.forceRefresh,
+      }
+    );
   },
 
-  async getPR(prId: string): Promise<PullRequest> {
-    return apiAuth<PullRequest>(`/v1/pull-requests/${prId}`);
+  async getPR(prId: string, options?: { forceRefresh?: boolean }): Promise<PullRequest> {
+    const key = `prs:detail:${prId}`;
+    return clientCache.fetch<PullRequest>(
+      key,
+      () => apiAuth<PullRequest>(`/v1/pull-requests/${prId}`),
+      {
+        ...CACHE_TTL.PULL_REQUESTS,
+        forceRefresh: options?.forceRefresh,
+      }
+    );
   },
 
   async getPRChange(prId: string): Promise<PRChange> {
-    return apiAuth<PRChange>(`/v1/pull-requests/${prId}/changes`);
+    return clientCache.fetch<PRChange>(
+      `prs:change:${prId}`,
+      () => apiAuth<PRChange>(`/v1/pull-requests/${prId}/changes`),
+      CACHE_TTL.PULL_REQUESTS
+    );
   },
 
   async getPRReviews(prId: string): Promise<PRReview[]> {
-    return apiAuth<PRReview[]>(`/v1/pull-requests/${prId}/reviews`);
+    return clientCache.fetch<PRReview[]>(
+      `prs:reviews:${prId}`,
+      () => apiAuth<PRReview[]>(`/v1/pull-requests/${prId}/reviews`),
+      CACHE_TTL.PULL_REQUESTS
+    );
   },
 
   async getPREvents(prId: string): Promise<PREvent[]> {
-    return apiAuth<PREvent[]>(`/v1/pull-requests/${prId}/events`);
+    return clientCache.fetch<PREvent[]>(
+      `prs:events:${prId}`,
+      () => apiAuth<PREvent[]>(`/v1/pull-requests/${prId}/events`),
+      CACHE_TTL.PULL_REQUESTS
+    );
   },
 
   async approvePR(prId: string, reason?: string): Promise<PullRequest> {
-    return apiAuth<PullRequest>(`/v1/pull-requests/${prId}/approve`, {
+    const res = await apiAuth<PullRequest>(`/v1/pull-requests/${prId}/approve`, {
       method: "POST",
       body: JSON.stringify({ reason: reason || null }),
     });
+    clientCache.invalidatePrefix("prs:");
+    return res;
   },
 
   async mergePR(prId: string): Promise<PRMergeResult> {
-    return apiAuth<PRMergeResult>(`/v1/pull-requests/${prId}/merge`, { method: "POST" });
+    const res = await apiAuth<PRMergeResult>(`/v1/pull-requests/${prId}/merge`, {
+      method: "POST",
+    });
+    clientCache.invalidatePrefix("prs:");
+    clientCache.invalidatePrefix("commits:");
+    return res;
   },
 
   async closePR(prId: string, reason?: string): Promise<PullRequest> {
-    return apiAuth<PullRequest>(`/v1/pull-requests/${prId}/close`, {
+    const res = await apiAuth<PullRequest>(`/v1/pull-requests/${prId}/close`, {
       method: "POST",
       body: JSON.stringify({ reason: reason || null }),
     });
+    clientCache.invalidatePrefix("prs:");
+    return res;
+  },
+
+  async rejectPR(prId: string, reason?: string): Promise<PullRequest> {
+    const res = await apiAuth<PullRequest>(`/v1/pull-requests/${prId}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ reason: reason || null }),
+    });
+    clientCache.invalidatePrefix("prs:");
+    return res;
   },
 
   async requestReview(prId: string): Promise<PRReview> {
-    return apiAuth<PRReview>(`/v1/pull-requests/${prId}/reviews`, {
+    const res = await apiAuth<PRReview>(`/v1/pull-requests/${prId}/request-review`, {
       method: "POST",
-      body: JSON.stringify({}),
     });
-  },
-
-  async getPRChecks(prId: string): Promise<any> {
-    return apiAuth<any>(`/v1/pull-requests/${prId}/checks`);
+    clientCache.invalidatePrefix(`prs:reviews:${prId}`);
+    return res;
   },
 };

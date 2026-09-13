@@ -1,4 +1,5 @@
 import { apiPublic, apiAuth } from "./api";
+import { clientCache, CACHE_TTL } from "./cache";
 
 export interface User {
   id: string;
@@ -39,6 +40,7 @@ export const authService = {
   async register(username: string, email: string, password: string): Promise<RegisterResponse> {
     if (typeof window !== "undefined") {
       localStorage.removeItem("sutra_token");
+      clientCache.clear();
     }
     return apiPublic<RegisterResponse>("/v1/auth/register", {
       method: "POST",
@@ -95,6 +97,7 @@ export const authService = {
     } finally {
       if (typeof window !== "undefined") {
         localStorage.removeItem("sutra_token");
+        clientCache.clear();
       }
     }
   },
@@ -102,6 +105,7 @@ export const authService = {
   setToken(token: string) {
     if (typeof window !== "undefined") {
       localStorage.setItem("sutra_token", token);
+      clientCache.clear();
     }
   },
 
@@ -116,14 +120,24 @@ export const authService = {
     return !!this.getToken();
   },
 
-  async getCurrentUser(): Promise<User> {
-    return apiAuth<User>("/v1/auth/me", { method: "GET" });
+  async getCurrentUser(options?: { forceRefresh?: boolean }): Promise<User> {
+    return clientCache.fetch<User>(
+      "auth:me",
+      () => apiAuth<User>("/v1/auth/me", { method: "GET" }),
+      {
+        ...CACHE_TTL.USER,
+        forceRefresh: options?.forceRefresh,
+      }
+    );
   },
 
   async updateProfile(data: { full_name?: string; email?: string; bio?: string }): Promise<User> {
-    return apiAuth<User>("/v1/auth/me", {
+    const res = await apiAuth<User>("/v1/auth/me", {
       method: "PATCH",
       body: JSON.stringify(data),
     });
+    clientCache.delete("auth:me");
+    return res;
   },
 };
+

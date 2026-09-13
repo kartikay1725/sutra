@@ -1,4 +1,5 @@
 import { apiAuth } from "./api";
+import { clientCache, CACHE_TTL } from "./cache";
 
 export interface Issue {
   id: string;
@@ -37,9 +38,19 @@ export const issueService = {
   async listIssues(
     username: string,
     repo: string,
+    options?: { forceRefresh?: boolean }
   ): Promise<Issue[]> {
-    return apiAuth<Issue[]>(
-      `/v1/repositories/${username}/${repo}/issues`,
+    const key = `issues:${username.toLowerCase()}/${repo.toLowerCase()}`;
+    return clientCache.fetch<Issue[]>(
+      key,
+      () =>
+        apiAuth<Issue[]>(
+          `/v1/repositories/${username}/${repo}/issues`,
+        ),
+      {
+        ...CACHE_TTL.ISSUES,
+        forceRefresh: options?.forceRefresh,
+      }
     );
   },
 
@@ -51,13 +62,15 @@ export const issueService = {
       body: string;
     },
   ): Promise<Issue> {
-    return apiAuth<Issue>(
+    const res = await apiAuth<Issue>(
       `/v1/repositories/${username}/${repo}/issues`,
       {
         method: "POST",
         body: JSON.stringify(payload),
       },
     );
+    clientCache.delete(`issues:${username.toLowerCase()}/${repo.toLowerCase()}`);
+    return res;
   },
 
   async updateIssueStatus(
@@ -70,13 +83,19 @@ export const issueService = {
     issue_status: "open" | "closed";
     resolution: IssueResolution | null;
   }> {
-    return apiAuth(
+    const res = await apiAuth<{
+      status: string;
+      issue_status: "open" | "closed";
+      resolution: IssueResolution | null;
+    }>(
       `/v1/repositories/${username}/${repo}/issues/${issueId}/status`,
       {
         method: "PATCH",
         body: JSON.stringify(payload),
       },
     );
+    clientCache.delete(`issues:${username.toLowerCase()}/${repo.toLowerCase()}`);
+    return res;
   },
 
   async deleteIssue(
@@ -84,13 +103,16 @@ export const issueService = {
     repo: string,
     issueId: string,
   ): Promise<any> {
-    return apiAuth(
+    const res = await apiAuth(
       `/v1/repositories/${username}/${repo}/issues/${issueId}`,
       {
         method: "DELETE",
       },
     );
+    clientCache.delete(`issues:${username.toLowerCase()}/${repo.toLowerCase()}`);
+    return res;
   },
+
 
   async getIssue(
     username: string,

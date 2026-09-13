@@ -39,6 +39,7 @@ import {
   insightsService,
   type InsightsData,
 } from "../lib/insights";
+import { clientCache, CACHE_TTL } from "../lib/cache";
 
 /* -------------------------------------------------------------------------- */
 /* Existing screen implementations                                            */
@@ -1688,25 +1689,31 @@ export function RepoOverview() {
             matched.name,
           );
 
-        const commitResponse = await apiAuth<{
-          ref: string;
-          head: string;
-          commits: Array<{
-            sha: string;
-            short_sha: string;
-            author_name: string;
-            author_email: string;
-            committed_at: number;
-            subject: string;
-          }>;
-        }>(
-          `/v1/repositories/${encodeURIComponent(
-            owner,
-          )}/${encodeURIComponent(
-            actualRepo.name,
-          )}/commits?ref=${encodeURIComponent(
-            actualRepo.default_branch,
-          )}&limit=10`,
+        const commitKey = `commits:${owner.toLowerCase()}/${actualRepo.name.toLowerCase()}:${actualRepo.default_branch}:10`;
+        const commitResponse = await clientCache.fetch(
+          commitKey,
+          () =>
+            apiAuth<{
+              ref: string;
+              head: string;
+              commits: Array<{
+                sha: string;
+                short_sha: string;
+                author_name: string;
+                author_email: string;
+                committed_at: number;
+                subject: string;
+              }>;
+            }>(
+              `/v1/repositories/${encodeURIComponent(
+                owner,
+              )}/${encodeURIComponent(
+                actualRepo.name,
+              )}/commits?ref=${encodeURIComponent(
+                actualRepo.default_branch,
+              )}&limit=10`,
+            ),
+          CACHE_TTL.COMMITS
         );
 
         if (cancelled) return;
@@ -7764,10 +7771,14 @@ export function Settings() {
     connected: boolean;
     account: string | null;
     repo_count: number;
+    last_synced_at?: string | null;
+    sync_status?: string | null;
   } | null>(null);
   const [githubLoading, setGithubLoading] = React.useState(true);
   const [githubBusy, setGithubBusy] = React.useState(false);
   const [githubError, setGithubError] = React.useState<string | null>(null);
+  const [syncNotice, setSyncNotice] = React.useState<string | null>(null);
+  const [isDebounced, setIsDebounced] = React.useState<boolean>(false);
 
   // Dynamically import integrations to avoid circular deps in large screens.tsx
   const loadGithubStatus = async () => {
@@ -7816,16 +7827,26 @@ export function Settings() {
     }
   };
 
-  const handleSyncGitHub = async () => {
+  const handleSyncGitHub = async (force: boolean = false) => {
     setGithubBusy(true);
     setGithubError(null);
+    setSyncNotice(null);
     try {
       const { integrationService } = await import("../lib/integrations");
-      const result = await integrationService.syncGitHub();
+      const result = await integrationService.syncGitHub(force);
+      if (result.status === "debounced") {
+        setIsDebounced(true);
+        const mins = Math.max(1, Math.ceil((result.cooldown_remaining_seconds || 300) / 60));
+        setSyncNotice(`Sync was recently completed. Automatic sync cooldown active (~${mins}m remaining).`);
+      } else if (result.status === "queued") {
+        setIsDebounced(false);
+        setSyncNotice("Repository sync queued in the background. Repositories and engineering objects will update shortly.");
+      } else {
+        setIsDebounced(false);
+      }
       await loadGithubStatus();
-      setGithubError(null);
     } catch (err: any) {
-      setGithubError(err?.message || "Failed to sync repositories");
+      setGithubError("GitHub synchronization service is temporarily busy. Please try again shortly.");
     } finally {
       setGithubBusy(false);
     }
@@ -7893,9 +7914,17 @@ export function Settings() {
             <div className="h2">
               GitHub
             </div>
-            <Badge tone={githubStatus?.connected ? "green" : "violet"}>
-              {githubStatus?.connected ? "Connected" : "Not connected"}
-            </Badge>
+            {githubStatus?.connected ? (
+              githubStatus.sync_status === "in_progress" ? (
+                <Badge tone="violet">Sync in progress</Badge>
+              ) : githubStatus.sync_status === "partial_failure" ? (
+                <Badge tone="amber">Partial sync failure</Badge>
+              ) : (
+                <Badge tone="green">Connected</Badge>
+              )
+            ) : (
+              <Badge tone="violet">Not connected</Badge>
+            )}
           </div>
 
           <div className="card-pad">
@@ -7903,19 +7932,35 @@ export function Settings() {
               <div className="sub">Checking GitHub status…</div>
             ) : githubStatus?.connected ? (
               <>
-                <div className="sub" style={{ marginBottom: 12 }}>
+                <div className="sub" style={{ marginBottom: 4 }}>
                   Connected as <strong>{githubStatus.account}</strong>
                   {" · "}{githubStatus.repo_count} repositories synced
                 </div>
-                <div className="row" style={{ gap: 8 }}>
+                {githubStatus.last_synced_at && (
+                  <div className="sub" style={{ marginBottom: 12, fontSize: "0.82em", opacity: 0.75 }}>
+                    Last synchronized: {new Date(githubStatus.last_synced_at).toLocaleString()}
+                  </div>
+                )}
+                <div className="row" style={{ gap: 8, marginTop: 10 }}>
                   <button
                     className="btn"
-                    onClick={handleSyncGitHub}
-                    disabled={githubBusy}
+                    onClick={() => handleSyncGitHub(false)}
+                    disabled={githubBusy || githubStatus?.sync_status === "in_progress"}
                     type="button"
                   >
-                    {githubBusy ? "Syncing…" : "Sync repositories"}
+                    {githubBusy || githubStatus?.sync_status === "in_progress" ? "Syncing…" : "Sync repositories"}
                   </button>
+                  {isDebounced && (
+                    <button
+                      className="btn"
+                      onClick={() => handleSyncGitHub(true)}
+                      disabled={githubBusy}
+                      type="button"
+                      title="Bypass cooldown and synchronize immediately"
+                    >
+                      Force sync
+                    </button>
+                  )}
                   <button
                     className="btn"
                     onClick={handleDisconnectGitHub}
@@ -7926,6 +7971,11 @@ export function Settings() {
                     Disconnect
                   </button>
                 </div>
+                {syncNotice && (
+                  <div className="sub" style={{ color: "#70c0e8", marginTop: 10 }}>
+                    {syncNotice}
+                  </div>
+                )}
               </>
             ) : (
               <>

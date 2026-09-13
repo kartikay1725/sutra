@@ -22,6 +22,7 @@ import { AppShell, SutraLoading } from "@/components/shell";
 import { authService } from "@/lib/auth";
 import { issueService, Issue } from "@/lib/issues";
 import { repositoryService } from "@/lib/repositories";
+import { clientCache } from "@/lib/cache";
 
 type FilterState = "open" | "closed" | "all";
 
@@ -112,14 +113,22 @@ export default function RepositoryIssuesPage({
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
 
   const loadIssues = useCallback(
-    async (showRefreshState = false) => {
+    async (showRefreshState = false, forceRefresh = false) => {
       if (!owner) {
         return;
       }
 
-      if (showRefreshState) {
+      const cacheKey = `issues:${owner.toLowerCase()}/${repoName.toLowerCase()}`;
+      const cached = forceRefresh ? null : clientCache.get<Issue[]>(cacheKey);
+
+      if (cached && !showRefreshState) {
+        setIssues(Array.isArray(cached.data) ? cached.data : []);
+        setLastSyncedAt(cached.cachedAt);
+        setLoading(false);
+      } else if (showRefreshState) {
         setRefreshing(true);
       } else {
         setLoading(true);
@@ -131,9 +140,14 @@ export default function RepositoryIssuesPage({
         const data = await issueService.listIssues(
           owner,
           repoName,
+          { forceRefresh }
         );
 
         setIssues(Array.isArray(data) ? data : []);
+        const meta = clientCache.getMetadata(cacheKey);
+        if (meta.lastSyncedAt) {
+          setLastSyncedAt(meta.lastSyncedAt);
+        }
       } catch (err) {
         setError(getErrorMessage(err));
       } finally {
@@ -373,9 +387,22 @@ export default function RepositoryIssuesPage({
               gap: 8,
             }}
           >
+            {lastSyncedAt && (
+              <span
+                style={{
+                  fontSize: 12,
+                  color: "var(--muted)",
+                  marginRight: 4,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Synced {formatRelativeDate(new Date(lastSyncedAt).toISOString())}
+              </span>
+            )}
+
             <button
               className="btn"
-              onClick={() => void loadIssues(true)}
+              onClick={() => void loadIssues(true, true)}
               disabled={refreshing || loading}
               style={{
                 display: "flex",

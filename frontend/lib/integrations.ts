@@ -6,12 +6,16 @@ export interface GitHubStatus {
   target_type: string | null;
   installation_id: number | null;
   repo_count: number;
+  last_synced_at?: string | null;
+  sync_status?: "idle" | "in_progress" | "completed" | "partial_failure" | string | null;
 }
 
 export interface GitHubSyncResult {
-  status: string;
-  synced_count: number;
-  account: string;
+  status: "queued" | "debounced" | "completed" | string;
+  synced_count?: number;
+  account?: string;
+  message?: string;
+  cooldown_remaining_seconds?: number;
 }
 
 export const integrationService = {
@@ -43,8 +47,9 @@ export const integrationService = {
   /**
    * Trigger a manual sync of GitHub repositories.
    */
-  async syncGitHub(): Promise<GitHubSyncResult> {
-    return apiAuth<GitHubSyncResult>("/v1/integrations/github/sync", {
+  async syncGitHub(force: boolean = false): Promise<GitHubSyncResult> {
+    const query = force ? "?force=true" : "";
+    return apiAuth<GitHubSyncResult>(`/v1/integrations/github/sync${query}`, {
       method: "POST",
     });
   },

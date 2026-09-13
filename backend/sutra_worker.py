@@ -44,6 +44,7 @@ class Worker:
     def process_once(self) -> int:
 
         db = SessionLocal()
+        total_processed = 0
 
         try:
 
@@ -58,10 +59,20 @@ class Worker:
                 ),
             )
 
-            return len(events)
+            total_processed += len(events)
 
         finally:
             db.close()
+
+        try:
+            from app.services.github_sync_worker import GitHubSyncWorker
+
+            sync_count = GitHubSyncWorker.process_pending(limit=5)
+            total_processed += sync_count
+        except Exception as e:
+            logger.debug(f"GitHubSyncWorker cycle error: {e}")
+
+        return total_processed
 
     def run(self) -> None:
 
@@ -144,6 +155,7 @@ def process_once(
 ) -> int:
 
     db = SessionLocal()
+    total = 0
 
     try:
 
@@ -158,10 +170,19 @@ def process_once(
             ),
         )
 
-        return len(events)
+        total += len(events)
 
     finally:
         db.close()
+
+    try:
+        from app.services.github_sync_worker import GitHubSyncWorker
+
+        total += GitHubSyncWorker.process_pending(limit=5)
+    except Exception:
+        pass
+
+    return total
 
 
 def main() -> None:

@@ -25,6 +25,33 @@ router = APIRouter(
     tags=["repository-browser"],
 )
 
+import hashlib
+import json
+import re
+from typing import Any
+from app.core.redis_service import redis_service
+
+
+def _is_immutable_sha(ref: str | None) -> bool:
+    if not ref:
+        return False
+    return bool(re.match(r"^[0-9a-fA-F]{40}$", ref))
+
+
+def _get_cached_json(key: str) -> Any | None:
+    try:
+        return redis_service.get(key)
+    except Exception:
+        return None
+
+
+def _set_cached_json(key: str, data: Any, ttl: int) -> None:
+    try:
+        redis_service.set(key, data, ex=ttl)
+    except Exception:
+        pass
+
+
 
 def _resolve_repository(
     owner: str,
@@ -162,6 +189,7 @@ def _browser_error(
 def list_repository_branches(
     owner: str,
     repo: str,
+    force_refresh: bool = Query(default=False),
     current_user: User | None = Depends(
         get_current_user_optional
     ),
@@ -174,6 +202,12 @@ def list_repository_branches(
         db,
     )
 
+    cache_key = f"github:cache:branches:{repository.id}"
+    if not force_refresh:
+        cached = _get_cached_json(cache_key)
+        if cached is not None:
+            return cached
+
     try:
         if repository.provider_type == "github":
             provider = _github_provider(repository)
@@ -183,7 +217,7 @@ def list_repository_branches(
                 repository.name,
             )
 
-            return {
+            result = {
                 "repository_id": repository.id,
                 "default_branch": repository.default_branch,
                 "branches": [
@@ -195,6 +229,8 @@ def list_repository_branches(
                     for branch in branches
                 ],
             }
+            _set_cached_json(cache_key, result, ttl=30)
+            return result
 
         return {
             "repository_id": repository.id,
@@ -231,6 +267,7 @@ def get_repository_tree(
         default="",
         max_length=4096,
     ),
+    force_refresh: bool = Query(default=False),
     current_user: User | None = Depends(
         get_current_user_optional
     ),
@@ -248,6 +285,13 @@ def get_repository_tree(
         ref
         or repository.default_branch
     )
+
+    path_hash = hashlib.sha256(path.encode("utf-8")).hexdigest()[:16]
+    cache_key = f"github:cache:tree:{repository.id}:{selected_ref}:{path_hash}"
+    if not force_refresh:
+        cached = _get_cached_json(cache_key)
+        if cached is not None:
+            return cached
 
     try:
         if repository.provider_type == "github":
@@ -283,13 +327,16 @@ def get_repository_tree(
                 )
             )
 
-            return {
+            result = {
                 "ref": selected_ref,
                 "commit": None,
                 "path": path,
                 "entries": entries,
                 "truncated": False,
             }
+            ttl = 3600 if _is_immutable_sha(selected_ref) else 30
+            _set_cached_json(cache_key, result, ttl=ttl)
+            return result
 
         return _browser(repository).tree(
             selected_ref,
@@ -326,6 +373,7 @@ def get_repository_file(
         default=None,
         max_length=256,
     ),
+    force_refresh: bool = Query(default=False),
     current_user: User | None = Depends(
         get_current_user_optional
     ),
@@ -343,6 +391,13 @@ def get_repository_file(
         ref
         or repository.default_branch
     )
+
+    path_hash = hashlib.sha256(path.encode("utf-8")).hexdigest()[:16]
+    cache_key = f"github:cache:file:{repository.id}:{selected_ref}:{path_hash}"
+    if not force_refresh:
+        cached = _get_cached_json(cache_key)
+        if cached is not None:
+            return cached
 
     try:
         if repository.provider_type == "github":
@@ -365,7 +420,7 @@ def get_repository_file(
                 )
                 encoding = "utf-8-replaced"
 
-            return {
+            result = {
                 "ref": selected_ref,
                 "commit": None,
                 "path": path,
@@ -373,6 +428,9 @@ def get_repository_file(
                 "encoding": encoding,
                 "content": content,
             }
+            ttl = 86400 if _is_immutable_sha(selected_ref) else 30
+            _set_cached_json(cache_key, result, ttl=ttl)
+            return result
 
         return _browser(repository).file(
             selected_ref,
@@ -555,6 +613,7 @@ def get_repository_blame(
         default=None,
         max_length=256,
     ),
+    force_refresh: bool = Query(default=False),
     current_user: User | None = Depends(
         get_current_user_optional
     ),
@@ -571,6 +630,13 @@ def get_repository_blame(
         ref
         or repository.default_branch
     )
+
+    path_hash = hashlib.sha256(path.encode("utf-8")).hexdigest()[:16]
+    cache_key = f"github:cache:blame:{repository.id}:{selected_ref}:{path_hash}"
+    if not force_refresh:
+        cached = _get_cached_json(cache_key)
+        if cached is not None:
+            return cached
 
     try:
         if repository.provider_type != "github":
@@ -595,12 +661,15 @@ def get_repository_blame(
             ranges=ranges,
         )
 
-        return {
+        result = {
             "repository_id": repository.id,
             "path": path,
             "ref": selected_ref,
             "ranges": enriched_ranges,
         }
+        ttl = 86400 if _is_immutable_sha(selected_ref) else 30
+        _set_cached_json(cache_key, result, ttl=ttl)
+        return result
 
     except HTTPException:
         raise
@@ -639,6 +708,7 @@ def list_repository_commits(
         ge=1,
         le=100,
     ),
+    force_refresh: bool = Query(default=False),
     current_user: User | None = Depends(
         get_current_user_optional
     ),
@@ -657,6 +727,12 @@ def list_repository_commits(
         or repository.default_branch
     )
 
+    cache_key = f"github:cache:commits:{repository.id}:{selected_ref}:{limit}"
+    if not force_refresh:
+        cached = _get_cached_json(cache_key)
+        if cached is not None:
+            return cached
+
     try:
         if repository.provider_type == "github":
             provider = _github_provider(repository)
@@ -668,7 +744,7 @@ def list_repository_commits(
                 limit,
             )
 
-            return {
+            result = {
                 "ref": selected_ref,
                 "head": commits[0].sha if commits else None,
                 "commits": [
@@ -689,6 +765,9 @@ def list_repository_commits(
                     for commit in commits
                 ],
             }
+            ttl = 3600 if _is_immutable_sha(selected_ref) else 30
+            _set_cached_json(cache_key, result, ttl=ttl)
+            return result
 
         return _browser(repository).commits(
             selected_ref,

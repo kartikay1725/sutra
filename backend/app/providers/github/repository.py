@@ -47,37 +47,59 @@ class GitHubRepositoryProvider(RepositoryProvider):
             "X-GitHub-Api-Version": "2022-11-28",
         }
 
-    def _get_installation_headers(self, owner: str, name: str) -> Dict[str, str]:
-        inst_id = self.auth_service.get_installation_id(owner, name)
-        token_data = self.auth_service.create_installation_token(
-            installation_id=inst_id,
-            repositories=[name],
-            permissions={"contents": "write", "pull_requests": "write", "checks": "write", "metadata": "read"},
+    def _get_installation_headers(self, owner: str, name: str, installation_id: Optional[int] = None) -> Dict[str, str]:
+        inst_id = installation_id or (
+            self.auth_service.get_installation_id_cached(owner, name)
+            if hasattr(self.auth_service, "get_installation_id_cached")
+            else self.auth_service.get_installation_id(owner, name)
         )
+        if hasattr(self.auth_service, "create_installation_token_cached"):
+            token_data = self.auth_service.create_installation_token_cached(
+                installation_id=inst_id,
+                repositories=[name],
+                permissions={"contents": "write", "pull_requests": "write", "checks": "write", "metadata": "read"},
+            )
+        else:
+            token_data = self.auth_service.create_installation_token(
+                installation_id=inst_id,
+                repositories=[name],
+                permissions={"contents": "write", "pull_requests": "write", "checks": "write", "metadata": "read"},
+            )
         return {
             "Authorization": f"Bearer {token_data['token']}",
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
         }
+
     def _get_issue_headers(
         self,
         owner: str,
         name: str,
+        installation_id: Optional[int] = None,
     ) -> Dict[str, str]:
-        inst_id = self.auth_service.get_installation_id(
-            owner,
-            name,
+        inst_id = installation_id or (
+            self.auth_service.get_installation_id_cached(owner, name)
+            if hasattr(self.auth_service, "get_installation_id_cached")
+            else self.auth_service.get_installation_id(owner, name)
         )
-
-        token_data = self.auth_service.create_installation_token(
-            installation_id=inst_id,
-            repositories=[name],
-            permissions={
-                "issues": "write",
-                "metadata": "read",
-            },
-        )
-
+        if hasattr(self.auth_service, "create_installation_token_cached"):
+            token_data = self.auth_service.create_installation_token_cached(
+                installation_id=inst_id,
+                repositories=[name],
+                permissions={
+                    "issues": "write",
+                    "metadata": "read",
+                },
+            )
+        else:
+            token_data = self.auth_service.create_installation_token(
+                installation_id=inst_id,
+                repositories=[name],
+                permissions={
+                    "issues": "write",
+                    "metadata": "read",
+                },
+            )
         return {
             "Authorization": f"Bearer {token_data['token']}",
             "Accept": "application/vnd.github+json",
@@ -414,8 +436,9 @@ class GitHubRepositoryProvider(RepositoryProvider):
         state: str = "all",
         limit: int = 50,
         offset: int = 0,
+        installation_id: Optional[int] = None,
     ) -> List[ProviderIssue]:
-        headers = self._get_issue_headers(owner, name)
+        headers = self._get_issue_headers(owner, name, installation_id=installation_id)
 
         safe_state = state if state in {"open", "closed", "all"} else "all"
         safe_limit = max(1, min(int(limit), 100))
@@ -1000,8 +1023,9 @@ class GitHubRepositoryProvider(RepositoryProvider):
         state: str = "all",
         limit: int = 50,
         offset: int = 0,
+        installation_id: Optional[int] = None,
     ) -> List[ProviderPullRequest]:
-        headers = self._get_installation_headers(owner, name)
+        headers = self._get_installation_headers(owner, name, installation_id=installation_id)
         safe_state = state if state in {"open", "closed", "all"} else "all"
         safe_limit = max(1, min(int(limit), 100))
         safe_offset = max(0, int(offset))

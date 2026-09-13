@@ -10,7 +10,9 @@ import React, {
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authService } from "@/lib/auth";
+import { repositoryService } from "@/lib/repositories";
 import { apiAuth, API_URL } from "@/lib/api";
+import { clientCache, CACHE_TTL } from "@/lib/cache";
 import {
   GitBranch,
   GitCommit,
@@ -797,15 +799,23 @@ function FileTree({
     );
 
     try {
+      const treeKey = `tree:${owner.toLowerCase()}/${repo.toLowerCase()}:${branch}:${entry.path}`;
       const data =
-        await apiAuth<{
+        await clientCache.fetch<{
           entries: TreeEntry[];
         }>(
-          `/v1/repositories/${owner}/${repo}/tree?ref=${encodeURIComponent(
-            branch,
-          )}&path=${encodeURIComponent(
-            entry.path,
-          )}`,
+          treeKey,
+          () =>
+            apiAuth<{
+              entries: TreeEntry[];
+            }>(
+              `/v1/repositories/${owner}/${repo}/tree?ref=${encodeURIComponent(
+                branch,
+              )}&path=${encodeURIComponent(
+                entry.path,
+              )}`,
+            ),
+          CACHE_TTL.TREE
         );
 
       setExpanded(
@@ -2525,15 +2535,13 @@ export default function CodePage({
       return;
     }
 
-    apiAuth<{
-      branches: Branch[];
-      default_branch: string;
-    }>(
-      `/v1/repositories/${owner}/${repoName}/branches`,
-    )
+    repositoryService.getBranches(owner, repoName)
       .then((data) => {
-        const branchList =
-          data.branches || [];
+        const branchList: Branch[] = (data.branches || []).map((b) => ({
+          name: b.name,
+          commit: b.commit,
+          protected: !!b.protected,
+        }));
 
         setBranches(
           branchList,
@@ -2603,13 +2611,21 @@ export default function CodePage({
       );
 
       try {
+        const commitKey = `commits:${owner.toLowerCase()}/${repoName.toLowerCase()}:${selectedBranch}:50`;
         const data =
-          await apiAuth<{
+          await clientCache.fetch<{
             commits: Commit[];
           }>(
-            `/v1/repositories/${owner}/${repoName}/commits?ref=${encodeURIComponent(
-              selectedBranch,
-            )}&limit=50`,
+            commitKey,
+            () =>
+              apiAuth<{
+                commits: Commit[];
+              }>(
+                `/v1/repositories/${owner}/${repoName}/commits?ref=${encodeURIComponent(
+                  selectedBranch,
+                )}&limit=50`,
+              ),
+            CACHE_TTL.COMMITS
           );
 
         setCommits(
@@ -2673,13 +2689,22 @@ export default function CodePage({
     setLoadingTree(true);
     setError("");
 
-    apiAuth<{
-      entries: TreeEntry[];
-    }>(
-      `/v1/repositories/${owner}/${repoName}/tree?ref=${encodeURIComponent(
-        branch,
-      )}`,
-    )
+    const treeKey = `tree:${owner.toLowerCase()}/${repoName.toLowerCase()}:${branch}:root`;
+    clientCache
+      .fetch<{
+        entries: TreeEntry[];
+      }>(
+        treeKey,
+        () =>
+          apiAuth<{
+            entries: TreeEntry[];
+          }>(
+            `/v1/repositories/${owner}/${repoName}/tree?ref=${encodeURIComponent(
+              branch,
+            )}`,
+          ),
+        CACHE_TTL.TREE
+      )
       .then((data) => {
         setTree(
           data.entries || [],
@@ -2761,19 +2786,22 @@ export default function CodePage({
             branch,
           )}`;
 
-        try {
-          const filePromise =
-            apiAuth<FileContent>(
-              fileUrl,
-            );
+        const fileKey = `file:${owner.toLowerCase()}/${repoName.toLowerCase()}:${branch}:${entry.path}`;
+        const blameKey = `blame:${owner.toLowerCase()}/${repoName.toLowerCase()}:${branch}:${entry.path}`;
 
-          const blamePromise =
-            apiAuth<BlameResponse>(
-              blameUrl,
-            ).catch(
-              () =>
-                null,
-            );
+        try {
+          const filePromise = clientCache.fetch<FileContent>(
+            fileKey,
+            () => apiAuth<FileContent>(fileUrl),
+            CACHE_TTL.FILE
+          );
+
+          const blamePromise = clientCache.fetch<BlameResponse | null>(
+            blameKey,
+            () =>
+              apiAuth<BlameResponse>(blameUrl).catch(() => null),
+            CACHE_TTL.FILE
+          );
 
           const [
             fileData,

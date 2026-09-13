@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -448,6 +448,7 @@ def create_issue(
 def list_issues(
     owner_name: str,
     repo_name: str,
+    response: Response,
     state: str = Query(
         "all",
         pattern="^(open|closed|all)$",
@@ -461,6 +462,10 @@ def list_issues(
         0,
         ge=0,
     ),
+    force_refresh: bool = Query(
+        default=False,
+        description="Bypass local database cache and fetch fresh issues from GitHub",
+    ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -470,6 +475,34 @@ def list_issues(
         db,
         current_user,
     )
+
+    now = datetime.now(timezone.utc)
+    synced_at = repository.github_objects_synced_at
+
+    # Check if local PostgreSQL issues data is sufficiently synchronized (< 60s)
+    is_fresh = False
+    if not force_refresh and synced_at is not None:
+        synced_dt = synced_at if synced_at.tzinfo else synced_at.replace(tzinfo=timezone.utc)
+        age_seconds = (now - synced_dt).total_seconds()
+        if age_seconds < 60:
+            is_fresh = True
+
+    if is_fresh and synced_at is not None:
+        query = select(Issue).where(
+            Issue.repository_id == repository.id,
+        )
+        if state != "all":
+            query = query.where(Issue.status == state)
+        query = query.order_by(
+            Issue.github_issue_number.desc().nullslast(),
+            Issue.created_at.desc(),
+        )
+        query = query.offset(offset).limit(limit)
+        local_issues = list(db.scalars(query).all())
+
+        response.headers["X-Sutra-Data-Source"] = "postgres"
+        response.headers["X-Sutra-Last-Synced"] = synced_at.isoformat()
+        return local_issues
 
     provider = _github_provider(repository)
 
@@ -493,11 +526,14 @@ def list_issues(
 
             result.append(issue)
 
+        repository.github_objects_synced_at = now
         db.commit()
 
         for issue in result:
             db.refresh(issue)
 
+        response.headers["X-Sutra-Data-Source"] = "github"
+        response.headers["X-Sutra-Last-Synced"] = now.isoformat()
         return result
 
     except HTTPException:
@@ -525,6 +561,11 @@ def get_issue(
     owner_name: str,
     repo_name: str,
     issue_id: str,
+    response: Response,
+    force_refresh: bool = Query(
+        default=False,
+        description="Bypass local cache and fetch fresh issue from GitHub",
+    ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -535,28 +576,44 @@ def get_issue(
         current_user,
     )
 
+    now = datetime.now(timezone.utc)
+
+    # Prefer local linkage lookup first so existing routes remain compatible
+    linked_issue = db.scalar(
+        select(Issue).where(
+            Issue.id == issue_id,
+            Issue.repository_id == repository.id,
+        )
+    )
+
+    if not linked_issue:
+        try:
+            num = int(issue_id)
+            linked_issue = db.scalar(
+                select(Issue).where(
+                    Issue.repository_id == repository.id,
+                    Issue.github_issue_number == num,
+                )
+            )
+        except ValueError:
+            pass
+
+    # If linked_issue exists and is fresh (< 60s) and not force_refresh, serve from PostgreSQL
+    if not force_refresh and linked_issue and linked_issue.updated_at:
+        upd = linked_issue.updated_at if linked_issue.updated_at.tzinfo else linked_issue.updated_at.replace(tzinfo=timezone.utc)
+        if (now - upd).total_seconds() < 60:
+            response.headers["X-Sutra-Data-Source"] = "postgres"
+            response.headers["X-Sutra-Last-Synced"] = linked_issue.updated_at.isoformat()
+            return linked_issue
+
     provider = _github_provider(repository)
 
     try:
-        # Existing frontend may still pass the previous local UUID.
-        #
-        # Prefer the local linkage lookup first so existing routes
-        # remain compatible.
-        linked_issue = db.scalar(
-            select(Issue).where(
-                Issue.id == issue_id,
-                Issue.repository_id == repository.id,
-            )
-        )
-
         github_issue_number: Optional[int] = None
 
         if linked_issue:
-            github_issue_number = (
-                linked_issue.github_issue_number
-            )
+            github_issue_number = linked_issue.github_issue_number
         else:
-            # New frontend may pass the GitHub issue number.
             try:
                 github_issue_number = int(issue_id)
             except ValueError:
@@ -603,7 +660,6 @@ def get_issue(
             ),
             author_id=(
                 linked_issue.author_id
-
                 if linked_issue
                 else None
             ),
@@ -612,6 +668,8 @@ def get_issue(
         db.commit()
         db.refresh(issue)
 
+        response.headers["X-Sutra-Data-Source"] = "github"
+        response.headers["X-Sutra-Last-Synced"] = now.isoformat()
         return issue
 
     except HTTPException:

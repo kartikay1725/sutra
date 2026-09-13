@@ -148,9 +148,10 @@ def get_github_status(
             "repo_count": 0,
         }
 
-    # Count synced repos for this installation
     from sqlalchemy import select as sql_select, func
     from app.models.repository import Repository
+    from app.services.github_sync_worker import get_installation_sync_status
+
     repo_count = db.scalar(
         sql_select(func.count(Repository.id)).where(
             Repository.github_installation_id == installation.github_installation_id,
@@ -158,12 +159,26 @@ def get_github_status(
         )
     ) or 0
 
+    sync_meta = get_installation_sync_status(installation.github_installation_id)
+    last_synced = sync_meta.get("last_synced_at")
+    if not last_synced:
+        max_synced_at = db.scalar(
+            sql_select(func.max(Repository.github_objects_synced_at)).where(
+                Repository.github_installation_id == installation.github_installation_id,
+                Repository.deleted_at.is_(None),
+            )
+        )
+        if max_synced_at:
+            last_synced = max_synced_at.isoformat()
+
     return {
         "connected": True,
         "account": installation.github_account_login,
         "target_type": installation.target_type,
         "installation_id": installation.github_installation_id,
         "repo_count": repo_count,
+        "last_synced_at": last_synced,
+        "sync_status": sync_meta.get("status", "idle"),
     }
 
 
@@ -339,13 +354,15 @@ def github_disconnect(
 
 @router.post("/github/sync", summary="Sync GitHub repositories")
 def github_sync(
+    force: bool = False,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    Re-fetches repository metadata from GitHub and upserts into SUTRA.
-    Idempotent: safe to call repeatedly.
-    Uses a short-lived installation token (fetched, used, immediately revoked).
+    Triggers repository metadata and engineering object synchronization.
+    Returns immediately with queued or debounced status.
+    Respects 5-minute debounce unless force=True.
+    Uses short-lived installation tokens and bounded background concurrency.
     """
     auth_service = _build_auth_service()
     service = GitHubInstallationService(auth_service)
@@ -357,21 +374,37 @@ def github_sync(
             detail="No GitHub connection found. Connect GitHub first.",
         )
 
-    try:
-        synced = service.sync_repos_for_user(
-            db=db,
-            user=current_user,
-            installation=installation,
-        )
-    except Exception as e:
-        logger.error(f"GitHub sync failed for user {current_user.id}: {e}")
-        raise HTTPException(
-            status_code=502,
-            detail="Failed to sync repositories from GitHub. Please try again.",
-        )
+    from app.services.github_sync_worker import (
+        check_sync_debounce,
+        set_sync_debounce,
+        GitHubSyncWorker,
+    )
+
+    inst_id = installation.github_installation_id
+
+    # Check 5-minute debounce cooldown unless force=True (Q2)
+    if not force:
+        is_debounced, cooldown = check_sync_debounce(inst_id)
+        if is_debounced:
+            return {
+                "status": "debounced",
+                "cooldown_remaining_seconds": cooldown,
+                "account": installation.github_account_login,
+                "message": f"Sync was recently requested. Cooldown active for {cooldown}s.",
+            }
+
+    # Set 5-minute cooldown (300 seconds)
+    set_sync_debounce(inst_id, ttl=300)
+
+    # Queue background sync via durable worker / worker queue (Q1)
+    GitHubSyncWorker.enqueue_job(
+        installation_id=inst_id,
+        user_id=current_user.id,
+        force=force,
+    )
 
     return {
-        "status": "synced",
-        "synced_count": len(synced),
+        "status": "queued",
         "account": installation.github_account_login,
+        "message": "Repository sync has been queued.",
     }

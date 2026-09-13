@@ -10,8 +10,8 @@ Design principles:
 - One GitHub installation → one SUTRA user (enforced by unique constraint).
 """
 import logging
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import datetime, timezone, timedelta
+from typing import Optional, Any, Dict, List
 from uuid import uuid4
 
 import httpx
@@ -145,12 +145,19 @@ class GitHubInstallationService:
         Uses a short-lived installation token (fetched, used, and discarded here).
         The token is NOT stored anywhere.
         """
-        # Get an installation token scoped only for listing repos (metadata:read)
-        token_data = self.auth_service.create_installation_token(
-            installation_id=installation_id,
-            repositories=[],  # all repos in the installation
-            permissions={"metadata": "read"},
-        )
+        # Get an installation token scoped for listing repos (metadata:read)
+        if hasattr(self.auth_service, "create_installation_token_cached"):
+            token_data = self.auth_service.create_installation_token_cached(
+                installation_id=installation_id,
+                repositories=[],  # all repos in the installation
+                permissions={"metadata": "read"},
+            )
+        else:
+            token_data = self.auth_service.create_installation_token(
+                installation_id=installation_id,
+                repositories=[],
+                permissions={"metadata": "read"},
+            )
         raw_token = token_data["token"]
 
         headers = {
@@ -163,26 +170,19 @@ class GitHubInstallationService:
         page = 1
         client = self.auth_service._client
 
-        try:
-            while True:
-                resp = client.get(
-                    f"/installation/repositories?per_page=100&page={page}",
-                    headers=headers,
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                repos = data.get("repositories", [])
-                all_repos.extend(repos)
-                # Stop if we got fewer than 100 (last page)
-                if len(repos) < 100:
-                    break
-                page += 1
-        finally:
-            # Always revoke the token immediately after use
-            try:
-                self.auth_service.revoke_installation_token(raw_token)
-            except Exception as e:
-                logger.warning(f"Failed to revoke listing token for installation {installation_id}: {e}")
+        while True:
+            resp = client.get(
+                f"/installation/repositories?per_page=100&page={page}",
+                headers=headers,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            repos = data.get("repositories", [])
+            all_repos.extend(repos)
+            # Stop if we got fewer than 100 (last page)
+            if len(repos) < 100:
+                break
+            page += 1
 
         return all_repos
 
@@ -204,6 +204,7 @@ class GitHubInstallationService:
         If a repo already exists, its metadata is updated. No duplicates are created.
 
         IMPORTANT: No Git content is fetched or stored. SUTRA only stores metadata.
+        Repository engineering objects (issues/PRs) are backfilled asynchronously.
         """
         github_repos = self.list_repos_for_installation(
             installation.github_installation_id
@@ -261,10 +262,6 @@ class GitHubInstallationService:
         db.commit()
         for repo in synced:
             db.refresh(repo)
-            try:
-                self.sync_repository_engineering_objects(db, repo)
-            except Exception as e:
-                logger.warning(f"Failed to backfill engineering objects for repo {repo.name}: {e}")
 
         logger.info(
             f"Synced {len(synced)} GitHub repositories for user {user.id} "
@@ -278,14 +275,33 @@ class GitHubInstallationService:
         repository: Repository,
         issue_limit: int = 30,
         pr_limit: int = 30,
-    ) -> dict[str, int]:
+        installation_id: Optional[int] = None,
+        force: bool = False,
+        staleness_hours: float = 1.0,
+    ) -> dict[str, Any]:
         """
         Idempotently backfill existing open issues and pull requests from GitHub
         into SUTRA without fabricating agent or session provenance.
-        Triggers Knowledge Graph indexing upon completion.
+        Respects 1-hour default staleness guard unless force=True.
+        Updates github_objects_synced_at upon completion.
         """
         if repository.provider_type != "github" or not repository.provider_owner:
-            return {"issues": 0, "pull_requests": 0}
+            return {"issues": 0, "pull_requests": 0, "skipped": True}
+
+        inst_id = installation_id or repository.github_installation_id
+        now = datetime.now(timezone.utc)
+
+        # Staleness guard (Q3): 1 hour default
+        if not force and repository.github_objects_synced_at is not None:
+            synced_at = repository.github_objects_synced_at
+            if synced_at.tzinfo is None:
+                synced_at = synced_at.replace(tzinfo=timezone.utc)
+            age = now - synced_at
+            if age < timedelta(hours=staleness_hours):
+                logger.debug(
+                    f"Skipping backfill for {repository.name}: synced {age.total_seconds():.0f}s ago (< {staleness_hours}h)"
+                )
+                return {"issues": 0, "pull_requests": 0, "skipped": True}
 
         from app.models.issue import Issue
         from app.providers.github.repository import GitHubRepositoryProvider
@@ -301,7 +317,6 @@ class GitHubInstallationService:
 
         issues_synced = 0
         prs_synced = 0
-        now = datetime.now(timezone.utc)
 
         # 1. Backfill Issues
         try:
@@ -310,6 +325,7 @@ class GitHubInstallationService:
                 name=repo_name,
                 state="open",
                 limit=issue_limit,
+                installation_id=inst_id,
             )
             for gh_issue in gh_issues:
                 # Deduplicate by repository_id + github_issue_id / github_issue_number
@@ -371,6 +387,7 @@ class GitHubInstallationService:
                 name=repo_name,
                 state="open",
                 limit=pr_limit,
+                installation_id=inst_id,
             )
             pr_svc = PullRequestService(db)
             for gh_pr in gh_prs:
@@ -404,5 +421,13 @@ class GitHubInstallationService:
             logger.warning(f"Failed to index Knowledge Graph after engineering backfill: {e}")
             db.rollback()
 
-        return {"issues": issues_synced, "pull_requests": prs_synced}
+        # 4. Update github_objects_synced_at timestamp
+        try:
+            repository.github_objects_synced_at = datetime.now(timezone.utc)
+            db.commit()
+        except Exception as e:
+            logger.warning(f"Failed to update github_objects_synced_at for {repository.name}: {e}")
+            db.rollback()
+
+        return {"issues": issues_synced, "pull_requests": prs_synced, "skipped": False}
 
