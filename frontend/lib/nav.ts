@@ -44,5 +44,11 @@ export const repoNav = [
       ["/assistant", "AI Assistant", I.Sparkles],
     ],
   },
+  {
+    label: "Settings",
+    items: [
+      ["/settings", "Repository Settings", I.Settings],
+    ],
+  },
 ] as const;
 

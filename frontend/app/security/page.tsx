@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/og-image.png",
+        url: "/logo-s.png",
         width: 1200,
         height: 630,
         alt: "Security Architecture — SUTRA",
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     title: "Security Architecture & Cryptographic Trust — SUTRA",
     description:
       "SUTRA cryptographic event integrity, secret segregation, short-lived session boundaries, and capability-based authorization.",
-    images: ["/og-image.png"],
+    images: ["/logo-s.png"],
   },
 };
 

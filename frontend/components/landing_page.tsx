@@ -34,7 +34,7 @@ export function LandingPage() {
         "@id": "https://sutra.sudarshanai.com/#organization",
         "name": "Sudarshan Harness",
         "url": "https://sudarshanai.com",
-        "logo": "https://sutra.sudarshanai.com/og-image.png",
+        "logo": "https://sutra.sudarshanai.com/logo-s.png",
         "description": "Provider of engineering harness systems and governed autonomous software engineering platforms."
       },
       {
@@ -231,7 +231,7 @@ export function LandingPage() {
               }}
             >
               <img
-                src="/logo.svg"
+                src="/icon.png"
                 alt="SUTRA Logo"
                 style={{ height: "100%", width: "100%", objectFit: "contain" }}
               />
@@ -1366,7 +1366,7 @@ export function LandingPage() {
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
               <div style={{ width: 24, height: 24, borderRadius: 6, overflow: "hidden", background: "#000" }}>
-                <img src="/logo.svg" alt="SUTRA Logo" style={{ height: "100%", width: "100%", objectFit: "contain" }} />
+                <img src="/icon.png" alt="SUTRA Logo" style={{ height: "100%", width: "100%", objectFit: "contain" }} />
               </div>
               <span style={{ fontSize: 16, fontWeight: 800, color: "#F2F5F8" }}>SUTRA</span>
             </div>

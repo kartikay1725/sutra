@@ -57,7 +57,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/og-image.png",
+        url: "/logos-s.png",
         width: 1200,
         height: 630,
         alt: "SUTRA — AI-Native Engineering Control Plane by Sudarshan Harness",
@@ -69,7 +69,7 @@ export const metadata: Metadata = {
     title: "SUTRA — AI-Native Engineering Control Plane",
     description:
       "SUTRA is an AI-native engineering control plane by Sudarshan Harness for governed autonomous software engineering, repository access, and human review.",
-    images: ["/og-image.png"],
+    images: ["/logo-s.png"],
   },
   robots: {
     index: true,
@@ -84,8 +84,8 @@ export const metadata: Metadata = {
   },
   verification: process.env.GOOGLE_SITE_VERIFICATION
     ? {
-        google: process.env.GOOGLE_SITE_VERIFICATION,
-      }
+      google: process.env.GOOGLE_SITE_VERIFICATION,
+    }
     : undefined,
 };
 

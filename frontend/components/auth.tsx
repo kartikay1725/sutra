@@ -9,7 +9,7 @@ import { BookOpen, ArrowRight } from "lucide-react";
 function Mark() {
   return (
     <img
-      src="/logo.svg"
+      src="/icon.png"
       alt="SUTRA"
       style={{
         width: 32,

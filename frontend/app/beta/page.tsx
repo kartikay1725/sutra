@@ -311,7 +311,7 @@ export default function BetaExplainerPage() {
                 border: "1px solid #212836",
               }}
             >
-              <img src="/logo.svg" alt="SUTRA Logo" style={{ width: 22, height: 22, objectFit: "contain" }} />
+              <img src="/icon.png" alt="SUTRA Logo" style={{ width: 22, height: 22, objectFit: "contain" }} />
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: "0.04em", color: "#FFFFFF" }}>

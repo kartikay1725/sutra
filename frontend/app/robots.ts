@@ -16,7 +16,7 @@ export default function robots(): MetadataRoute.Robots {
         "/sitemap.xml",
         "/favicon.ico",
         "/icon.png",
-        "/og-image.png",
+        "/logo-s.png",
         "/logo.svg",
       ],
       disallow: [

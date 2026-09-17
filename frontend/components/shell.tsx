@@ -12,7 +12,7 @@ import { SutraLoading } from "./sutra-loading";
 function Mark(){
   return (
     <img
-      src="/logo.svg"
+      src="/icon.png"
       alt="SUTRA Mark"
       className="mark"
       style={{

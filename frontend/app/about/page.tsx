@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/og-image.png",
+        url: "/logo-s.png",
         width: 1200,
         height: 630,
         alt: "About SUTRA — AI-Native Engineering Control Plane",
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     title: "About SUTRA — AI-Native Engineering Control Plane",
     description:
       "Learn about SUTRA by Sudarshan Harness: an AI-native engineering control plane providing bounded authority, real Git workflows, and human review for autonomous engineering.",
-    images: ["/og-image.png"],
+    images: ["/logo-s.png"],
   },
 };
 

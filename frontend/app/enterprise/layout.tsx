@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/og-image.png",
+        url: "/logo-s.png",
         width: 1200,
         height: 630,
         alt: "Enterprise Governance — SUTRA",
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     title: "Enterprise Governance & Policy Controls — SUTRA",
     description:
       "Enterprise controls for autonomous AI software engineering: SAML SSO, immutable audit trails, branch protection, and branch governance policies.",
-    images: ["/og-image.png"],
+    images: ["/logo-s.png"],
   },
 };
 
