@@ -397,4 +397,4 @@ npm run build
 
 ## License
 
-Proprietary — SUTRA AI Inc. All rights reserved.
+Proprietary — SUTRA AI Inc. All rights reserved to Achint Ai.
