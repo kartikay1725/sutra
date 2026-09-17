@@ -43,9 +43,9 @@ export function SutraAgentInstructions({
     <section
       className={`sutra-agent-instructions-section ${className}`}
       style={{
-        border: '1px solid #212836',
+        border: '1px solid #242424',
         borderRadius: 12,
-        background: '#10151C',
+        background: '#151515',
         padding: compact ? '20px' : '24px 28px',
         display: 'flex',
         flexDirection: 'column',
@@ -70,12 +70,12 @@ export function SutraAgentInstructions({
               width: 32,
               height: 32,
               borderRadius: 8,
-              background: '#171D26',
-              border: '1px solid #2B3545',
+              background: '#1C1C1C',
+              border: '1px solid #242424',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#38BDF8',
+              color: '#F97316',
             }}
           >
             <I.FileCode2 size={18} />
@@ -86,15 +86,15 @@ export function SutraAgentInstructions({
               style={{
                 fontSize: 16,
                 fontWeight: 700,
-                color: '#F2F5F8',
+                color: '#F5F5F5',
                 margin: 0,
                 letterSpacing: '-0.01em',
               }}
             >
               SUTRA Agent Instructions
             </h3>
-            <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
-              Block ID: <code style={{ color: '#94A3B8' }}>{SUTRA_INSTRUCTION_BLOCK_ID}</code> · Version: <code style={{ color: '#94A3B8' }}>{`v${SUTRA_INSTRUCTION_VERSION}`}</code>
+            <div style={{ fontSize: 12, color: '#737373', marginTop: 2 }}>
+              Block ID: <code style={{ color: '#A3A3A3' }}>{SUTRA_INSTRUCTION_BLOCK_ID}</code> · Version: <code style={{ color: '#A3A3A3' }}>{`v${SUTRA_INSTRUCTION_VERSION}`}</code>
             </div>
           </div>
         </div>
@@ -105,9 +105,9 @@ export function SutraAgentInstructions({
             display: 'inline-flex',
             alignItems: 'center',
             gap: 6,
-            background: 'rgba(56, 189, 248, 0.1)',
-            color: '#38BDF8',
-            border: '1px solid rgba(56, 189, 248, 0.25)',
+            background: 'rgba(249, 115, 22, 0.1)',
+            color: '#F97316',
+            border: '1px solid rgba(249, 115, 22, 0.25)',
             padding: '4px 10px',
             borderRadius: 6,
             fontSize: 12,
@@ -121,23 +121,23 @@ export function SutraAgentInstructions({
       </div>
 
       {/* Explanatory Copy */}
-      <div style={{ color: '#A8B1BD', fontSize: 13, lineHeight: 1.6 }}>
+      <div style={{ color: '#A3A3A3', fontSize: 13, lineHeight: 1.6 }}>
         <p style={{ margin: '0 0 8px' }}>
           MCP makes SUTRA available to your coding agent.
           For more reliable tool selection on this repository,
           we recommend adding the SUTRA instruction block to your
-          existing <strong style={{ color: '#F2F5F8' }}>AGENTS.md</strong>,{' '}
-          <strong style={{ color: '#F2F5F8' }}>CLAUDE.md</strong>,{' '}
-          <strong style={{ color: '#F2F5F8' }}>Cursor Rules</strong>, or equivalent
+          existing <strong style={{ color: '#F5F5F5' }}>AGENTS.md</strong>,{' '}
+          <strong style={{ color: '#F5F5F5' }}>CLAUDE.md</strong>,{' '}
+          <strong style={{ color: '#F5F5F5' }}>Cursor Rules</strong>, or equivalent
           repository instruction file.
         </p>
 
         {/* Conceptual Distinction Note */}
         <div
           style={{
-            background: '#090C10',
-            border: '1px solid #1C2330',
-            borderLeft: '3px solid #3B82F6',
+            background: '#0B0B0B',
+            border: '1px solid #242424',
+            borderLeft: '3px solid #F97316',
             borderRadius: '0 8px 8px 0',
             padding: '10px 14px',
             margin: '8px 0 12px',
@@ -145,15 +145,15 @@ export function SutraAgentInstructions({
             lineHeight: 1.5,
           }}
         >
-          <div style={{ fontWeight: 600, color: '#F2F5F8', marginBottom: 4 }}>
+          <div style={{ fontWeight: 600, color: '#F5F5F5', marginBottom: 4 }}>
             Understanding MCP vs. Instruction Files
           </div>
           <div>
-            <strong style={{ color: '#38BDF8' }}>MCP</strong> provides harness-level availability of SUTRA tools across your IDE.
+            <strong style={{ color: '#F97316' }}>MCP</strong> provides harness-level availability of SUTRA tools across your IDE.
             <br />
-            <strong style={{ color: '#38BDF8' }}>Repository instruction files</strong> provide optional repository-level behavioral guidance
+            <strong style={{ color: '#F97316' }}>Repository instruction files</strong> provide optional repository-level behavioral guidance
             that helps coding agents consistently choose SUTRA for governed engineering tasks over generic git commands.
-            <div style={{ color: '#64748B', marginTop: 4 }}>
+            <div style={{ color: '#737373', marginTop: 4 }}>
               Note: SUTRA functions autonomously via MCP. An instruction file is never an absolute requirement for SUTRA operation.
             </div>
           </div>
@@ -166,11 +166,11 @@ export function SutraAgentInstructions({
             alignItems: 'center',
             gap: 8,
             fontSize: 12,
-            color: '#E2E8F0',
+            color: '#F5F5F5',
             background: 'rgba(255, 255, 255, 0.03)',
             padding: '8px 12px',
             borderRadius: 6,
-            border: '1px solid #212836',
+            border: '1px solid #242424',
           }}
         >
           <I.AlertCircle size={14} style={{ color: '#F59E0B', flexShrink: 0 }} />
@@ -183,7 +183,7 @@ export function SutraAgentInstructions({
       {/* Target Selector Tabs */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: '#CBD5E1' }}>
+          <label style={{ fontSize: 12, fontWeight: 600, color: '#F5F5F5' }}>
             Placement Target:
           </label>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -197,9 +197,9 @@ export function SutraAgentInstructions({
                   borderRadius: 6,
                   fontSize: 11,
                   fontWeight: selectedTarget === target.name ? 600 : 400,
-                  background: selectedTarget === target.name ? '#1E293B' : '#0B0F15',
-                  color: selectedTarget === target.name ? '#38BDF8' : '#94A3B8',
-                  border: selectedTarget === target.name ? '1px solid #38BDF8' : '1px solid #212836',
+                  background: selectedTarget === target.name ? 'rgba(249, 115, 22, 0.12)' : '#1C1C1C',
+                  color: selectedTarget === target.name ? '#F97316' : '#A3A3A3',
+                  border: selectedTarget === target.name ? '1px solid #F97316' : '1px solid #242424',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                 }}
@@ -213,7 +213,7 @@ export function SutraAgentInstructions({
           </div>
         </div>
 
-        <div style={{ fontSize: 11, color: '#64748B' }}>
+        <div style={{ fontSize: 11, color: '#737373' }}>
           {selectedTarget === 'AGENTS.md' && 'Recommended cross-agent standard. Place as ./AGENTS.md at the root of your repository.'}
           {selectedTarget === 'CLAUDE.md' && 'Add to your existing ./CLAUDE.md file without replacing existing project instructions.'}
           {selectedTarget === 'Cursor Rules' && 'Add as a rule in .cursorrules or create .cursor/rules/sutra-governance.mdc.'}
@@ -224,9 +224,9 @@ export function SutraAgentInstructions({
       {/* Code Viewer */}
       <div
         style={{
-          border: '1px solid #212836',
+          border: '1px solid #242424',
           borderRadius: 8,
-          background: '#090C10',
+          background: '#0B0B0B',
           overflow: 'hidden',
         }}
       >
@@ -237,8 +237,8 @@ export function SutraAgentInstructions({
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '8px 14px',
-            background: '#141A23',
-            borderBottom: '1px solid #212836',
+            background: '#151515',
+            borderBottom: '1px solid #242424',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -247,7 +247,7 @@ export function SutraAgentInstructions({
                 fontFamily: 'monospace',
                 fontSize: 12,
                 fontWeight: 600,
-                color: '#CBD5E1',
+                color: '#F5F5F5',
               }}
             >
               {selectedTarget === 'AGENTS.md' ? 'AGENTS.md' : selectedTarget === 'CLAUDE.md' ? 'CLAUDE.md' : selectedTarget === 'Cursor Rules' ? '.cursorrules' : 'AGENTS.md'}
@@ -255,11 +255,11 @@ export function SutraAgentInstructions({
             <span
               style={{
                 fontSize: 11,
-                color: '#64748B',
-                background: '#090C10',
+                color: '#737373',
+                background: '#0B0B0B',
                 padding: '1px 6px',
                 borderRadius: 4,
-                border: '1px solid #1C2330',
+                border: '1px solid #242424',
               }}
             >
               Markdown
@@ -302,9 +302,9 @@ export function SutraAgentInstructions({
                 fontSize: 12,
                 fontWeight: 600,
                 borderRadius: 6,
-                background: copied ? 'rgba(16, 185, 129, 0.15)' : '#1E293B',
-                border: copied ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid #2B3545',
-                color: copied ? '#34D399' : '#F2F5F8',
+                background: copied ? 'rgba(16, 185, 129, 0.15)' : '#1C1C1C',
+                border: copied ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid #242424',
+                color: copied ? '#34D399' : '#F5F5F5',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
               }}
@@ -323,7 +323,7 @@ export function SutraAgentInstructions({
             fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
             fontSize: 12,
             lineHeight: 1.6,
-            color: '#CBD5E1',
+            color: '#A3A3A3',
             overflowX: 'auto',
             maxHeight: compact ? '260px' : '360px',
             whiteSpace: 'pre',
@@ -340,7 +340,7 @@ export function SutraAgentInstructions({
           alignItems: 'center',
           gap: 6,
           fontSize: 11,
-          color: '#64748B',
+          color: '#737373',
           marginTop: -4,
         }}
       >

@@ -17,8 +17,9 @@ import { environmentService, type Environment, type Deployment } from '../lib/en
 import { ConnectSutraButton, ConnectSutraModal, type SutraConnectionState, CANONICAL_API_ORIGIN, CANONICAL_MCP_ENDPOINT, getOAuthAuthorizeUrl } from './sutra-connect';
 import { generatePkceSession, saveBrowserTestSession } from '../lib/pkce';
 import { EngineeringTimeline } from './EngineeringTimeline';
-import { SutraAgentInstructions } from './SutraAgentInstructions';
 import { CIWorkflowSetupCard } from './CIWorkflowSetupCard';
+import { SutraAgentInstructions } from './SutraAgentInstructions';
+import { SkeletonAgentList, SkeletonChangeList } from './skeleton';
 
 function tone(status: string) {
   const s = status.toLowerCase();
@@ -122,9 +123,7 @@ export function RealChanges() {
             </div>
           </div>
         ) : loading ? (
-          <div className="card-pad" style={{ textAlign: 'center', padding: '36px 20px' }}>
-            <div className="sub">Loading changes…</div>
-          </div>
+          <SkeletonChangeList count={5} />
         ) : filtered.length === 0 ? (
           <div className="card-pad" style={{ textAlign: 'center', padding: '36px 20px' }}>
             <I.GitBranch size={28} className="muted" style={{ marginBottom: 8 }} />
@@ -338,7 +337,7 @@ export function RealChangeDetail() {
               <span style={{ fontWeight: 600, fontSize: 13 }}>1. Task</span>
             </div>
             <I.ChevronRight size={14} className="muted" />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: change.agent_session_id ? 'var(--green)' : change.actor_type === 'agent' ? 'var(--cyan)' : 'var(--fg)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: change.agent_session_id ? 'var(--green)' : change.actor_type === 'agent' ? 'var(--accent)' : 'var(--fg)' }}>
               {change.agent_session_id ? <I.CheckCircle2 size={16} /> : <I.CircleDot size={16} />}
               <span style={{ fontWeight: 600, fontSize: 13 }}>2. {change.actor_type === 'agent' ? 'Agent Session' : 'Human Author'}</span>
             </div>
@@ -395,7 +394,7 @@ export function RealChangeDetail() {
                   padding: '12px 18px',
                   background: 'transparent',
                   border: 'none',
-                  borderBottom: activeTab === 'commits' ? '2px solid var(--cyan)' : '2px solid transparent',
+                  borderBottom: activeTab === 'commits' ? '2px solid var(--accent)' : '2px solid transparent',
                   color: activeTab === 'commits' ? 'var(--fg)' : 'var(--muted)',
                   fontWeight: activeTab === 'commits' ? 600 : 400,
                   cursor: 'pointer',
@@ -407,7 +406,7 @@ export function RealChangeDetail() {
               >
                 <I.GitCommit size={14} /> Commits with Provenance
                 {commits.length > 0 && (
-                  <span className="badge" style={{ fontSize: 11, padding: '1px 6px', background: 'rgba(6, 182, 212, 0.15)', color: 'var(--cyan)' }}>
+                  <span className="badge" style={{ fontSize: 11, padding: '1px 6px', background: 'var(--accent-subtle)', color: 'var(--accent)' }}>
                     {commits.length}
                   </span>
                 )}
@@ -419,7 +418,7 @@ export function RealChangeDetail() {
                   padding: '12px 18px',
                   background: 'transparent',
                   border: 'none',
-                  borderBottom: activeTab === 'files' ? '2px solid var(--cyan)' : '2px solid transparent',
+                  borderBottom: activeTab === 'files' ? '2px solid var(--accent)' : '2px solid transparent',
                   color: activeTab === 'files' ? 'var(--fg)' : 'var(--muted)',
                   fontWeight: activeTab === 'files' ? 600 : 400,
                   cursor: 'pointer',
@@ -443,7 +442,7 @@ export function RealChangeDetail() {
                   padding: '12px 18px',
                   background: 'transparent',
                   border: 'none',
-                  borderBottom: activeTab === 'activity' ? '2px solid var(--cyan)' : '2px solid transparent',
+                  borderBottom: activeTab === 'activity' ? '2px solid var(--accent)' : '2px solid transparent',
                   color: activeTab === 'activity' ? 'var(--fg)' : 'var(--muted)',
                   fontWeight: activeTab === 'activity' ? 600 : 400,
                   cursor: 'pointer',
@@ -1607,7 +1606,7 @@ jobs:
                   ✓ MERGED
                 </Badge>
                 {pr.target_commit && (
-                  <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'monospace', color: 'var(--cyan)' }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'monospace', color: 'var(--accent)' }}>
                     Merge SHA: {pr.target_commit.slice(0, 8)}
                   </span>
                 )}
@@ -2007,18 +2006,18 @@ print(res.json())`;
     <div style={{ display: 'flex', gap: 20, marginBottom: 20, borderBottom: '1px solid var(--line)', paddingBottom: 2 }}>
       <button
         style={{
-          background: 'none', border: 'none', color: activeTab === 'active' ? 'var(--cyan)' : 'var(--muted)',
-          fontWeight: activeTab === 'active' ? 600 : 400, cursor: 'pointer', borderBottom: activeTab === 'active' ? '2px solid var(--cyan)' : '2px solid transparent',
+          background: 'none', border: 'none', color: activeTab === 'active' ? 'var(--accent)' : 'var(--muted)',
+          fontWeight: activeTab === 'active' ? 600 : 400, cursor: 'pointer', borderBottom: activeTab === 'active' ? '2px solid var(--accent)' : '2px solid transparent',
           paddingBottom: 10, display: 'flex', alignItems: 'center', gap: 8, transition: 'all 0.2s ease'
         }}
         onClick={() => setActiveTab('active')}
       >
-        <I.Bot size={16} /> Active Agents ({activeCount})
+        <I.Cpu size={16} /> Active Agents ({activeCount})
       </button>
       <button
         style={{
-          background: 'none', border: 'none', color: activeTab === 'pending' ? 'var(--cyan)' : 'var(--muted)',
-          fontWeight: activeTab === 'pending' ? 600 : 400, cursor: 'pointer', borderBottom: activeTab === 'pending' ? '2px solid var(--cyan)' : '2px solid transparent',
+          background: 'none', border: 'none', color: activeTab === 'pending' ? 'var(--accent)' : 'var(--muted)',
+          fontWeight: activeTab === 'pending' ? 600 : 400, cursor: 'pointer', borderBottom: activeTab === 'pending' ? '2px solid var(--accent)' : '2px solid transparent',
           paddingBottom: 10, display: 'flex', alignItems: 'center', gap: 8, transition: 'all 0.2s ease'
         }}
         onClick={() => setActiveTab('pending')}
@@ -2027,13 +2026,13 @@ print(res.json())`;
       </button>
       <button
         style={{
-          background: 'none', border: 'none', color: activeTab === 'mcp' ? 'var(--cyan)' : 'var(--muted)',
-          fontWeight: activeTab === 'mcp' ? 600 : 400, cursor: 'pointer', borderBottom: activeTab === 'mcp' ? '2px solid var(--cyan)' : '2px solid transparent',
+          background: 'none', border: 'none', color: activeTab === 'mcp' ? 'var(--accent)' : 'var(--muted)',
+          fontWeight: activeTab === 'mcp' ? 600 : 400, cursor: 'pointer', borderBottom: activeTab === 'mcp' ? '2px solid var(--accent)' : '2px solid transparent',
           paddingBottom: 10, display: 'flex', alignItems: 'center', gap: 8, transition: 'all 0.2s ease'
         }}
         onClick={() => setActiveTab('mcp')}
       >
-        <I.Sparkles size={16} /> Connect SUTRA (MCP)
+        <I.Workflow size={16} /> Connect SUTRA (MCP)
       </button>
     </div>
 
@@ -2096,24 +2095,25 @@ print(res.json())`;
           </Card>
         )}
 
-        <Card>
-          {loading ? (
-            <div className="card-pad" style={{ textAlign: 'center', padding: '36px 20px' }}>
-              <div className="sub">Loading agents…</div>
-            </div>
-          ) : agents.length === 0 ? (
+        {loading ? (
+          <SkeletonAgentList count={4} />
+        ) : agents.length === 0 ? (
+          <Card>
             <div className="card-pad" style={{ textAlign: 'center', padding: '36px 20px' }}>
               <I.Bot size={32} className="muted" style={{ marginBottom: 10 }} />
               <div className="title-sm" style={{ fontWeight: 600 }}>No agents registered</div>
               <div className="sub" style={{ marginTop: 4 }}>Register an agent above or connect via the MCP tab to enable autonomous coding governance.</div>
             </div>
-          ) : (
+          </Card>
+        ) : (
+          <Card>
             <div className="list">
               {agents.map(a => (
                 <div className="list-row" key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px' }}>
                   <div className="avatar" style={{
                     width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', background: 'rgba(6, 182, 212, 0.15)', color: 'var(--cyan)'
+                    justifyContent: 'center', background: 'var(--accent-subtle)', color: 'var(--accent)',
+                    border: '1px solid var(--accent-border)'
                   }}>
                     <I.Bot size={18}/>
                   </div>
@@ -2144,22 +2144,24 @@ print(res.json())`;
                 </div>
               ))}
             </div>
-          )}
-        </Card>
+          </Card>
+        )}
       </>
     )}
 
     {activeTab === 'pending' && (
-      <Card>
-        {loading ? (
-          <div className="card-pad" style={{ textAlign: 'center', padding: '36px 20px' }}><div className="sub">Loading pending requests…</div></div>
-        ) : pendingRequests.length === 0 ? (
+      loading ? (
+        <SkeletonAgentList count={2} />
+      ) : pendingRequests.length === 0 ? (
+        <Card>
           <div className="card-pad" style={{ textAlign: 'center', padding: '36px 20px' }}>
             <I.CheckCircle2 size={32} style={{ color: 'var(--green)', marginBottom: 10, opacity: 0.8 }} />
             <div className="title-sm" style={{ fontWeight: 600 }}>All Caught Up</div>
             <div className="sub" style={{ marginTop: 4 }}>No pending agent registration requests awaiting administrative approval.</div>
           </div>
-        ) : (
+        </Card>
+      ) : (
+        <Card>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 16 }}>
             {pendingRequests.map(r => (
               <div key={r.id} style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 18, borderRadius: 12, border: '1px solid var(--line)', background: 'rgba(255,255,255,0.02)' }}>
@@ -2193,16 +2195,16 @@ print(res.json())`;
               </div>
             ))}
           </div>
-        )}
-      </Card>
+        </Card>
+      )
     )}
 
     {activeTab === 'mcp' && (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         {/* Banner */}
         <Card style={{
-          border: '1px solid rgba(6, 182, 212, 0.3)',
-          background: 'radial-gradient(ellipse at top right, rgba(6, 182, 212, 0.12), transparent 70%), var(--surface)'
+          border: '1px solid var(--border-default)',
+          background: 'var(--surface-1)'
         }}>
           <div className="card-pad" style={{ padding: '28px 32px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 20 }}>
@@ -2301,11 +2303,11 @@ print(res.json())`;
         {/* Fallback Cards Section */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: 20 }}>
           {/* CARD 1: Custom MCP Settings */}
-          <Card style={{ border: '1px solid rgba(6, 182, 212, 0.25)', background: 'linear-gradient(180deg, rgba(6, 182, 212, 0.04) 0%, var(--surface) 100%)' }}>
+          <Card style={{ border: '1px solid var(--border-default)', background: 'var(--surface-1)' }}>
             <div className="card-pad" style={{ padding: '24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Badge tone="aqua">Card 1 · Recommended</Badge>
+                  <Badge tone="orange">Card 1 · Recommended</Badge>
                   <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Custom MCP Settings</h3>
                 </div>
               </div>
@@ -2320,8 +2322,8 @@ print(res.json())`;
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
                   Canonical SUTRA MCP Endpoint:
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', background: '#07090e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 12px', gap: 8 }}>
-                  <code style={{ flex: 1, fontSize: 13, color: '#38bdf8', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface-inset)', border: '1px solid var(--border-default)', borderRadius: 8, padding: '8px 12px', gap: 8 }}>
+                  <code style={{ flex: 1, fontSize: 13, color: 'var(--link)', fontFamily: 'monospace', wordBreak: 'break-all' }}>
                     {mcpEndpoint}
                   </code>
                   <button
@@ -2353,9 +2355,9 @@ print(res.json())`;
                       borderRadius: 6,
                       fontSize: 12,
                       fontWeight: mcpClient === c.id ? 600 : 400,
-                      background: mcpClient === c.id ? 'rgba(6, 182, 212, 0.18)' : 'rgba(255, 255, 255, 0.03)',
-                      color: mcpClient === c.id ? '#38bdf8' : 'var(--muted)',
-                      border: mcpClient === c.id ? '1px solid rgba(6, 182, 212, 0.35)' : '1px solid transparent',
+                      background: mcpClient === c.id ? 'var(--accent-subtle)' : 'rgba(255, 255, 255, 0.03)',
+                      color: mcpClient === c.id ? 'var(--accent)' : 'var(--text-muted)',
+                      border: mcpClient === c.id ? '1px solid var(--accent-border)' : '1px solid transparent',
                       cursor: 'pointer',
                     }}
                   >

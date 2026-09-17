@@ -222,13 +222,25 @@ export default function CIPage({
       setError(null);
 
       const user =
-        await authService.getCurrentUser();
+        await authService.getCurrentUser().catch(() => null);
 
-      const repo =
-        await repositoryService.getRepository(
+      let repo: any = null;
+      if (user?.username) {
+        repo = await repositoryService.getRepository(
           user.username,
           repoName,
-        );
+        ).catch(() => null);
+      }
+
+      if (!repo) {
+        const repos = await repositoryService.listRepositories().catch(() => []);
+        repo = repos.find((r: any) => r.name.toLowerCase() === repoName.toLowerCase() || r.id === repoName);
+      }
+
+      if (!repo) {
+        setJobs([]);
+        return;
+      }
 
       const prs =
         await pullRequestService

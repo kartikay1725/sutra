@@ -143,9 +143,9 @@ function MarkdownText({
                 padding:
                   "8px 14px",
                 borderLeft:
-                  "3px solid #22d3ee",
+                  "3px solid var(--accent)",
                 background:
-                  "rgba(34,211,238,.05)",
+                  "var(--accent-subtle)",
                 color:
                   "var(--muted)",
               }}
@@ -160,7 +160,7 @@ function MarkdownText({
               target="_blank"
               rel="noopener noreferrer"
               style={{
-                color: "#22d3ee",
+                color: "var(--link)",
                 textDecoration:
                   "underline",
                 textUnderlineOffset: 2,
@@ -194,7 +194,7 @@ function MarkdownText({
                       "monospace",
                     fontSize: 12,
                     color:
-                      "#67e8f9",
+                      "var(--text-bright)",
                   }}
                 >
                   {children}
@@ -828,18 +828,20 @@ export default function AssistantPage({
               height: 40,
               borderRadius: 12,
               background:
-                "linear-gradient(135deg,#06b6d4,#3b82f6)",
+                "var(--surface-2)",
+              border:
+                "1px solid var(--line-strong)",
               display:
                 "grid",
               placeItems:
                 "center",
               boxShadow:
-                "0 0 20px rgba(6,182,212,.3)",
+                "var(--shadow-sm)",
             }}
           >
             <I.Bot
               size={20}
-              color="#fff"
+              style={{ color: "var(--accent)" }}
             />
           </div>
 
@@ -891,11 +893,11 @@ export default function AssistantPage({
                   "4px 9px",
                 borderRadius: 20,
                 background:
-                  "rgba(34,211,238,.1)",
+                  "var(--accent-subtle)",
                 border:
-                  "1px solid rgba(34,211,238,.25)",
+                  "1px solid var(--border-accent)",
                 color:
-                  "#22d3ee",
+                  "var(--accent)",
                 fontWeight: 600,
               }}
             >
@@ -1063,11 +1065,14 @@ export default function AssistantPage({
                             "10px 11px",
                           borderRadius: 9,
                           border:
-                            "none",
+                            thread.id ===
+                            threadId
+                              ? "1px solid var(--border-accent)"
+                              : "1px solid transparent",
                           background:
                             thread.id ===
                             threadId
-                              ? "rgba(34,211,238,.1)"
+                              ? "var(--accent-subtle)"
                               : "transparent",
                           color:
                             thread.id ===
@@ -1077,6 +1082,8 @@ export default function AssistantPage({
                           cursor:
                             "pointer",
                           marginBottom: 3,
+                          transition:
+                            "background 0.15s, border-color 0.15s",
                         }}
                       >
                         <div
@@ -1232,22 +1239,22 @@ export default function AssistantPage({
                 >
                   <div
                     style={{
-                      width: 68,
-                      height: 68,
-                      borderRadius: 19,
+                      width: 60,
+                      height: 60,
+                      borderRadius: 16,
                       background:
-                        "linear-gradient(135deg,rgba(6,182,212,.15),rgba(59,130,246,.15))",
+                        "var(--surface-2)",
                       border:
-                        "1px solid rgba(6,182,212,.2)",
+                        "1px solid var(--line-strong)",
                       display:
                         "grid",
                       placeItems:
                         "center",
                     }}
                   >
-                    <I.Sparkles
-                      size={30}
-                      color="#22d3ee"
+                    <I.Bot
+                      size={28}
+                      style={{ color: "var(--accent)" }}
                     />
                   </div>
 
@@ -1271,7 +1278,7 @@ export default function AssistantPage({
                       <span
                         style={{
                           color:
-                            "#22d3ee",
+                            "var(--accent)",
                         }}
                       >
                         {name}
@@ -1382,8 +1389,13 @@ export default function AssistantPage({
                             background:
                               message.role ===
                               "user"
-                                ? "linear-gradient(135deg,#8b5cf6,#6366f1)"
-                                : "linear-gradient(135deg,#06b6d4,#3b82f6)",
+                                ? "var(--surface-2)"
+                                : "var(--surface-1)",
+                            border:
+                              message.role ===
+                              "user"
+                                ? "1px solid var(--line-strong)"
+                                : "1px solid var(--border-accent)",
                             display:
                               "grid",
                             placeItems:
@@ -1394,12 +1406,12 @@ export default function AssistantPage({
                           "user" ? (
                             <I.User
                               size={16}
-                              color="#fff"
+                              style={{ color: "var(--text-bright)" }}
                             />
                           ) : (
                             <I.Bot
                               size={16}
-                              color="#fff"
+                              style={{ color: "var(--accent)" }}
                             />
                           )}
                         </div>
@@ -1416,7 +1428,7 @@ export default function AssistantPage({
                             border:
                               message.role ===
                               "user"
-                                ? "1px solid rgba(59,130,246,.25)"
+                                ? "1px solid var(--border-accent)"
                                 : "1px solid var(--line)",
                             borderRadius: "var(--radius-sm)",
                             padding:
@@ -1467,7 +1479,9 @@ export default function AssistantPage({
                           height: 34,
                           borderRadius: 10,
                           background:
-                            "linear-gradient(135deg,#06b6d4,#3b82f6)",
+                            "var(--surface-1)",
+                          border:
+                            "1px solid var(--border-accent)",
                           display:
                             "grid",
                           placeItems:
@@ -1476,7 +1490,7 @@ export default function AssistantPage({
                       >
                         <I.Bot
                           size={16}
-                          color="#fff"
+                          style={{ color: "var(--accent)" }}
                         />
                       </div>
 
@@ -1612,7 +1626,7 @@ export default function AssistantPage({
                     background:
                       input.trim() &&
                       !isSending
-                        ? "linear-gradient(135deg,#06b6d4,#3b82f6)"
+                        ? "var(--accent)"
                         : "rgba(255,255,255,.08)",
                     color:
                       input.trim() &&

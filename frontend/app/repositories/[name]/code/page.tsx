@@ -28,6 +28,8 @@ import {
   Send,
   CheckCircle2,
   AlertCircle,
+  Cpu,
+  UserRound,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -454,29 +456,29 @@ function provenanceLabel(
 
 function provenanceIcon(
   provenance: LineProvenance,
-): string {
+): React.ReactNode {
   if (
     provenance.identity_type ===
     "agent"
   ) {
-    return "🤖";
+    return <Cpu size={11} style={{ flexShrink: 0, color: "var(--accent)" }} />;
   }
 
   if (
     provenance.identity_type ===
     "human"
   ) {
-    return "👤";
+    return <UserRound size={11} style={{ flexShrink: 0, color: "var(--text-bright)" }} />;
   }
 
   if (
     provenance.identity_type ===
     "external"
   ) {
-    return "◉";
+    return <GitBranch size={11} style={{ flexShrink: 0, color: "var(--link)" }} />;
   }
 
-  return "•";
+  return <GitCommit size={11} style={{ flexShrink: 0, color: "var(--text-muted)" }} />;
 }
 
 function provenanceColor(
@@ -486,24 +488,24 @@ function provenanceColor(
     provenance.identity_type ===
     "agent"
   ) {
-    return "#a78bfa";
+    return "#f97316";
   }
 
   if (
     provenance.identity_type ===
     "human"
   ) {
-    return "#22d3ee";
+    return "#f5f5f5";
   }
 
   if (
     provenance.identity_type ===
     "external"
   ) {
-    return "#94a3b8";
+    return "#3b82f6";
   }
 
-  return "#a78bfa";
+  return "#8a8a8a";
 }
 
 // ─── Branch Switcher ─────────────────────────────────────────────────────────
@@ -561,7 +563,7 @@ function BranchSwitcher({
       >
         <GitBranch
           size={13}
-          className="cyan"
+          style={{ color: "var(--accent)" }}
         />
 
         <span
@@ -707,7 +709,7 @@ function BranchSwitcher({
                     current && (
                     <Check
                       size={12}
-                      className="cyan"
+                      style={{ color: "var(--accent)" }}
                     />
                   )}
                 </button>
@@ -1800,16 +1802,16 @@ function CodeViewer({
           Provenance
         </span>
 
-        <span>
-          🤖 SUTRA Agent
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--text-secondary)" }}>
+          <Cpu size={12} style={{ color: "var(--accent)" }} /> SUTRA Agent
         </span>
 
-        <span>
-          👤 SUTRA Human
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--text-secondary)" }}>
+          <UserRound size={12} style={{ color: "var(--text-bright)" }} /> SUTRA Human
         </span>
 
-        <span>
-          ◉ GitHub
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--text-secondary)" }}>
+          <GitBranch size={12} style={{ color: "var(--link)" }} /> GitHub
         </span>
 
         <span
@@ -1898,7 +1900,7 @@ function CodeViewer({
                           hasComments
                             ? "rgba(255,234,128,0.04)"
                             : isActive
-                              ? "rgba(99,179,237,0.06)"
+                              ? "var(--accent-subtle)"
                               : "transparent",
                       }}
                     >
@@ -1957,7 +1959,7 @@ function CodeViewer({
                                 "0 2px",
                               color:
                                 hasComments
-                                  ? "var(--cyan)"
+                                  ? "var(--accent)"
                                   : "var(--muted)",
                               opacity:
                                 hasComments

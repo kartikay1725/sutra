@@ -26,6 +26,8 @@ import {
   MessageCircle,
 } from "lucide-react";
 
+import type { Metadata } from "next";
+
 // Always SSR — contribution data is real-time and user-specific.
 // Without this Next.js may statically cache the first render.
 export const dynamic = "force-dynamic";
@@ -34,6 +36,52 @@ interface PageProps {
   params: Promise<{
     username: string;
   }>;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { username } = await params;
+  try {
+    const profile = await profileService.getProfile(username);
+    const title = profile?.full_name
+      ? `${profile.full_name} (@${profile.username}) — SUTRA`
+      : `@${username} — SUTRA`;
+    const description =
+      profile?.bio ||
+      `Public engineering profile for @${username} on SUTRA — AI-Native Engineering Control Plane.`;
+    const canonical = `https://sutra.sudarshanai.com/profile/${encodeURIComponent(username)}`;
+
+    return {
+      title,
+      description,
+      alternates: { canonical },
+      openGraph: {
+        title,
+        description,
+        url: canonical,
+        siteName: "SUTRA",
+        type: "profile",
+        images: [
+          {
+            url: "https://sutra.sudarshanai.com/og-image.png",
+            width: 1200,
+            height: 630,
+            alt: `${title} on SUTRA`,
+          },
+        ],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title,
+        description,
+        images: ["https://sutra.sudarshanai.com/og-image.png"],
+      },
+    };
+  } catch {
+    return {
+      title: `@${username} — SUTRA`,
+      description: `Public engineering profile for @${username} on SUTRA — AI-Native Engineering Control Plane.`,
+    };
+  }
 }
 
 function formatDate(value?: string) {
@@ -65,17 +113,17 @@ function initials(name: string) {
  */
 function contributionTone(count: number, maxCount = 30): string {
   if (count <= 0) {
-    return "rgba(255,255,255,.045)";
+    return "#181818";
   }
 
   // Clamp and normalize on a log scale (same approach GitHub uses)
   const effectiveMax = Math.max(maxCount, count, 10);
   const ratio = Math.log1p(count) / Math.log1p(effectiveMax);
 
-  if (ratio < 0.25) return "rgba(34,211,238,.22)";
-  if (ratio < 0.50) return "rgba(34,211,238,.42)";
-  if (ratio < 0.75) return "rgba(34,211,238,.66)";
-  return "#22d3ee";
+  if (ratio < 0.25) return "rgba(34, 197, 94, 0.25)";
+  if (ratio < 0.50) return "rgba(34, 197, 94, 0.50)";
+  if (ratio < 0.75) return "rgba(34, 197, 94, 0.75)";
+  return "#22c55e";
 }
 
 
@@ -183,10 +231,10 @@ export default async function PublicProfile({
                           padding: "0 10px",
                           borderRadius: 9,
                           border:
-                            "1px solid rgba(255,255,255,.08)",
+                            "1px solid #242424",
                           background:
-                            "rgba(255,255,255,.025)",
-                          color: "var(--muted)",
+                            "#151515",
+                          color: "#C4C4C4",
                           fontSize: 11,
                         }}
                       >
@@ -340,9 +388,9 @@ export default async function PublicProfile({
                           style={{
                             fontSize: 11,
                             fontWeight: 600,
-                            color: "#22d3ee",
-                            background: "rgba(34, 211, 238, 0.1)",
-                            border: "1px solid rgba(34, 211, 238, 0.25)",
+                            color: "#3B82F6",
+                            background: "rgba(59, 130, 246, 0.1)",
+                            border: "1px solid rgba(59, 130, 246, 0.25)",
                             padding: "2px 8px",
                             borderRadius: 4,
                             display: "inline-flex",
@@ -372,31 +420,31 @@ export default async function PublicProfile({
                       <i
                         style={{
                           background:
-                            "rgba(255,255,255,.045)",
+                            "#181818",
                         }}
                       />
                       <i
                         style={{
                           background:
-                            "rgba(34,211,238,.25)",
+                            "rgba(34, 197, 94, 0.25)",
                         }}
                       />
                       <i
                         style={{
                           background:
-                            "rgba(34,211,238,.45)",
+                            "rgba(34, 197, 94, 0.50)",
                         }}
                       />
                       <i
                         style={{
                           background:
-                            "rgba(34,211,238,.68)",
+                            "rgba(34, 197, 94, 0.75)",
                         }}
                       />
                       <i
                         style={{
                           background:
-                            "#22d3ee",
+                            "#22c55e",
                         }}
                       />
                       <span>More</span>
@@ -473,7 +521,7 @@ export default async function PublicProfile({
                   </div>
 
                   <div className="footprint-item">
-                    <Sparkles size={18} />
+                    <Code2 size={18} />
                     <div>
                       <strong>
                         {profile.public_repository_count}
@@ -531,7 +579,7 @@ export default async function PublicProfile({
 
               <section className="share-card">
                 <div className="share-icon">
-                  <Sparkles size={17} />
+                  <Copy size={17} />
                 </div>
 
                 <strong>
@@ -557,57 +605,37 @@ export default async function PublicProfile({
       <style>{`
         .public-profile {
           min-height: 100vh;
-          background:
-            radial-gradient(
-              circle at 72% 8%,
-              rgba(99,102,241,.12),
-              transparent 30%
-            ),
-            radial-gradient(
-              circle at 20% 18%,
-              rgba(34,211,238,.06),
-              transparent 28%
-            );
+          background: #0B0B0B;
+          color: #F5F5F5;
         }
 
         .profile-hero {
-          border-bottom: 1px solid var(--line);
-          background:
-            linear-gradient(
-              180deg,
-              rgba(255,255,255,.028),
-              rgba(255,255,255,0)
-            );
+          border-bottom: 1px solid #242424;
+          background: #111111;
         }
 
         .profile-hero-inner {
           max-width: 1180px;
           margin: 0 auto;
-          padding: 58px 32px 44px;
+          padding: 50px 32px 40px;
           display: flex;
           align-items: flex-start;
           gap: 24px;
         }
 
         .profile-avatar {
-          width: 94px;
-          height: 94px;
-          border-radius: 24px;
+          width: 88px;
+          height: 88px;
+          border-radius: 18px;
           flex: 0 0 auto;
           display: grid;
           place-items: center;
-          font-size: 30px;
+          font-size: 28px;
           font-weight: 700;
-          color: white;
-          background:
-            linear-gradient(
-              135deg,
-              #a855f7,
-              #6366f1 55%,
-              #22d3ee
-            );
-          box-shadow:
-            0 18px 45px rgba(99,102,241,.2);
+          color: #F97316;
+          background: #181818;
+          border: 1px solid #2A2A2A;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.5);
         }
 
         .profile-identity {
@@ -619,39 +647,40 @@ export default async function PublicProfile({
         .section-eyebrow {
           font-size: 10px;
           font-weight: 700;
-          letter-spacing: .16em;
-          color: #a78bfa;
+          letter-spacing: .14em;
+          color: #F97316;
         }
 
         .profile-identity h1 {
           margin: 6px 0 0;
-          font-size: clamp(34px, 4vw, 48px);
-          line-height: 1.03;
-          letter-spacing: -.045em;
-          color: var(--text);
+          font-size: clamp(30px, 4vw, 42px);
+          line-height: 1.05;
+          letter-spacing: -.035em;
+          color: #F5F5F5;
+          font-weight: 700;
         }
 
         .profile-handle {
           margin-top: 5px;
-          color: var(--muted);
+          color: #8A8A8A;
           font-size: 14px;
         }
 
         .profile-identity p {
           max-width: 700px;
-          margin: 18px 0 0;
-          color: #c7bddb;
+          margin: 16px 0 0;
+          color: #C4C4C4;
           font-size: 14px;
-          line-height: 1.7;
+          line-height: 1.65;
         }
 
         .profile-meta {
           display: flex;
           flex-wrap: wrap;
           gap: 14px 20px;
-          margin-top: 20px;
-          color: #8f82aa;
-          font-size: 11px;
+          margin-top: 18px;
+          color: #8A8A8A;
+          font-size: 12px;
         }
 
         .profile-meta span {
@@ -675,11 +704,19 @@ export default async function PublicProfile({
           align-items: center;
           justify-content: center;
           gap: 7px;
-          border: 1px solid var(--line);
-          border-radius: 10px;
-          color: var(--muted);
-          font-size: 11px;
-          background: rgba(255,255,255,.025);
+          border: 1px solid #242424;
+          border-radius: 8px;
+          color: #C4C4C4;
+          font-size: 12px;
+          background: #151515;
+          cursor: pointer;
+          transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+        }
+
+        .profile-share:hover {
+          border-color: #3A3A3A;
+          background: #1D1D1D;
+          color: #F5F5F5;
         }
 
         .profile-content {
@@ -691,15 +728,15 @@ export default async function PublicProfile({
         .profile-stats {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
-          border: 1px solid var(--line);
-          background: rgba(255,255,255,.018);
-          border-radius: 14px;
+          border: 1px solid #242424;
+          background: #151515;
+          border-radius: 12px;
           overflow: hidden;
         }
 
         .profile-stats > div {
-          padding: 20px 22px;
-          border-right: 1px solid var(--line);
+          padding: 18px 20px;
+          border-right: 1px solid #242424;
         }
 
         .profile-stats > div:last-child {
@@ -708,23 +745,27 @@ export default async function PublicProfile({
 
         .profile-stats span {
           display: block;
-          color: var(--muted);
+          color: #8A8A8A;
           font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
           margin-bottom: 7px;
         }
 
         .profile-stats strong {
           display: block;
-          color: var(--text);
-          font-size: 25px;
+          color: #F5F5F5;
+          font-size: 24px;
+          font-weight: 700;
           letter-spacing: -.03em;
         }
 
         .profile-stats small {
           display: block;
           margin-top: 4px;
-          color: #756a8f;
-          font-size: 10px;
+          color: #666666;
+          font-size: 11px;
         }
 
         .profile-grid {
@@ -747,14 +788,9 @@ export default async function PublicProfile({
         .profile-section,
         .about-card,
         .share-card {
-          border: 1px solid var(--line);
-          background:
-            linear-gradient(
-              145deg,
-              rgba(20,16,32,.82),
-              rgba(12,8,22,.74)
-            );
-          border-radius: 16px;
+          border: 1px solid #242424;
+          background: #151515;
+          border-radius: 12px;
         }
 
         .profile-section {
@@ -773,12 +809,13 @@ export default async function PublicProfile({
         .section-heading h2 {
           margin: 4px 0 0;
           font-size: 18px;
+          color: #F5F5F5;
           letter-spacing: -.02em;
         }
 
         .section-heading > span,
         .activity-total {
-          color: var(--muted);
+          color: #8A8A8A;
           font-size: 11px;
         }
 
@@ -789,20 +826,18 @@ export default async function PublicProfile({
         }
 
         .repo-card {
-          padding: 17px;
-          border: 1px solid rgba(168,85,247,.11);
-          border-radius: 13px;
-          background: rgba(255,255,255,.018);
-          transition:
-            transform .15s ease,
-            border-color .15s ease,
-            background .15s ease;
+          padding: 18px;
+          border: 1px solid #242424;
+          border-radius: 10px;
+          background: #181818;
+          text-decoration: none;
+          display: block;
+          transition: border-color .15s ease, background .15s ease;
         }
 
         .repo-card:hover {
-          transform: translateY(-2px);
-          border-color: rgba(34,211,238,.28);
-          background: rgba(255,255,255,.03);
+          border-color: #3A3A3A;
+          background: #1D1D1D;
         }
 
         .repo-card-top {
@@ -816,39 +851,45 @@ export default async function PublicProfile({
           height: 32px;
           display: grid;
           place-items: center;
-          border-radius: 9px;
-          color: #22d3ee;
-          background: rgba(34,211,238,.08);
-          border: 1px solid rgba(34,211,238,.13);
+          border-radius: 8px;
+          color: #F97316;
+          background: rgba(249, 115, 22, 0.1);
+          border: 1px solid rgba(249, 115, 22, 0.2);
         }
 
         .repo-arrow {
-          color: #6f6585;
+          color: #666666;
+          transition: color .15s ease;
+        }
+
+        .repo-card:hover .repo-arrow {
+          color: #3B82F6;
         }
 
         .repo-card h3 {
-          margin: 15px 0 6px;
+          margin: 14px 0 6px;
           font-size: 14px;
-          color: var(--text);
+          font-weight: 600;
+          color: #F5F5F5;
         }
 
         .repo-card p {
-          min-height: 42px;
+          min-height: 40px;
           margin: 0;
-          color: #8f82a3;
-          font-size: 11px;
-          line-height: 1.55;
+          color: #8A8A8A;
+          font-size: 12px;
+          line-height: 1.5;
         }
 
         .repo-card-footer {
           display: flex;
           justify-content: space-between;
           gap: 10px;
-          margin-top: 15px;
+          margin-top: 14px;
           padding-top: 12px;
-          border-top: 1px solid rgba(255,255,255,.05);
-          color: #6f6585;
-          font-size: 10px;
+          border-top: 1px solid #242424;
+          color: #666666;
+          font-size: 11px;
         }
 
         .repo-card-footer span:first-child {
@@ -861,14 +902,14 @@ export default async function PublicProfile({
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: #22d3ee;
+          background: #3B82F6;
         }
 
         .contribution-shell {
           padding: 16px;
-          border: 1px solid rgba(255,255,255,.05);
-          border-radius: 12px;
-          background: rgba(255,255,255,.015);
+          border: 1px solid #242424;
+          border-radius: 10px;
+          background: #111111;
           overflow: hidden;
         }
 
@@ -878,8 +919,8 @@ export default async function PublicProfile({
           align-items: center;
           gap: 14px;
           margin-bottom: 14px;
-          color: #756b88;
-          font-size: 10px;
+          color: #8A8A8A;
+          font-size: 11px;
         }
 
         .contribution-legend {
@@ -892,7 +933,7 @@ export default async function PublicProfile({
           width: 10px;
           height: 10px;
           border-radius: 2px;
-          border: 1px solid rgba(255,255,255,.04);
+          border: 1px solid rgba(0,0,0,0.3);
         }
 
         .contribution-grid {
@@ -909,7 +950,7 @@ export default async function PublicProfile({
           width: 9px;
           height: 9px;
           border-radius: 2px;
-          border: 1px solid rgba(255,255,255,.03);
+          border: 1px solid rgba(0, 0, 0, 0.25);
         }
 
         .footprint-grid {
@@ -923,23 +964,24 @@ export default async function PublicProfile({
           gap: 12px;
           align-items: center;
           padding: 14px;
-          border-radius: 11px;
-          border: 1px solid rgba(255,255,255,.05);
-          background: rgba(255,255,255,.018);
-          color: #22d3ee;
+          border-radius: 10px;
+          border: 1px solid #242424;
+          background: #181818;
+          color: #F97316;
         }
 
         .footprint-item strong {
           display: block;
-          color: var(--text);
+          color: #F5F5F5;
           font-size: 16px;
+          font-weight: 600;
         }
 
         .footprint-item span {
           display: block;
           margin-top: 2px;
-          color: #756b88;
-          font-size: 10px;
+          color: #8A8A8A;
+          font-size: 11px;
         }
 
         .about-card {
@@ -949,18 +991,19 @@ export default async function PublicProfile({
         .about-card h2 {
           margin: 5px 0 0;
           font-size: 18px;
+          color: #F5F5F5;
         }
 
         .about-card > p {
           margin: 12px 0 0;
-          color: #8f82a3;
+          color: #C4C4C4;
           font-size: 12px;
           line-height: 1.65;
         }
 
         .about-divider {
           height: 1px;
-          background: var(--line);
+          background: #242424;
           margin: 18px 0 4px;
         }
 
@@ -970,12 +1013,13 @@ export default async function PublicProfile({
           justify-content: space-between;
           gap: 12px;
           padding: 10px 0;
-          color: #7c728d;
-          font-size: 11px;
+          color: #8A8A8A;
+          font-size: 12px;
+          border-bottom: 1px solid #1D1D1D;
         }
 
         .about-row strong {
-          color: #dcd2e8;
+          color: #F5F5F5;
           font-weight: 600;
           text-align: right;
         }
@@ -989,37 +1033,38 @@ export default async function PublicProfile({
           height: 34px;
           display: grid;
           place-items: center;
-          border-radius: 10px;
-          color: #22d3ee;
-          background: rgba(34,211,238,.08);
+          border-radius: 8px;
+          color: #F97316;
+          background: rgba(249, 115, 22, 0.1);
+          border: 1px solid rgba(249, 115, 22, 0.2);
           margin-bottom: 12px;
         }
 
         .share-card strong {
-          color: var(--text);
+          color: #F5F5F5;
           font-size: 13px;
         }
 
         .share-card p {
           margin: 8px 0 12px;
-          color: #7e738f;
-          font-size: 11px;
+          color: #8A8A8A;
+          font-size: 12px;
           line-height: 1.6;
         }
 
         .share-url {
-          padding: 9px 10px;
-          border-radius: 8px;
-          background: rgba(0,0,0,.2);
-          border: 1px solid rgba(255,255,255,.05);
-          color: #8e83a2;
-          font: 10px "JetBrains Mono", monospace;
+          padding: 8px 10px;
+          border-radius: 6px;
+          background: #070707;
+          border: 1px solid #242424;
+          color: #3B82F6;
+          font: 11px "JetBrains Mono", monospace;
           overflow-x: auto;
         }
 
         .profile-empty {
           padding: 28px 0 8px;
-          color: #766b87;
+          color: #8A8A8A;
           font-size: 12px;
         }
 
@@ -1051,7 +1096,7 @@ export default async function PublicProfile({
           }
 
           .profile-stats > div:nth-child(-n+2) {
-            border-bottom: 1px solid var(--line);
+            border-bottom: 1px solid #242424;
           }
 
           .repo-grid {
@@ -1073,7 +1118,7 @@ export default async function PublicProfile({
           .profile-avatar {
             width: 72px;
             height: 72px;
-            border-radius: 18px;
+            border-radius: 16px;
             font-size: 24px;
           }
 

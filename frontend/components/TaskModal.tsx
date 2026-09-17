@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { Bot, CheckCircle2, Play, ShieldCheck, MessageSquare, XCircle, ArrowRight, Square } from "lucide-react";
+import { Cpu as Bot, CheckCircle2, Play, ShieldCheck, MessageSquare, XCircle, ArrowRight, Square } from "lucide-react";
 import { Badge } from "@/components/ui";
 import { Task, taskService } from "@/lib/tasks";
 import { Agent, agentService } from "@/lib/agents";
@@ -93,7 +93,7 @@ export function TaskModal({
     return (
       <div className="modal-overlay" style={{
         position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-        backgroundColor: "rgba(0,0,0,0.7)", backdropFilter: "blur(12px)",
+        backgroundColor: "rgba(0,0,0,0.85)",
         zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center"
       }}>
         <div style={{ padding: 40, background: "#0B0B0F", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)", width: 400, textAlign: "center" }}>
@@ -108,7 +108,7 @@ export function TaskModal({
     return (
       <div className="modal-overlay" style={{
         position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-        backgroundColor: "rgba(0,0,0,0.7)", backdropFilter: "blur(12px)",
+        backgroundColor: "rgba(0,0,0,0.85)",
         zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center"
       }}>
         <div style={{ padding: 40, background: "#0B0B0F", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", width: 400, textAlign: "center" }}>
@@ -128,7 +128,7 @@ export function TaskModal({
   return (
     <div className="modal-overlay" style={{
       position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: "rgba(0,0,0,0.7)", backdropFilter: "blur(12px)",
+      backgroundColor: "rgba(0,0,0,0.85)",
       zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center",
       padding: "min(24px, 3vw)",
       boxSizing: "border-box"
@@ -211,7 +211,7 @@ export function TaskModal({
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 16, flex: 1, justifyContent: "center" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                    <div style={{ width: 48, height: 48, borderRadius: 12, background: isCompleted ? "rgba(255,255,255,0.05)" : "var(--cyan-dim)", color: isCompleted ? "var(--muted)" : "var(--cyan)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ width: 48, height: 48, borderRadius: 12, background: isCompleted ? "rgba(255,255,255,0.05)" : "var(--accent-subtle, rgba(249,115,22,0.12))", color: isCompleted ? "var(--muted)" : "var(--accent, #f97316)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <Bot size={24} />
                     </div>
                     <div>

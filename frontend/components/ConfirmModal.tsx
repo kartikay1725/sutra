@@ -72,9 +72,7 @@ export function ConfirmModal({
       style={{
         position: "fixed",
         inset: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.75)",
-        backdropFilter: "blur(10px)",
-        WebkitBackdropFilter: "blur(10px)",
+        backgroundColor: "rgba(0, 0, 0, 0.85)",
         zIndex: 9999,
         display: "flex",
         alignItems: "center",

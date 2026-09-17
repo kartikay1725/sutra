@@ -7,7 +7,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
-  themeColor: "#090C10",
+  themeColor: "#0B0B0B",
 };
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://sutra.sudarshanai.com";
@@ -25,6 +25,7 @@ export const metadata: Metadata = {
   creator: "Sudarshan Harness",
   publisher: "Sudarshan Harness",
   category: "technology",
+  manifest: "/site.webmanifest",
   keywords: [
     "SUTRA",
     "AI-native engineering control plane",
@@ -45,7 +46,7 @@ export const metadata: Metadata = {
       { url: "/icon.png", type: "image/png" },
     ],
     shortcut: "/favicon.ico",
-    apple: "/icon.png",
+    apple: "/apple-touch-icon.png",
   },
   openGraph: {
     title: "SUTRA — AI-Native Engineering Control Plane",
@@ -57,7 +58,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/logos-s.png",
+        url: "https://sutra.sudarshanai.com/og-image.png",
         width: 1200,
         height: 630,
         alt: "SUTRA — AI-Native Engineering Control Plane by Sudarshan Harness",
@@ -69,7 +70,7 @@ export const metadata: Metadata = {
     title: "SUTRA — AI-Native Engineering Control Plane",
     description:
       "SUTRA is an AI-native engineering control plane by Sudarshan Harness for governed autonomous software engineering, repository access, and human review.",
-    images: ["/logo-s.png"],
+    images: ["https://sutra.sudarshanai.com/og-image.png"],
   },
   robots: {
     index: true,

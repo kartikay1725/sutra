@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   AppShell,
   PageHead,
@@ -20,6 +21,7 @@ import {
   MessageCircle,
   Save,
   ExternalLink,
+  UserRound,
 } from "lucide-react";
 import { profileService, type ContributionGraph } from "@/lib/profiles";
 
@@ -128,8 +130,8 @@ export default function ProfilePage() {
           }
         }
       } catch (err: any) {
-        console.error(err);
-        router.replace("/login");
+        // Unauthenticated or session expired — stay on page, do not redirect
+        setUsername("");
         return;
       } finally {
         setLoading(false);
@@ -194,6 +196,98 @@ export default function ProfilePage() {
     );
   }
 
+  if (!username) {
+    return (
+      <AppShell>
+        <div
+          style={{
+            maxWidth: 540,
+            margin: "80px auto",
+            padding: "36px 32px",
+            textAlign: "center",
+            background: "var(--card, #151515)",
+            borderRadius: 12,
+            border: "1px solid var(--border-default, #242424)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+          }}
+        >
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 12,
+              background: "var(--accent-subtle, rgba(249, 115, 22, 0.12))",
+              border: "1px solid rgba(249, 115, 22, 0.25)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 16px",
+              color: "var(--accent, #f97316)",
+            }}
+          >
+            <UserRound size={22} />
+          </div>
+          <h2
+            style={{
+              fontSize: 18,
+              fontWeight: 700,
+              color: "var(--text-bright, #f5f5f5)",
+              margin: "0 0 8px",
+            }}
+          >
+            Sign In to Manage Your Profile
+          </h2>
+          <p
+            style={{
+              fontSize: 13,
+              color: "var(--muted, #8a8a8a)",
+              margin: "0 0 24px",
+              lineHeight: 1.55,
+            }}
+          >
+            You are currently browsing as a guest. Please sign in or join the beta to view, manage, and configure your SUTRA profile settings.
+          </p>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+            <Link
+              href="/login"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                padding: "8px 20px",
+                borderRadius: 8,
+                background: "var(--accent, #f97316)",
+                color: "#0b0b0b",
+                fontWeight: 600,
+                fontSize: 13,
+                textDecoration: "none",
+                boxShadow: "0 2px 10px rgba(249, 115, 22, 0.25)",
+              }}
+            >
+              Sign In
+            </Link>
+            <Link
+              href="/beta"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                padding: "8px 18px",
+                borderRadius: 8,
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid var(--border-default, #242424)",
+                color: "var(--text-bright, #f5f5f5)",
+                fontWeight: 500,
+                fontSize: 13,
+                textDecoration: "none",
+              }}
+            >
+              Join Beta
+            </Link>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell>
       <div
@@ -238,9 +332,9 @@ export default function ProfilePage() {
                     borderRadius: 18,
                     display: "grid",
                     placeItems: "center",
-                    background:
-                      "linear-gradient(135deg,#a855f7,#22d3ee)",
-                    color: "#fff",
+                    background: "var(--surface-2)",
+                    border: "1px solid var(--line-strong)",
+                    color: "var(--accent)",
                     fontSize: 22,
                     fontWeight: 700,
                   }}
@@ -448,7 +542,7 @@ export default function ProfilePage() {
                       gap: 8,
                     }}
                   >
-                    <Github size={16} color="var(--cyan)" />
+                    <Github size={16} style={{ color: "var(--link)" }} />
                     GitHub Contribution Activity
                   </div>
                   <div className="sub" style={{ marginTop: 4 }}>
@@ -461,9 +555,9 @@ export default function ProfilePage() {
                     style={{
                       fontSize: 11,
                       fontWeight: 600,
-                      color: "#22d3ee",
-                      background: "rgba(34, 211, 238, 0.12)",
-                      border: "1px solid rgba(34, 211, 238, 0.25)",
+                      color: "var(--link)",
+                      background: "var(--link-subtle)",
+                      border: "1px solid rgba(59, 130, 246, 0.25)",
                       padding: "3px 10px",
                       borderRadius: 6,
                       display: "inline-flex",

@@ -104,7 +104,7 @@ export default function KnowledgeGraphGlobalPage() {
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                       <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>{repo.name}</div>
-                      <Badge tone="cyan">Graph ready</Badge>
+                      <Badge tone="accent">Graph ready</Badge>
                     </div>
                     <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.5, marginBottom: 16 }}>
                       {repo.description || "No description provided."}
@@ -113,10 +113,10 @@ export default function KnowledgeGraphGlobalPage() {
 
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 12, borderTop: "1px solid var(--line)" }}>
                     <span style={{ fontSize: 12, color: "var(--muted)", display: "flex", alignItems: "center", gap: 5 }}>
-                      <I.Share2 size={13} style={{ color: "var(--cyan)" }} />
+                      <I.Share2 size={13} style={{ color: "var(--accent)" }} />
                       Semantic Entities & Lifecycle
                     </span>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--cyan)", display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", display: "flex", alignItems: "center", gap: 4 }}>
                       Open Graph <I.ArrowRight size={13} />
                     </span>
                   </div>

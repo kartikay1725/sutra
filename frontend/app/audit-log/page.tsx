@@ -109,7 +109,7 @@ export default function AuditLogPage() {
                       {new Date(item.timestamp).toLocaleString()}
                     </td>
                     <td>
-                      <span className={`badge ${item.actor.type === "agent" ? "indigo" : item.actor.type === "system" ? "gray" : "green"}`}>
+                      <span className={`badge ${item.actor.type === "agent" ? "orange" : item.actor.type === "system" ? "gray" : "green"}`}>
                         {item.actor.type === "agent" ? <I.Bot size={11} /> : <I.User size={11} />}
                         {item.actor.name || item.actor.type}
                       </span>

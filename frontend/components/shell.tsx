@@ -72,11 +72,8 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
   useEffect(() => {
     if (!authService.isAuthenticated()) {
       _cachedUser = null;
-      if (isPublic) {
-        setLoading(false);
-      } else {
-        router.push("/login");
-      }
+      setUser(null);
+      setLoading(false);
       return;
     }
     
@@ -88,12 +85,8 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
       })
       .catch(() => {
         _cachedUser = null;
-        authService.logout();
-        if (isPublic) {
-          setLoading(false);
-        } else {
-          router.push("/login");
-        }
+        setUser(null);
+        setLoading(false);
       });
   }, [router, isPublic]);
 
@@ -111,8 +104,8 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
   const handleLogout = async () => {
     setDropdownOpen(false);
     _cachedUser = null;
+    setUser(null);
     await authService.logout();
-    router.push("/login");
   };
 
   useEffect(() => {
@@ -199,9 +192,36 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
             </button>
           </>
         ) : (
-          <Link href="/login" className="profile-mini" style={{ justifyContent: "center", background: "rgba(255,255,255,0.05)", borderRadius: 6, padding: "8px", textDecoration: "none" }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--fg)" }}>Sign in</span>
-          </Link>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%" }}>
+            <Link
+              href="/login"
+              className="profile-mini"
+              style={{
+                justifyContent: "center",
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid var(--border-default, #242424)",
+                borderRadius: 6,
+                padding: "8px",
+                textDecoration: "none",
+              }}
+            >
+              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-bright, #f5f5f5)" }}>Sign in</span>
+            </Link>
+            <Link
+              href="/beta"
+              className="profile-mini"
+              style={{
+                justifyContent: "center",
+                background: "var(--accent-subtle, rgba(249, 115, 22, 0.12))",
+                border: "1px solid rgba(249, 115, 22, 0.25)",
+                borderRadius: 6,
+                padding: "7px 8px",
+                textDecoration: "none",
+              }}
+            >
+              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent, #f97316)" }}>Join Beta</span>
+            </Link>
+          </div>
         )}
       </div>
     </aside>
@@ -358,78 +378,119 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
           </Link>
           <Link href="/notifications" className="iconbtn" title="Notifications"><Bell size={15}/></Link>
 
-          {/* Profile dropdown */}
-          <div ref={dropdownRef} style={{ position: "relative" }}>
-            <button
-              className="iconbtn"
-              title="Account"
-              onClick={() => setDropdownOpen(o => !o)}
-              style={{ display: "flex", alignItems: "center", gap: 4, paddingRight: user ? 6 : undefined }}
-            >
-              <UserRound size={15}/>
-              {user && <ChevronDown size={11} style={{ opacity: 0.5, transition: "transform 200ms", transform: dropdownOpen ? "rotate(180deg)" : "none" }}/>}
-            </button>
+          {/* Profile dropdown or Guest Auth actions */}
+          {user ? (
+            <div ref={dropdownRef} style={{ position: "relative" }}>
+              <button
+                className="iconbtn"
+                title="Account"
+                onClick={() => setDropdownOpen(o => !o)}
+                style={{ display: "flex", alignItems: "center", gap: 4, paddingRight: 6 }}
+              >
+                <UserRound size={15}/>
+                <ChevronDown size={11} style={{ opacity: 0.5, transition: "transform 200ms", transform: dropdownOpen ? "rotate(180deg)" : "none" }}/>
+              </button>
 
-            {dropdownOpen && (
-              <div style={{
-                position: "absolute",
-                top: "calc(100% + 8px)",
-                right: 0,
-                minWidth: 200,
-                background: "var(--card)",
-                border: "1px solid var(--line)",
-                borderRadius: 10,
-                boxShadow: "0 8px 32px rgba(0,0,0,0.45)",
-                overflow: "hidden",
-                zIndex: 9999,
-                animation: "fadeIn 120ms ease",
-              }}>
-                {user && (
+              {dropdownOpen && (
+                <div style={{
+                  position: "absolute",
+                  top: "calc(100% + 8px)",
+                  right: 0,
+                  minWidth: 200,
+                  background: "var(--card, #151515)",
+                  border: "1px solid var(--border-default, #242424)",
+                  borderRadius: 10,
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.45)",
+                  overflow: "hidden",
+                  zIndex: 9999,
+                  animation: "fadeIn 120ms ease",
+                }}>
                   <div style={{
                     padding: "12px 14px 10px",
-                    borderBottom: "1px solid var(--line)",
+                    borderBottom: "1px solid var(--border-default, #242424)",
                   }}>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{user.username}</div>
-                    <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{(user as any).email}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-bright, #f5f5f5)" }}>{user.username}</div>
+                    <div style={{ fontSize: 11, color: "var(--muted, #8a8a8a)", marginTop: 2 }}>{(user as any).email}</div>
                   </div>
-                )}
 
-                <div style={{ padding: "6px 0" }}>
-                  <Link
-                    href="/profile"
-                    onClick={() => setDropdownOpen(false)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 10,
-                      padding: "8px 14px", fontSize: 13, color: "var(--fg)",
-                      textDecoration: "none", transition: "background 120ms",
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
-                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                  >
-                    <UserRound size={14} style={{ opacity: 0.6 }} />
-                    Profile
-                  </Link>
+                  <div style={{ padding: "6px 0" }}>
+                    <Link
+                      href="/profile"
+                      onClick={() => setDropdownOpen(false)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        padding: "8px 14px", fontSize: 13, color: "var(--text-bright, #f5f5f5)",
+                        textDecoration: "none", transition: "background 120ms",
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                    >
+                      <UserRound size={14} style={{ opacity: 0.6 }} />
+                      Profile
+                    </Link>
 
-                  <div style={{ height: 1, background: "var(--line)", margin: "6px 0" }} />
+                    <div style={{ height: 1, background: "var(--border-default, #242424)", margin: "6px 0" }} />
 
-                  <button
-                    onClick={handleLogout}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 10, width: "100%",
-                      padding: "8px 14px", fontSize: 13, color: "#ff8fa0",
-                      background: "none", border: "none", cursor: "pointer",
-                      textAlign: "left", transition: "background 120ms",
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,143,160,0.07)")}
-                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                  >
-                    <LogOut size={14} style={{ opacity: 0.7 }} />
-                    Sign out
-                  </button>
+                    <button
+                      onClick={handleLogout}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10, width: "100%",
+                        padding: "8px 14px", fontSize: 13, color: "#ef4444",
+                        background: "none", border: "none", cursor: "pointer",
+                        textAlign: "left", transition: "background 120ms",
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = "rgba(239,68,68,0.08)")}
+                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                    >
+                      <LogOut size={14} style={{ opacity: 0.8 }} />
+                      Sign out
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Link
+                href="/login"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "5px 12px",
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "var(--text-bright, #f5f5f5)",
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid var(--border-default, #242424)",
+                  textDecoration: "none",
+                  transition: "all 120ms ease",
+                }}
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/beta"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "5px 12px",
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "#0b0b0b",
+                  background: "var(--accent, #f97316)",
+                  border: "none",
+                  textDecoration: "none",
+                  transition: "all 120ms ease",
+                }}
+              >
+                Join Beta
+              </Link>
+            </div>
+          )}
         </div>
       </header>
       <div className={`content ${isCodePage ? "content-fullbleed" : ""}`} style={{ flex: 1 }}>{loading ? <ContentSkeleton /> : children}</div>

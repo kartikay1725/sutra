@@ -51,20 +51,7 @@ export default function ActivityPage() {
   const getActorBadge = (actor: ActivityEntry["actor"]) => {
     if (actor.type === "agent") {
       return (
-        <span
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
-            padding: "2px 8px",
-            borderRadius: 6,
-            fontSize: 11,
-            fontWeight: 600,
-            background: "rgba(139, 92, 246, 0.15)",
-            color: "#a78bfa",
-            border: "1px solid rgba(139, 92, 246, 0.3)",
-          }}
-        >
+        <span className="badge orange" style={{ fontSize: 11, padding: "2px 8px" }}>
           <I.Bot size={12} />
           {actor.name || "Agent"}
         </span>

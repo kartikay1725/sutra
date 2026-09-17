@@ -106,7 +106,7 @@ export default function Tasks() {
         <Card>
           <div className="stat">
             <div className="statlabel">Active Work</div>
-            <div className="num" style={{ color: "var(--blue-hover)" }}>{activeCount}</div>
+            <div className="num" style={{ color: "var(--accent)" }}>{activeCount}</div>
           </div>
         </Card>
         <Card>
@@ -226,7 +226,7 @@ export default function Tasks() {
                         {task.title}
                       </Link>
                       {task.source === "agent" ? (
-                        <span className="badge indigo" style={{ fontSize: "10px", padding: "1px 6px", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                        <span className="badge orange" style={{ fontSize: "10px", padding: "1px 6px", display: "inline-flex", alignItems: "center", gap: 3 }}>
                           <Sparkles size={10} /> Agent-created
                         </span>
                       ) : (
@@ -237,7 +237,7 @@ export default function Tasks() {
                     </div>
                     {task.execution_summary ? (
                       <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: "4px", maxWidth: "520px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.4 }}>
-                        <span style={{ color: "var(--cyan)", fontWeight: 500 }}>Summary:</span> {task.execution_summary}
+                        <span style={{ color: "var(--accent, #f97316)", fontWeight: 500 }}>Summary:</span> {task.execution_summary}
                       </div>
                     ) : task.description ? (
                       <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px", maxWidth: "440px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -252,7 +252,7 @@ export default function Tasks() {
                   </td>
                   <td>
                     {task.assigned_agent_id ? (
-                      <span className="badge indigo">
+                      <span className="badge orange">
                         <Bot size={11} /> Agent
                       </span>
                     ) : task.assignee_id ? (

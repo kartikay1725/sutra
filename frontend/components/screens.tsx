@@ -2817,9 +2817,7 @@ export function Issues() {
             inset: 0,
             zIndex: 200,
             background:
-              "rgba(0,0,0,.65)",
-            backdropFilter:
-              "blur(7px)",
+              "rgba(0,0,0,.85)",
             display: "grid",
             placeItems: "center",
             padding: 20,
@@ -2971,9 +2969,7 @@ export function Issues() {
             inset: 0,
             zIndex: 200,
             background:
-              "rgba(0,0,0,.65)",
-            backdropFilter:
-              "blur(7px)",
+              "rgba(0,0,0,.85)",
             display: "grid",
             placeItems: "center",
             padding: 20,
@@ -4972,8 +4968,7 @@ export function RepoSettings() {
             position: "fixed",
             inset: 0,
             background:
-              "rgba(0,0,0,.62)",
-            backdropFilter: "blur(8px)",
+              "rgba(0,0,0,.85)",
             display: "grid",
             placeItems: "center",
             padding: 20,

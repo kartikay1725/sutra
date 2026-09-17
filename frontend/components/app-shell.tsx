@@ -40,18 +40,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (pathname === '/login' || pathname === '/signup') return;
     
     if (!authService.isAuthenticated()) {
-      router.push('/login');
+      setUser(null);
       return;
     }
 
     authService.getCurrentUser()
       .then(u => setUser(u))
-      .catch(() => router.push('/login'));
+      .catch(() => setUser(null));
   }, [pathname, router]);
 
   const handleLogout = async () => {
+    setUser(null);
     await authService.logout();
-    router.push('/login');
   };
 
   useEffect(() => {

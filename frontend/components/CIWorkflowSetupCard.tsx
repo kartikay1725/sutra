@@ -160,12 +160,11 @@ export function CIWorkflowSetupCard({
     <div
       className={`ci-workflow-setup-card ${className}`}
       style={{
-        borderRadius: 16,
-        border: '1px solid rgba(56, 189, 248, 0.25)',
-        background: 'linear-gradient(180deg, rgba(14, 25, 44, 0.8) 0%, rgba(10, 15, 26, 0.95) 100%)',
+        borderRadius: 12,
+        border: '1px solid var(--border-default, #242424)',
+        background: 'var(--card, #151515)',
         padding: '24px',
-        boxShadow: '0 8px 32px -4px rgba(0, 0, 0, 0.5)',
-        backdropFilter: 'blur(8px)',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
         display: 'flex',
         flexDirection: 'column',
         gap: 20,
@@ -185,19 +184,19 @@ export function CIWorkflowSetupCard({
         <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', flex: 1, minWidth: 280 }}>
           <div
             style={{
-              width: 44,
-              height: 44,
-              borderRadius: 12,
-              background: 'rgba(6, 182, 212, 0.12)',
-              border: '1px solid rgba(6, 182, 212, 0.3)',
+              width: 42,
+              height: 42,
+              borderRadius: 10,
+              background: 'var(--accent-subtle, rgba(249, 115, 22, 0.12))',
+              border: '1px solid rgba(249, 115, 22, 0.25)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#22d3ee',
+              color: 'var(--accent, #F97316)',
               flexShrink: 0,
             }}
           >
-            <LucideIcons.Workflow size={22} />
+            <LucideIcons.Workflow size={20} />
           </div>
 
           <div>
@@ -205,9 +204,9 @@ export function CIWorkflowSetupCard({
               <h3
                 style={{
                   margin: 0,
-                  fontSize: 17,
+                  fontSize: 16,
                   fontWeight: 700,
-                  color: '#f8fafc',
+                  color: 'var(--text-bright, #F5F5F5)',
                   letterSpacing: '-0.01em',
                 }}
               >
@@ -217,11 +216,11 @@ export function CIWorkflowSetupCard({
                 style={{
                   fontSize: 11,
                   fontWeight: 600,
-                  padding: '3px 9px',
+                  padding: '2px 8px',
                   borderRadius: 999,
-                  background: 'rgba(16, 185, 129, 0.15)',
-                  color: '#34d399',
-                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  background: 'rgba(16, 185, 129, 0.12)',
+                  color: '#10b981',
+                  border: '1px solid rgba(16, 185, 129, 0.25)',
                   letterSpacing: '0.02em',
                 }}
               >
@@ -231,11 +230,11 @@ export function CIWorkflowSetupCard({
                 style={{
                   fontSize: 11,
                   fontWeight: 600,
-                  padding: '3px 9px',
+                  padding: '2px 8px',
                   borderRadius: 999,
-                  background: 'rgba(56, 189, 248, 0.12)',
-                  color: '#38bdf8',
-                  border: '1px solid rgba(56, 189, 248, 0.25)',
+                  background: 'var(--link-subtle, rgba(59, 130, 246, 0.12))',
+                  color: 'var(--link, #3B82F6)',
+                  border: '1px solid rgba(59, 130, 246, 0.25)',
                 }}
               >
                 GitHub Cloud Runners
@@ -246,12 +245,12 @@ export function CIWorkflowSetupCard({
               style={{
                 margin: '6px 0 0 0',
                 fontSize: 13,
-                color: '#94a3b8',
+                color: 'var(--muted, #8A8A8A)',
                 lineHeight: 1.55,
                 maxWidth: 680,
               }}
             >
-              Automated checks execute safely on GitHub Actions runners. If no CI workflow file exists in your codebase, SUTRA indicates that checks cannot be run, and <strong style={{ color: '#f1f5f9' }}>never blocks Pull Requests from being merged</strong>.
+              Automated checks execute safely on GitHub Actions runners. If no CI workflow file exists in your codebase, SUTRA indicates that checks cannot be run, and <strong style={{ color: 'var(--text-bright, #F5F5F5)' }}>never blocks Pull Requests from being merged</strong>.
             </p>
           </div>
         </div>
@@ -267,18 +266,18 @@ export function CIWorkflowSetupCard({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 6,
-                padding: '8px 14px',
-                borderRadius: 8,
-                fontSize: 13,
+                padding: '7px 13px',
+                borderRadius: 7,
+                fontSize: 12,
                 fontWeight: 500,
-                color: '#e2e8f0',
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
+                color: 'var(--text-bright, #F5F5F5)',
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid var(--border-default, #242424)',
                 textDecoration: 'none',
                 transition: 'all 0.15s ease',
               }}
             >
-              <LucideIcons.ExternalLink size={14} />
+              <LucideIcons.ExternalLink size={13} style={{ color: 'var(--link, #3B82F6)' }} />
               Open GitHub Actions
             </a>
           )}
@@ -290,21 +289,21 @@ export function CIWorkflowSetupCard({
               display: 'inline-flex',
               alignItems: 'center',
               gap: 6,
-              padding: '8px 14px',
-              borderRadius: 8,
-              fontSize: 13,
+              padding: '7px 13px',
+              borderRadius: 7,
+              fontSize: 12,
               fontWeight: 600,
-              color: '#38bdf8',
-              background: 'rgba(56, 189, 248, 0.1)',
-              border: '1px solid rgba(56, 189, 248, 0.3)',
+              color: 'var(--text-bright, #F5F5F5)',
+              background: 'var(--surface-2, #181818)',
+              border: '1px solid var(--border-default, #2A2A2A)',
               cursor: 'pointer',
               transition: 'all 0.15s ease',
             }}
           >
-            <LucideIcons.Code2 size={14} />
+            <LucideIcons.Code2 size={13} style={{ color: 'var(--accent, #F97316)' }} />
             {expanded ? 'Hide ci.yml Template' : 'View ci.yml Template'}
             <LucideIcons.ChevronDown
-              size={14}
+              size={13}
               style={{
                 transform: expanded ? 'rotate(180deg)' : 'none',
                 transition: 'transform 0.2s ease',
@@ -325,51 +324,51 @@ export function CIWorkflowSetupCard({
       >
         <div
           style={{
-            background: 'rgba(15, 23, 42, 0.6)',
-            border: '1px solid rgba(255, 255, 255, 0.06)',
-            borderRadius: 12,
+            background: 'var(--surface-2, #141414)',
+            border: '1px solid var(--border-default, #242424)',
+            borderRadius: 10,
             padding: '14px 16px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#34d399', fontSize: 13, fontWeight: 600 }}>
-            <LucideIcons.CheckCircle2 size={16} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#10b981', fontSize: 13, fontWeight: 600 }}>
+            <LucideIcons.CheckCircle2 size={15} />
             Zero-Blocker Governance
           </div>
-          <div style={{ marginTop: 4, fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
-            Repositories without a <code style={{ color: '#e2e8f0', background: 'rgba(255,255,255,0.08)', padding: '1px 4px', borderRadius: 4 }}>ci.yml</code> file automatically waive automated CI checks; PR merges are never blocked.
+          <div style={{ marginTop: 4, fontSize: 12, color: 'var(--muted, #8A8A8A)', lineHeight: 1.5 }}>
+            Repositories without a <code style={{ color: 'var(--text-bright, #F5F5F5)', background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 4 }}>ci.yml</code> file automatically waive automated CI checks; PR merges are never blocked.
           </div>
         </div>
 
         <div
           style={{
-            background: 'rgba(15, 23, 42, 0.6)',
-            border: '1px solid rgba(255, 255, 255, 0.06)',
-            borderRadius: 12,
+            background: 'var(--surface-2, #141414)',
+            border: '1px solid var(--border-default, #242424)',
+            borderRadius: 10,
             padding: '14px 16px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#38bdf8', fontSize: 13, fontWeight: 600 }}>
-            <LucideIcons.ShieldCheck size={16} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--link, #3B82F6)', fontSize: 13, fontWeight: 600 }}>
+            <LucideIcons.ShieldCheck size={15} />
             Isolated Cloud Runners
           </div>
-          <div style={{ marginTop: 4, fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
+          <div style={{ marginTop: 4, fontSize: 12, color: 'var(--muted, #8A8A8A)', lineHeight: 1.5 }}>
             CI runs directly in GitHub Actions environments, eliminating untrusted host container execution or docker dependency issues.
           </div>
         </div>
 
         <div
           style={{
-            background: 'rgba(15, 23, 42, 0.6)',
-            border: '1px solid rgba(255, 255, 255, 0.06)',
-            borderRadius: 12,
+            background: 'var(--surface-2, #141414)',
+            border: '1px solid var(--border-default, #242424)',
+            borderRadius: 10,
             padding: '14px 16px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#c084fc', fontSize: 13, fontWeight: 600 }}>
-            <LucideIcons.GitPullRequest size={16} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--accent, #F97316)', fontSize: 13, fontWeight: 600 }}>
+            <LucideIcons.GitPullRequest size={15} />
             Real-Time SUTRA Sync
           </div>
-          <div style={{ marginTop: 4, fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
+          <div style={{ marginTop: 4, fontSize: 12, color: 'var(--muted, #8A8A8A)', lineHeight: 1.5 }}>
             When a PR is opened, GitHub Actions dispatches checks and SUTRA syncs conclusions, failure reasons, and direct links instantly.
           </div>
         </div>
@@ -383,7 +382,7 @@ export function CIWorkflowSetupCard({
             display: 'flex',
             flexDirection: 'column',
             gap: 12,
-            borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+            borderTop: '1px solid var(--border-default, #242424)',
             paddingTop: 16,
           }}
         >
@@ -401,10 +400,10 @@ export function CIWorkflowSetupCard({
             <div
               style={{
                 display: 'inline-flex',
-                background: 'rgba(15, 23, 42, 0.8)',
+                background: 'var(--surface-2, #141414)',
                 padding: 3,
                 borderRadius: 8,
-                border: '1px solid rgba(255, 255, 255, 0.08)',
+                border: '1px solid var(--border-default, #242424)',
                 gap: 4,
               }}
             >
@@ -420,12 +419,12 @@ export function CIWorkflowSetupCard({
                       display: 'flex',
                       alignItems: 'center',
                       gap: 6,
-                      padding: '6px 12px',
+                      padding: '5px 11px',
                       borderRadius: 6,
                       fontSize: 12,
                       fontWeight: isActive ? 600 : 500,
-                      color: isActive ? '#f8fafc' : '#94a3b8',
-                      background: isActive ? 'rgba(56, 189, 248, 0.2)' : 'transparent',
+                      color: isActive ? 'var(--accent, #F97316)' : 'var(--muted, #8A8A8A)',
+                      background: isActive ? 'var(--accent-subtle, rgba(249, 115, 22, 0.12))' : 'transparent',
                       border: 'none',
                       cursor: 'pointer',
                       transition: 'all 0.15s ease',
@@ -451,8 +450,8 @@ export function CIWorkflowSetupCard({
                   padding: '6px 10px',
                   borderRadius: 6,
                   background: 'rgba(255, 255, 255, 0.04)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  color: '#94a3b8',
+                  border: '1px solid var(--border-default, #242424)',
+                  color: 'var(--muted, #8A8A8A)',
                   fontSize: 11,
                   fontFamily: 'monospace',
                   cursor: 'pointer',
@@ -461,7 +460,7 @@ export function CIWorkflowSetupCard({
                 <LucideIcons.FolderPlus size={12} />
                 {template.filename}
                 {copiedPath ? (
-                  <span style={{ color: '#34d399', fontSize: 10, fontWeight: 600 }}>Copied!</span>
+                  <span style={{ color: '#10b981', fontSize: 10, fontWeight: 600 }}>Copied!</span>
                 ) : (
                   <LucideIcons.Copy size={11} />
                 )}
@@ -474,15 +473,15 @@ export function CIWorkflowSetupCard({
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 6,
-                  padding: '7px 14px',
-                  borderRadius: 8,
+                  padding: '6px 14px',
+                  borderRadius: 7,
                   fontSize: 12,
                   fontWeight: 600,
-                  color: copied ? '#059669' : '#0f172a',
-                  background: copied ? '#a7f3d0' : '#38bdf8',
+                  color: copied ? '#ffffff' : '#0B0B0B',
+                  background: copied ? '#10b981' : 'var(--accent, #F97316)',
                   border: 'none',
                   cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(56, 189, 248, 0.25)',
+                  boxShadow: '0 2px 10px rgba(249, 115, 22, 0.25)',
                   transition: 'all 0.15s ease',
                 }}
               >
@@ -496,9 +495,9 @@ export function CIWorkflowSetupCard({
           <div
             style={{
               position: 'relative',
-              borderRadius: 10,
-              background: '#070b12',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: 8,
+              background: '#070707',
+              border: '1px solid var(--border-default, #242424)',
               overflow: 'hidden',
             }}
           >
@@ -508,10 +507,10 @@ export function CIWorkflowSetupCard({
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: '8px 14px',
-                background: 'rgba(255, 255, 255, 0.03)',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                background: 'rgba(255, 255, 255, 0.02)',
+                borderBottom: '1px solid var(--border-default, #202020)',
                 fontSize: 11,
-                color: '#64748b',
+                color: 'var(--muted, #8A8A8A)',
                 fontFamily: 'monospace',
               }}
             >

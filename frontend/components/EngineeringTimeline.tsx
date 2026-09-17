@@ -651,7 +651,10 @@ export function EngineeringTimeline({
                     <div style={{ fontSize: 12, color: "var(--muted, #94a3b8)", marginTop: 4 }}>
                       Approvals: {data.approval.current_approvals} / {data.approval.required_approvals} required
                       {data.approval.head_changed_after_approval && (
-                        <span style={{ color: "#f59e0b", marginLeft: 6 }}>⚠️ PR HEAD changed since review</span>
+                        <span style={{ color: "#f59e0b", marginLeft: 6, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          <AlertTriangle size={13} style={{ display: "inline-block" }} />
+                          PR HEAD changed since review
+                        </span>
                       )}
                     </div>
                   )}

@@ -1055,7 +1055,7 @@ export function RepoSettings() {
                 description="All pull requests must be explicitly linked to a tracked SUTRA Task. Blocks unlinked agent PRs and rogue commits."
                 checked={Boolean(policies.require_task_linkage)}
                 onChange={(checked) => setPolicies((p) => ({ ...p, require_task_linkage: checked }))}
-                badgeTone="aqua"
+                badgeTone="orange"
                 badgeLabel="Agent & Human PR Gate"
               />
 
@@ -1608,8 +1608,7 @@ export function RepoSettings() {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0, 0, 0, 0.7)",
-            backdropFilter: "blur(6px)",
+            background: "rgba(0, 0, 0, 0.85)",
             display: "grid",
             placeItems: "center",
             zIndex: 1000,
@@ -1781,8 +1780,7 @@ export function RepoSettings() {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0, 0, 0, 0.75)",
-            backdropFilter: "blur(8px)",
+            background: "rgba(0, 0, 0, 0.85)",
             display: "grid",
             placeItems: "center",
             zIndex: 1000,
@@ -1994,10 +1992,11 @@ function PolicyToggleItem({
   description: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
-  badgeTone?: "aqua" | "violet" | "green" | "amber" | "red";
+  badgeTone?: "aqua" | "violet" | "green" | "amber" | "red" | "orange";
   badgeLabel?: string;
 }) {
   const toneColors: Record<string, { bg: string; text: string; border: string }> = {
+    orange: { bg: "rgba(249, 115, 22, 0.12)", text: "var(--accent, #f97316)", border: "rgba(249, 115, 22, 0.3)" },
     aqua: { bg: "rgba(92, 200, 232, 0.12)", text: "var(--cyan)", border: "rgba(92, 200, 232, 0.25)" },
     violet: { bg: "rgba(167, 139, 250, 0.12)", text: "var(--violet)", border: "rgba(167, 139, 250, 0.25)" },
     green: { bg: "rgba(34, 197, 94, 0.12)", text: "var(--green)", border: "rgba(34, 197, 94, 0.25)" },

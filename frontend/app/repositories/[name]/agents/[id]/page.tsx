@@ -1437,9 +1437,7 @@ export default function AgentDetailPage({
             position: "fixed",
             inset: 0,
             background:
-              "rgba(0,0,0,.6)",
-            backdropFilter:
-              "blur(4px)",
+              "rgba(0,0,0,.85)",
             zIndex: 200,
             display: "flex",
             alignItems: "center",

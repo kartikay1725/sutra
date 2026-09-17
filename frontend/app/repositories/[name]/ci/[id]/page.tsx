@@ -601,9 +601,9 @@ export default function CIDetailPage({
                     borderRadius: 6,
                     fontSize: 13,
                     fontWeight: 600,
-                    background: "rgba(56, 189, 248, 0.12)",
-                    border: "1px solid rgba(56, 189, 248, 0.3)",
-                    color: "#38bdf8",
+                    background: "var(--link-subtle, rgba(59, 130, 246, 0.12))",
+                    border: "1px solid rgba(59, 130, 246, 0.25)",
+                    color: "var(--link, #3B82F6)",
                   }}
                 >
                   <I.ExternalLink size={13} />
@@ -808,7 +808,9 @@ export default function CIDetailPage({
                     style={{
                       padding: "48px 24px",
                       textAlign: "center",
-                      background: "rgba(56, 189, 248, 0.03)",
+                      background: "var(--surface-2, #141414)",
+                      border: "1px solid var(--border-default, #242424)",
+                      borderRadius: 12,
                       display: "flex",
                       flexDirection: "column",
                       alignItems: "center",
@@ -820,12 +822,12 @@ export default function CIDetailPage({
                         width: 52,
                         height: 52,
                         borderRadius: 14,
-                        background: "rgba(56, 189, 248, 0.12)",
-                        border: "1px solid rgba(56, 189, 248, 0.3)",
+                        background: "var(--accent-subtle, rgba(249, 115, 22, 0.12))",
+                        border: "1px solid rgba(249, 115, 22, 0.25)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        color: "#38bdf8",
+                        color: "var(--accent, #F97316)",
                       }}
                     >
                       <I.Workflow size={26} />
@@ -836,7 +838,7 @@ export default function CIDetailPage({
                         style={{
                           fontSize: 18,
                           fontWeight: 700,
-                          color: "#f8fafc",
+                          color: "var(--text-bright, #F5F5F5)",
                           letterSpacing: "-0.01em",
                         }}
                       >
@@ -867,10 +869,10 @@ export default function CIDetailPage({
                         borderRadius: 8,
                         fontSize: 13,
                         fontWeight: 600,
-                        background: "#38bdf8",
-                        color: "#0f172a",
+                        background: "var(--link, #3B82F6)",
+                        color: "#ffffff",
                         textDecoration: "none",
-                        boxShadow: "0 2px 10px rgba(56, 189, 248, 0.3)",
+                        boxShadow: "0 2px 10px rgba(59, 130, 246, 0.25)",
                       }}
                     >
                       <I.ExternalLink size={15} />

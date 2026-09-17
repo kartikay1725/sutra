@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, Suspense } from "react";
+import { useEffect, useMemo, useState, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
@@ -19,7 +19,9 @@ import {
   GitPullRequest,
 } from "lucide-react";
 import { AppShell, PageHead, Card, Badge, Btn, Stat } from "@/components/shell";
+import { SkeletonChangeList } from "@/components/skeleton";
 import { changeService, type Change } from "@/lib/changes";
+import { sutraCache } from "@/lib/cache";
 
 function relativeTime(value: string | null | undefined): string {
   if (!value) return "—";
@@ -51,21 +53,29 @@ function GlobalChangesContent() {
   const [status, setStatus] = useState<string>(initialStatus);
   const [riskLevel, setRiskLevel] = useState<string>("all");
   const [search, setSearch] = useState<string>("");
+  const initialMount = useRef(true);
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (forceRefresh = false) => {
+    setLoading(changes.length === 0 || forceRefresh);
     setError(null);
     try {
-      const rows = await changeService.getAllChanges({
-        actor_type: actorType,
-        status: status,
-        risk_level: riskLevel,
-        search: search,
-      });
-      rows.sort(
-        (a, b) =>
-          new Date(b.updated_at || b.created_at || 0).getTime() -
-          new Date(a.updated_at || a.created_at || 0).getTime()
+      const cacheKey = `changes:${actorType}:${status}:${riskLevel}:${search}`;
+      const rows = await sutraCache.getOrFetch<Change[]>(
+        cacheKey,
+        async () => {
+          const res = await changeService.getAllChanges({
+            actor_type: actorType,
+            status: status,
+            risk_level: riskLevel,
+            search: search,
+          });
+          return res.sort(
+            (a, b) =>
+              new Date(b.updated_at || b.created_at || 0).getTime() -
+              new Date(a.updated_at || a.created_at || 0).getTime()
+          );
+        },
+        { staleMs: 15000, ttlMs: 60000, forceRefresh }
       );
       setChanges(rows);
     } catch (err: any) {
@@ -80,8 +90,12 @@ function GlobalChangesContent() {
     void load();
   }, [actorType, status, riskLevel]);
 
-  // Handle live search debounce
+  // Handle live search debounce (skip duplicate initial mount trigger)
   useEffect(() => {
+    if (initialMount.current) {
+      initialMount.current = false;
+      return;
+    }
     const handler = setTimeout(() => {
       void load();
     }, 300);
@@ -114,7 +128,7 @@ function GlobalChangesContent() {
         sub="Authoritative register of all code changes declared and executed by autonomous agents and developers across all repositories."
         action={
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Btn onClick={() => void load()} disabled={loading}>
+            <Btn onClick={() => void load(true)} disabled={loading}>
               <RefreshCw size={13} className={loading ? "spin" : ""} /> Refresh
             </Btn>
           </div>
@@ -216,13 +230,13 @@ function GlobalChangesContent() {
                     borderRadius: 6,
                     border:
                       actorType === pill.id
-                        ? "1px solid rgba(34,211,238,0.4)"
-                        : "1px solid var(--line)",
+                        ? "1px solid var(--accent-border)"
+                        : "1px solid var(--border-default)",
                     background:
                       actorType === pill.id
-                        ? "rgba(34,211,238,0.12)"
+                        ? "var(--accent-subtle)"
                         : "transparent",
-                    color: actorType === pill.id ? "var(--cyan)" : "var(--muted)",
+                    color: actorType === pill.id ? "var(--accent)" : "var(--text-muted)",
                     fontWeight: actorType === pill.id ? 600 : 500,
                   }}
                 >
@@ -249,20 +263,20 @@ function GlobalChangesContent() {
                   type="button"
                   key={pill.id}
                   onClick={() => setStatus(pill.id)}
-                  className={`badge ${status === pill.id ? "violet" : ""}`}
+                  className={`badge ${status === pill.id ? "orange" : ""}`}
                   style={{
                     cursor: "pointer",
                     padding: "4px 10px",
                     borderRadius: 6,
                     border:
                       status === pill.id
-                        ? "1px solid rgba(167,139,250,0.4)"
-                        : "1px solid var(--line)",
+                        ? "1px solid var(--accent-border)"
+                        : "1px solid var(--border-default)",
                     background:
                       status === pill.id
-                        ? "rgba(167,139,250,0.12)"
+                        ? "var(--accent-subtle)"
                         : "transparent",
-                    color: status === pill.id ? "#c084fc" : "var(--muted)",
+                    color: status === pill.id ? "var(--accent)" : "var(--text-muted)",
                     fontWeight: status === pill.id ? 600 : 500,
                     textTransform: "capitalize",
                   }}
@@ -295,13 +309,13 @@ function GlobalChangesContent() {
                     borderRadius: 6,
                     border:
                       riskLevel === pill.id
-                        ? "1px solid rgba(245,158,11,0.4)"
-                        : "1px solid var(--line)",
+                        ? "1px solid rgba(245,158,11,0.3)"
+                        : "1px solid var(--border-default)",
                     background:
                       riskLevel === pill.id
-                        ? "rgba(245,158,11,0.12)"
+                        ? "rgba(245,158,11,0.10)"
                         : "transparent",
-                    color: riskLevel === pill.id ? "#fbbf24" : "var(--muted)",
+                    color: riskLevel === pill.id ? "var(--warning)" : "var(--text-muted)",
                     fontWeight: riskLevel === pill.id ? 600 : 500,
                   }}
                 >
@@ -323,15 +337,7 @@ function GlobalChangesContent() {
       )}
 
       {loading ? (
-        <Card>
-          <div
-            className="card-pad"
-            style={{ textAlign: "center", padding: "48px 20px" }}
-          >
-            <RefreshCw size={24} className="spin muted" style={{ marginBottom: 12 }} />
-            <div className="sub">Loading global changes register…</div>
-          </div>
-        </Card>
+        <SkeletonChangeList count={6} />
       ) : changes.length === 0 ? (
         <Card>
           <div
@@ -362,7 +368,7 @@ function GlobalChangesContent() {
               : `/changes/${encodeURIComponent(change.id)}`;
 
             return (
-              <Card key={change.id} style={{ transition: "border-color 0.2s" }}>
+              <Card key={change.id} style={{ transition: "border-color var(--motion-fast) var(--ease-subtle)" }}>
                 <div
                   style={{
                     padding: "16px 20px",
@@ -391,7 +397,7 @@ function GlobalChangesContent() {
                           style={{
                             fontSize: 12,
                             fontWeight: 600,
-                            color: "var(--cyan)",
+                            color: "var(--link)",
                             textDecoration: "none",
                           }}
                         >
@@ -414,7 +420,7 @@ function GlobalChangesContent() {
                       {/* Actor Badge */}
                       {isAgent ? (
                         <span
-                          className="badge aqua"
+                          className="badge orange"
                           style={{
                             fontSize: 11,
                             padding: "2px 8px",

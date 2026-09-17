@@ -42,11 +42,11 @@ export const Group8Reference: DocSection[] = [
           <h3 className="text-lg font-bold mb-4">Terminology</h3>
           <div className="flex flex-col gap-4">
             <div>
-              <h4 className="font-bold text-[var(--cyan)]">Actor vs User</h4>
+              <h4 className="font-bold text-[var(--accent)]">Actor vs User</h4>
               <p className="text-sm opacity-80 mt-1">A User is a human database identity. An Actor is the runtime security context that SUTRA uses to authorize API calls. Agents have Actors but are not Users.</p>
             </div>
             <div>
-              <h4 className="font-bold text-[var(--cyan)]">Commit vs Change</h4>
+              <h4 className="font-bold text-[var(--accent)]">Commit vs Change</h4>
               <p className="text-sm opacity-80 mt-1">A Commit is raw Git data. A Change is a SUTRA entity that links commits to PRs, Reviews, and CI Jobs.</p>
             </div>
           </div>

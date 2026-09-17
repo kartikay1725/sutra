@@ -11,7 +11,7 @@ export const Group5AgentContract: DocSection[] = [
         <section>
           <h2 className="text-xl font-bold mb-4">SUTRA Agent Contract</h2>
           <p className="mb-4">This section is intentionally concise and machine-readable for AI agents. It describes the guaranteed workflows within SUTRA.</p>
-          <pre className="bg-[#050c12] text-[#8fb1bd] border border-[var(--line)] p-6 rounded-lg overflow-x-auto text-xs font-mono leading-loose">
+          <pre className="bg-[#111111] text-[#A3A3A3] border border-[var(--line)] p-6 rounded-lg overflow-x-auto text-xs font-mono leading-loose">
 {`sutra_agent_contract:
   identity:
     type: "agent"

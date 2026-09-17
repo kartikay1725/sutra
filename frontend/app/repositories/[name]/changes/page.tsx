@@ -159,7 +159,7 @@ export default function ChangesListPage({ params }: { params: Promise<{ name: st
                       <div style={{ display: "flex", alignItems: "center", gap: 16, fontSize: 11, color: "var(--muted)", flexWrap: "wrap" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                           {change.actor_type === "agent" ? (
-                            <span className="badge indigo">
+                            <span className="badge orange">
                               <I.Bot size={10} /> {change.actor_name || "Agent"}
                             </span>
                           ) : (

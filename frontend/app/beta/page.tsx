@@ -278,8 +278,7 @@ export default function BetaExplainerPage() {
       <header
         style={{
           borderBottom: "1px solid #1E2633",
-          background: "rgba(9, 12, 16, 0.85)",
-          backdropFilter: "blur(14px)",
+          background: "#090C10",
           position: "sticky",
           top: 0,
           zIndex: 40,

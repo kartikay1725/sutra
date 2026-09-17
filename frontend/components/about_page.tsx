@@ -36,7 +36,7 @@ export function AboutPage() {
   };
 
   return (
-    <div style={{ background: "#090C10", minHeight: "100vh", color: "#F2F5F8", overflowX: "hidden", position: "relative" }}>
+    <div style={{ background: "#0B0B0B", minHeight: "100vh", color: "#F5F5F5", overflowX: "hidden", position: "relative" }}>
       {/* JSON-LD Structured Data */}
       <script
         type="application/ld+json"
@@ -49,9 +49,8 @@ export function AboutPage() {
           position: "sticky",
           top: 0,
           zIndex: 50,
-          background: "rgba(16, 21, 28, 0.88)",
-          backdropFilter: "blur(20px)",
-          borderBottom: "1px solid #212836",
+          background: "#151515",
+          borderBottom: "1px solid #242424",
         }}
       >
         <div
@@ -76,7 +75,7 @@ export function AboutPage() {
                 alignItems: "center",
                 justifyContent: "center",
                 background: "#000",
-                border: "1px solid #212836",
+                border: "1px solid #242424",
               }}
             >
               <img
@@ -85,16 +84,16 @@ export function AboutPage() {
                 style={{ height: "100%", width: "100%", objectFit: "contain" }}
               />
             </div>
-            <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: "0.04em", color: "#F2F5F8" }}>
+            <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: "0.04em", color: "#F5F5F5" }}>
               SUTRA
             </span>
             <span
               style={{
                 fontSize: 10,
                 fontWeight: 700,
-                background: "rgba(59, 130, 246, 0.12)",
-                border: "1px solid rgba(59, 130, 246, 0.28)",
-                color: "#60A5FA",
+                background: "rgba(249, 115, 22, 0.12)",
+                border: "1px solid rgba(249, 115, 22, 0.28)",
+                color: "#F97316",
                 padding: "2px 7px",
                 borderRadius: 999,
                 letterSpacing: "0.06em",
@@ -114,20 +113,20 @@ export function AboutPage() {
             }}
             className="desktop-nav"
           >
-            <Link href="/#product" style={{ fontSize: 14, color: "#A8B1BD", textDecoration: "none" }}>
+            <Link href="/#product" style={{ fontSize: 14, color: "#A3A3A3", textDecoration: "none" }}>
               Product
             </Link>
-            <Link href="/#how-it-works" style={{ fontSize: 14, color: "#A8B1BD", textDecoration: "none" }}>
+            <Link href="/#how-it-works" style={{ fontSize: 14, color: "#A3A3A3", textDecoration: "none" }}>
               How It Works
             </Link>
-            <Link href="/about" style={{ fontSize: 14, color: "#F2F5F8", fontWeight: 600, textDecoration: "none" }}>
+            <Link href="/about" style={{ fontSize: 14, color: "#F5F5F5", fontWeight: 600, textDecoration: "none" }}>
               About
             </Link>
             <Link
               href="/docs"
               style={{
                 fontSize: 13,
-                color: "#60A5FA",
+                color: "#F97316",
                 textDecoration: "none",
                 fontWeight: 600,
                 display: "inline-flex",
@@ -135,8 +134,8 @@ export function AboutPage() {
                 gap: 5,
                 padding: "4px 10px",
                 borderRadius: 6,
-                background: "rgba(59, 130, 246, 0.08)",
-                border: "1px solid rgba(59, 130, 246, 0.2)",
+                background: "rgba(249, 115, 22, 0.08)",
+                border: "1px solid rgba(249, 115, 22, 0.2)",
               }}
             >
               <BookOpen size={13} />
@@ -151,7 +150,7 @@ export function AboutPage() {
               style={{
                 fontSize: 13,
                 fontWeight: 600,
-                color: "#F2F5F8",
+                color: "#F5F5F5",
                 textDecoration: "none",
                 padding: "8px 14px",
               }}
@@ -182,10 +181,10 @@ export function AboutPage() {
               alignItems: "center",
               justifyContent: "center",
               background: "transparent",
-              border: "1px solid #212836",
+              border: "1px solid #242424",
               borderRadius: 8,
               padding: 6,
-              color: "#F2F5F8",
+              color: "#F5F5F5",
               cursor: "pointer",
             }}
             aria-label="Toggle navigation menu"
@@ -200,8 +199,8 @@ export function AboutPage() {
           <div
             style={{
               padding: "16px 24px 24px",
-              borderTop: "1px solid #212836",
-              background: "#10151C",
+              borderTop: "1px solid #242424",
+              background: "#151515",
               display: "flex",
               flexDirection: "column",
               gap: 16,
@@ -210,36 +209,36 @@ export function AboutPage() {
             <Link
               href="/#product"
               onClick={() => setMobileMenuOpen(false)}
-              style={{ fontSize: 15, color: "#F2F5F8", textDecoration: "none" }}
+              style={{ fontSize: 15, color: "#F5F5F5", textDecoration: "none" }}
             >
               Product
             </Link>
             <Link
               href="/#how-it-works"
               onClick={() => setMobileMenuOpen(false)}
-              style={{ fontSize: 15, color: "#F2F5F8", textDecoration: "none" }}
+              style={{ fontSize: 15, color: "#F5F5F5", textDecoration: "none" }}
             >
               How It Works
             </Link>
             <Link
               href="/about"
               onClick={() => setMobileMenuOpen(false)}
-              style={{ fontSize: 15, color: "#F2F5F8", fontWeight: 600, textDecoration: "none" }}
+              style={{ fontSize: 15, color: "#F5F5F5", fontWeight: 600, textDecoration: "none" }}
             >
               About
             </Link>
             <Link
               href="/docs"
               onClick={() => setMobileMenuOpen(false)}
-              style={{ fontSize: 15, color: "#60A5FA", textDecoration: "none", fontWeight: 600 }}
+              style={{ fontSize: 15, color: "#F97316", textDecoration: "none", fontWeight: 600 }}
             >
               Documentation & Guides
             </Link>
-            <div style={{ height: 1, background: "#212836", margin: "6px 0" }} />
+            <div style={{ height: 1, background: "#242424", margin: "6px 0" }} />
             <Link
               href="/login"
               onClick={() => setMobileMenuOpen(false)}
-              style={{ fontSize: 14, color: "#A8B1BD", textDecoration: "none" }}
+              style={{ fontSize: 14, color: "#A3A3A3", textDecoration: "none" }}
             >
               Sign In
             </Link>
@@ -276,13 +275,13 @@ export function AboutPage() {
             gap: 8,
             padding: "6px 14px",
             borderRadius: 999,
-            background: "rgba(59, 130, 246, 0.1)",
-            border: "1px solid rgba(59, 130, 246, 0.28)",
+            background: "rgba(249, 115, 22, 0.1)",
+            border: "1px solid rgba(249, 115, 22, 0.28)",
             fontSize: 11,
             fontWeight: 700,
             letterSpacing: "0.14em",
             textTransform: "uppercase",
-            color: "#60A5FA",
+            color: "#F97316",
             marginBottom: 24,
           }}
         >
@@ -295,7 +294,7 @@ export function AboutPage() {
             fontWeight: 800,
             lineHeight: 1.15,
             letterSpacing: "-0.03em",
-            color: "#F2F5F8",
+            color: "#F5F5F5",
             marginBottom: 24,
           }}
         >
@@ -306,7 +305,7 @@ export function AboutPage() {
           style={{
             fontSize: "clamp(16px, 2vw, 19px)",
             lineHeight: 1.65,
-            color: "#A8B1BD",
+            color: "#A3A3A3",
             maxWidth: 780,
             margin: "0 auto",
           }}
@@ -321,7 +320,7 @@ export function AboutPage() {
           maxWidth: 860,
           margin: "0 auto",
           padding: "60px 24px",
-          borderTop: "1px solid #212836",
+          borderTop: "1px solid #242424",
         }}
       >
         <h2
@@ -329,7 +328,7 @@ export function AboutPage() {
             fontSize: "clamp(22px, 3.5vw, 32px)",
             fontWeight: 700,
             lineHeight: 1.25,
-            color: "#F2F5F8",
+            color: "#F5F5F5",
             marginBottom: 20,
           }}
         >
@@ -339,7 +338,7 @@ export function AboutPage() {
           style={{
             fontSize: 16,
             lineHeight: 1.7,
-            color: "#A8B1BD",
+            color: "#A3A3A3",
             marginBottom: 16,
           }}
         >
@@ -349,7 +348,7 @@ export function AboutPage() {
           style={{
             fontSize: 16,
             lineHeight: 1.7,
-            color: "#707A88",
+            color: "#737373",
             margin: 0,
           }}
         >
@@ -363,7 +362,7 @@ export function AboutPage() {
           maxWidth: 860,
           margin: "0 auto",
           padding: "60px 24px",
-          borderTop: "1px solid #212836",
+          borderTop: "1px solid #242424",
         }}
       >
         <h2
@@ -371,7 +370,7 @@ export function AboutPage() {
             fontSize: "clamp(22px, 3.5vw, 32px)",
             fontWeight: 700,
             lineHeight: 1.25,
-            color: "#F2F5F8",
+            color: "#F5F5F5",
             marginBottom: 20,
           }}
         >
@@ -381,7 +380,7 @@ export function AboutPage() {
           style={{
             fontSize: 16,
             lineHeight: 1.7,
-            color: "#A8B1BD",
+            color: "#A3A3A3",
             margin: 0,
           }}
         >
@@ -395,7 +394,7 @@ export function AboutPage() {
           maxWidth: 1000,
           margin: "0 auto",
           padding: "60px 24px",
-          borderTop: "1px solid #212836",
+          borderTop: "1px solid #242424",
         }}
       >
         <div style={{ textAlign: "center", marginBottom: 40 }}>
@@ -404,13 +403,13 @@ export function AboutPage() {
               fontSize: "clamp(22px, 3.5vw, 32px)",
               fontWeight: 700,
               lineHeight: 1.25,
-              color: "#F2F5F8",
+              color: "#F5F5F5",
               marginBottom: 12,
             }}
           >
             Identity → Authority → Execution → Evidence → Verification
           </h2>
-          <p style={{ fontSize: 15, color: "#A8B1BD", margin: 0 }}>
+          <p style={{ fontSize: 15, color: "#A3A3A3", margin: 0 }}>
             The architectural model behind bounded agent execution.
           </p>
         </div>
@@ -435,8 +434,8 @@ export function AboutPage() {
               style={{
                 padding: "22px",
                 borderRadius: 12,
-                background: "#10151C",
-                border: "1px solid #212836",
+                background: "#151515",
+                border: "1px solid #242424",
               }}
             >
               <div
@@ -444,13 +443,13 @@ export function AboutPage() {
                   fontSize: 11,
                   fontWeight: 700,
                   letterSpacing: "0.12em",
-                  color: "#3B82F6",
+                  color: "#F97316",
                   marginBottom: 8,
                 }}
               >
                 {item.tag}
               </div>
-              <p style={{ fontSize: 14, lineHeight: 1.6, color: "#A8B1BD", margin: 0 }}>
+              <p style={{ fontSize: 14, lineHeight: 1.6, color: "#A3A3A3", margin: 0 }}>
                 {item.text}
               </p>
             </div>
@@ -464,7 +463,7 @@ export function AboutPage() {
           maxWidth: 860,
           margin: "0 auto",
           padding: "60px 24px",
-          borderTop: "1px solid #212836",
+          borderTop: "1px solid #242424",
         }}
       >
         <h2
@@ -472,7 +471,7 @@ export function AboutPage() {
             fontSize: "clamp(22px, 3.5vw, 32px)",
             fontWeight: 700,
             lineHeight: 1.25,
-            color: "#F2F5F8",
+            color: "#F5F5F5",
             marginBottom: 20,
           }}
         >
@@ -482,7 +481,7 @@ export function AboutPage() {
           style={{
             fontSize: 16,
             lineHeight: 1.7,
-            color: "#A8B1BD",
+            color: "#A3A3A3",
             marginBottom: 16,
           }}
         >
@@ -492,7 +491,7 @@ export function AboutPage() {
           style={{
             fontSize: 16,
             lineHeight: 1.7,
-            color: "#707A88",
+            color: "#737373",
             margin: 0,
           }}
         >
@@ -506,7 +505,7 @@ export function AboutPage() {
           maxWidth: 860,
           margin: "0 auto",
           padding: "60px 24px",
-          borderTop: "1px solid #212836",
+          borderTop: "1px solid #242424",
         }}
       >
         <h2
@@ -514,7 +513,7 @@ export function AboutPage() {
             fontSize: "clamp(22px, 3.5vw, 32px)",
             fontWeight: 700,
             lineHeight: 1.25,
-            color: "#F2F5F8",
+            color: "#F5F5F5",
             marginBottom: 20,
           }}
         >
@@ -524,7 +523,7 @@ export function AboutPage() {
           style={{
             fontSize: 16,
             lineHeight: 1.7,
-            color: "#707A88",
+            color: "#737373",
             margin: 0,
           }}
         >
@@ -538,8 +537,8 @@ export function AboutPage() {
           maxWidth: 860,
           margin: "0 auto 80px",
           padding: "56px 24px",
-          background: "#10151C",
-          border: "1px solid #212836",
+          background: "#151515",
+          border: "1px solid #242424",
           borderRadius: 20,
           textAlign: "center",
           boxShadow: "0 20px 60px rgba(0, 0, 0, 0.5)",
@@ -549,7 +548,7 @@ export function AboutPage() {
           style={{
             fontSize: "clamp(24px, 4vw, 36px)",
             fontWeight: 800,
-            color: "#F2F5F8",
+            color: "#F5F5F5",
             marginBottom: 14,
           }}
         >
@@ -559,7 +558,7 @@ export function AboutPage() {
           style={{
             fontSize: 16,
             lineHeight: 1.6,
-            color: "#A8B1BD",
+            color: "#A3A3A3",
             maxWidth: 600,
             margin: "0 auto 28px",
           }}
@@ -588,8 +587,8 @@ export function AboutPage() {
       {/* FOOTER */}
       <footer
         style={{
-          borderTop: "1px solid #212836",
-          background: "#090C10",
+          borderTop: "1px solid #242424",
+          background: "#0B0B0B",
           padding: "48px 24px 36px",
         }}
       >
@@ -606,39 +605,39 @@ export function AboutPage() {
         >
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <div style={{ width: 24, height: 24, borderRadius: 6, overflow: "hidden", background: "#000" }}>
+              <div style={{ width: 24, height: 24, borderRadius: 6, overflow: "hidden", background: "#000", border: "1px solid #242424" }}>
                 <img src="/icon.png" alt="SUTRA Logo" style={{ height: "100%", width: "100%", objectFit: "contain" }} />
               </div>
-              <span style={{ fontSize: 16, fontWeight: 800, color: "#F2F5F8" }}>SUTRA</span>
+              <span style={{ fontSize: 16, fontWeight: 800, color: "#F5F5F5" }}>SUTRA</span>
             </div>
-            <div style={{ fontSize: 13, color: "#A8B1BD" }}>
+            <div style={{ fontSize: 13, color: "#A3A3A3" }}>
               AI agents that can actually ship software.
             </div>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap", fontSize: 13 }}>
-            <Link href="/#product" style={{ color: "#A8B1BD", textDecoration: "none" }}>
+            <Link href="/#product" style={{ color: "#A3A3A3", textDecoration: "none" }}>
               Product
             </Link>
-            <Link href="/#how-it-works" style={{ color: "#A8B1BD", textDecoration: "none" }}>
+            <Link href="/#how-it-works" style={{ color: "#A3A3A3", textDecoration: "none" }}>
               How It Works
             </Link>
-            <Link href="/about" style={{ color: "#F2F5F8", fontWeight: 600, textDecoration: "none" }}>
+            <Link href="/about" style={{ color: "#F5F5F5", fontWeight: 600, textDecoration: "none" }}>
               About
             </Link>
-            <Link href="/docs" style={{ color: "#60A5FA", textDecoration: "none", fontWeight: 600 }}>
+            <Link href="/docs" style={{ color: "#F97316", textDecoration: "none", fontWeight: 600 }}>
               Docs
             </Link>
-            <Link href="/security" style={{ color: "#A8B1BD", textDecoration: "none" }}>
+            <Link href="/security" style={{ color: "#A3A3A3", textDecoration: "none" }}>
               Security
             </Link>
-            <Link href="/login" style={{ color: "#A8B1BD", textDecoration: "none" }}>
+            <Link href="/login" style={{ color: "#A3A3A3", textDecoration: "none" }}>
               Sign In
             </Link>
             <Link href="/register" style={{ color: "#3B82F6", textDecoration: "none", fontWeight: 600 }}>
               Join the Beta
             </Link>
-            <a href="mailto:sutra@sudarshanai.com" style={{ color: "#A8B1BD", textDecoration: "none" }}>
+            <a href="mailto:sutra@sudarshanai.com" style={{ color: "#A3A3A3", textDecoration: "none" }}>
               Contact Us
             </a>
           </div>
@@ -649,9 +648,9 @@ export function AboutPage() {
             maxWidth: 1200,
             margin: "32px auto 0",
             paddingTop: 24,
-            borderTop: "1px solid #212836",
+            borderTop: "1px solid #242424",
             fontSize: 11,
-            color: "#707A88",
+            color: "#737373",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
@@ -661,7 +660,7 @@ export function AboutPage() {
         >
           <div>© {new Date().getFullYear()} SUTRA. A Sudarshan Harness Product. All rights reserved.</div>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <span>Contact us at <a href="mailto:sutra@sudarshanai.com" style={{ color: "#60A5FA", textDecoration: "none" }}>sutra@sudarshanai.com</a></span>
+            <span>Contact us at <a href="mailto:sutra@sudarshanai.com" style={{ color: "#3B82F6", textDecoration: "none" }}>sutra@sudarshanai.com</a></span>
             <span>•</span>
             <span>AI-Native Engineering Control Plane</span>
           </div>

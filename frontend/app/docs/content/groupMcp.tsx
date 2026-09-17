@@ -18,9 +18,9 @@ export const GroupMcpIntegration: DocSection[] = [
               style={{
                 fontSize: 12,
                 fontWeight: 600,
-                color: "#38BDF8",
-                background: "rgba(56, 189, 248, 0.1)",
-                border: "1px solid rgba(56, 189, 248, 0.25)",
+                color: "#F97316",
+                background: "rgba(249, 115, 22, 0.1)",
+                border: "1px solid rgba(249, 115, 22, 0.25)",
                 padding: "2px 8px",
                 borderRadius: 4,
                 textTransform: "uppercase",
@@ -29,34 +29,34 @@ export const GroupMcpIntegration: DocSection[] = [
             >
               Native Protocol
             </span>
-            <span style={{ fontSize: 13, color: "#64748B" }}>RFC 9728 / Streamable HTTP</span>
+            <span style={{ fontSize: 13, color: "#737373" }}>RFC 9728 / Streamable HTTP</span>
           </div>
 
-          <h2 style={{ fontSize: 22, fontWeight: 700, color: "#F2F5F8", marginBottom: 12 }}>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: "#F5F5F5", marginBottom: 12 }}>
             Model Context Protocol (MCP) Integration
           </h2>
-          <p style={{ color: "#A8B1BD", lineHeight: 1.7, marginBottom: 16 }}>
-            SUTRA exposes an enterprise-grade <strong style={{ color: "#F2F5F8" }}>Model Context Protocol (MCP)</strong> server over Streamable HTTP.
+          <p style={{ color: "#A3A3A3", lineHeight: 1.7, marginBottom: 16 }}>
+            SUTRA exposes an enterprise-grade <strong style={{ color: "#F5F5F5" }}>Model Context Protocol (MCP)</strong> server over Streamable HTTP.
             When connected, coding agents gain direct access to SUTRA governance tools, allowing them to claim tasks, declare changes, push cryptographic commits, and open pull requests.
           </p>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
-            <div style={{ padding: 16, border: "1px solid #212836", borderRadius: 8, background: "#10151C" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#38BDF8", fontWeight: 700, marginBottom: 6 }}>
+            <div style={{ padding: 16, border: "1px solid #242424", borderRadius: 8, background: "#151515" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#F97316", fontWeight: 700, marginBottom: 6 }}>
                 <Globe2 size={16} />
                 Endpoint URL
               </div>
-              <code style={{ fontSize: 12, color: "#38BDF8", wordBreak: "break-all" }}>
+              <code style={{ fontSize: 12, color: "#F97316", wordBreak: "break-all" }}>
                 {CANONICAL_MCP_ENDPOINT}
               </code>
             </div>
 
-            <div style={{ padding: 16, border: "1px solid #212836", borderRadius: 8, background: "#10151C" }}>
+            <div style={{ padding: 16, border: "1px solid #242424", borderRadius: 8, background: "#151515" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#10B981", fontWeight: 700, marginBottom: 6 }}>
                 <ShieldCheck size={16} />
                 OAuth 2.1 PKCE
               </div>
-              <p style={{ fontSize: 12, color: "#A8B1BD", margin: 0 }}>
+              <p style={{ fontSize: 12, color: "#A3A3A3", margin: 0 }}>
                 Zero permanent tokens needed. Agents discover authorization endpoints dynamically.
               </p>
             </div>
@@ -68,10 +68,10 @@ export const GroupMcpIntegration: DocSection[] = [
 
         {/* Engineering Boundary Definition */}
         <section>
-          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F2F5F8", marginBottom: 12 }}>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F5F5F5", marginBottom: 12 }}>
             Engineering Boundary: Local Git vs. SUTRA
           </h3>
-          <p style={{ color: "#A8B1BD", lineHeight: 1.7, marginBottom: 16 }}>
+          <p style={{ color: "#A3A3A3", lineHeight: 1.7, marginBottom: 16 }}>
             SUTRA does not replace local Git inspection or developer editing tools. SUTRA governs repository changes and code submission:
           </p>
 
@@ -85,38 +85,38 @@ export const GroupMcpIntegration: DocSection[] = [
             </thead>
             <tbody>
               <tr>
-                <td style={{ fontWeight: 600, color: "#F2F5F8" }}>Reading & editing files</td>
+                <td style={{ fontWeight: 600, color: "#F5F5F5" }}>Reading & editing files</td>
                 <td>IDE / Local File System</td>
                 <td>Standard workspace editing.</td>
               </tr>
               <tr>
-                <td style={{ fontWeight: 600, color: "#F2F5F8" }}>Running tests & local builds</td>
+                <td style={{ fontWeight: 600, color: "#F5F5F5" }}>Running tests & local builds</td>
                 <td>Terminal / Test Runners</td>
                 <td>Pre-commit verification in workspace.</td>
               </tr>
               <tr>
-                <td style={{ fontWeight: 600, color: "#F2F5F8" }}>Git inspection (diff, status, log)</td>
+                <td style={{ fontWeight: 600, color: "#F5F5F5" }}>Git inspection (diff, status, log)</td>
                 <td>Terminal Git</td>
                 <td>Workspace inspection allowed.</td>
               </tr>
               <tr>
-                <td style={{ fontWeight: 600, color: "#38BDF8" }}>Starting tasks & allocating branches</td>
-                <td style={{ fontFamily: "monospace", color: "#38BDF8" }}>sutra_start_task</td>
+                <td style={{ fontWeight: 600, color: "#F97316" }}>Starting tasks & allocating branches</td>
+                <td style={{ fontFamily: "monospace", color: "#F97316" }}>sutra_start_task</td>
                 <td>Binds session lease to feature branch.</td>
               </tr>
               <tr>
-                <td style={{ fontWeight: 600, color: "#38BDF8" }}>Creating & pushing commits</td>
-                <td style={{ fontFamily: "monospace", color: "#38BDF8" }}>sutra_push_commit</td>
+                <td style={{ fontWeight: 600, color: "#F97316" }}>Creating & pushing commits</td>
+                <td style={{ fontFamily: "monospace", color: "#F97316" }}>sutra_push_commit</td>
                 <td>Required for cryptographic provenance.</td>
               </tr>
               <tr>
-                <td style={{ fontWeight: 600, color: "#38BDF8" }}>Opening Pull Requests</td>
-                <td style={{ fontFamily: "monospace", color: "#38BDF8" }}>sutra_open_pull_request</td>
+                <td style={{ fontWeight: 600, color: "#F97316" }}>Opening Pull Requests</td>
+                <td style={{ fontFamily: "monospace", color: "#F97316" }}>sutra_open_pull_request</td>
                 <td>Triggers CI checks & governance reviews.</td>
               </tr>
               <tr>
-                <td style={{ fontWeight: 600, color: "#38BDF8" }}>Requesting merge handover</td>
-                <td style={{ fontFamily: "monospace", color: "#38BDF8" }}>sutra_request_merge</td>
+                <td style={{ fontWeight: 600, color: "#F97316" }}>Requesting merge handover</td>
+                <td style={{ fontFamily: "monospace", color: "#F97316" }}>sutra_request_merge</td>
                 <td>Strict human approval required. Agents cannot merge.</td>
               </tr>
             </tbody>
@@ -126,7 +126,7 @@ export const GroupMcpIntegration: DocSection[] = [
         {/* Complete SUTRA MCP Tool Catalog */}
         <section>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F2F5F8", margin: 0 }}>
+            <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F5F5F5", margin: 0 }}>
               Complete SUTRA MCP Tool Catalog (16 Available Tools)
             </h3>
             <span
@@ -143,7 +143,7 @@ export const GroupMcpIntegration: DocSection[] = [
               Protocol v0.4.0
             </span>
           </div>
-          <p style={{ color: "#A8B1BD", lineHeight: 1.7, marginBottom: 16 }}>
+          <p style={{ color: "#A3A3A3", lineHeight: 1.7, marginBottom: 16 }}>
             Every tool is authenticated via SUTRA OAuth 2.1 PKCE or agent session bearer tokens. Intent mappings and parameters are strictly enforced:
           </p>
 
@@ -282,14 +282,14 @@ export const GroupMcpIntegration: DocSection[] = [
                 key={tool.name}
                 style={{
                   padding: 16,
-                  border: tool.isNew ? "1px solid rgba(56, 189, 248, 0.4)" : "1px solid #212836",
+                  border: tool.isNew ? "1px solid rgba(249, 115, 22, 0.4)" : "1px solid #242424",
                   borderRadius: 10,
-                  background: tool.isNew ? "rgba(56, 189, 248, 0.04)" : "#10151C",
+                  background: tool.isNew ? "rgba(249, 115, 22, 0.05)" : "#151515",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, flexWrap: "wrap", gap: 6 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <code style={{ fontSize: 13, fontWeight: 700, color: "#38BDF8" }}>
+                    <code style={{ fontSize: 13, fontWeight: 700, color: "#F97316" }}>
                       {tool.name}
                     </code>
                     {tool.isNew && (
@@ -297,9 +297,9 @@ export const GroupMcpIntegration: DocSection[] = [
                         style={{
                           fontSize: 10,
                           fontWeight: 700,
-                          color: "#38BDF8",
-                          background: "rgba(56, 189, 248, 0.15)",
-                          border: "1px solid rgba(56, 189, 248, 0.3)",
+                          color: "#F97316",
+                          background: "rgba(249, 115, 22, 0.15)",
+                          border: "1px solid rgba(249, 115, 22, 0.3)",
                           padding: "1px 6px",
                           borderRadius: 4,
                           textTransform: "uppercase",
@@ -309,23 +309,23 @@ export const GroupMcpIntegration: DocSection[] = [
                       </span>
                     )}
                   </div>
-                  <span style={{ fontSize: 11, color: "#64748B", fontWeight: 600 }}>
+                  <span style={{ fontSize: 11, color: "#737373", fontWeight: 600 }}>
                     {tool.phase}
                   </span>
                 </div>
 
-                <p style={{ fontSize: 13, color: "#CBD5E1", margin: "0 0 8px 0", lineHeight: 1.5 }}>
+                <p style={{ fontSize: 13, color: "#A3A3A3", margin: "0 0 8px 0", lineHeight: 1.5 }}>
                   {tool.desc}
                 </p>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 11 }}>
-                  <div style={{ color: "#94A3B8" }}>
-                    <strong style={{ color: "#64748B" }}>Parameters: </strong>
-                    <code style={{ color: "#E2E8F0" }}>{tool.params}</code>
+                  <div style={{ color: "#737373" }}>
+                    <strong style={{ color: "#A3A3A3" }}>Parameters: </strong>
+                    <code style={{ color: "#F5F5F5" }}>{tool.params}</code>
                   </div>
-                  <div style={{ color: "#94A3B8" }}>
-                    <strong style={{ color: "#64748B" }}>Sample Intents: </strong>
-                    <span style={{ fontStyle: "italic", color: "#A8B1BD" }}>{tool.intents}</span>
+                  <div style={{ color: "#737373" }}>
+                    <strong style={{ color: "#A3A3A3" }}>Sample Intents: </strong>
+                    <span style={{ fontStyle: "italic", color: "#A3A3A3" }}>{tool.intents}</span>
                   </div>
                 </div>
               </div>
@@ -335,47 +335,47 @@ export const GroupMcpIntegration: DocSection[] = [
 
         {/* Platform Architecture Updates */}
         <section>
-          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F2F5F8", marginBottom: 14 }}>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F5F5F5", marginBottom: 14 }}>
             Platform Architecture & Governance Updates
           </h3>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
-            <div style={{ padding: 18, border: "1px solid #212836", borderRadius: 10, background: "#10151C" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#38BDF8", fontWeight: 700, marginBottom: 8 }}>
+            <div style={{ padding: 18, border: "1px solid #242424", borderRadius: 10, background: "#151515" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#F97316", fontWeight: 700, marginBottom: 8 }}>
                 <RefreshCw size={16} />
                 Dual GitHub Synchronization
               </div>
-              <p style={{ fontSize: 12, color: "#A8B1BD", lineHeight: 1.6, margin: 0 }}>
-                GitHub repository sync is now permanently accessible directly from the global Topbar header (compact dropdown with live connection details) and the Repositories overview (<code style={{ color: "#38BDF8" }}>/repositories</code>). Features an automatic 5-minute debounced cooldown with an on-demand Force Sync button to bypass cooldowns.
+              <p style={{ fontSize: 12, color: "#A3A3A3", lineHeight: 1.6, margin: 0 }}>
+                GitHub repository sync is now permanently accessible directly from the global Topbar header (compact dropdown with live connection details) and the Repositories overview (<code style={{ color: "#F97316" }}>/repositories</code>). Features an automatic 5-minute debounced cooldown with an on-demand Force Sync button to bypass cooldowns.
               </p>
             </div>
 
-            <div style={{ padding: 18, border: "1px solid #212836", borderRadius: 10, background: "#10151C" }}>
+            <div style={{ padding: 18, border: "1px solid #242424", borderRadius: 10, background: "#151515" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#10B981", fontWeight: 700, marginBottom: 8 }}>
                 <ShieldCheck size={16} />
                 Repository-Scoped Policy Controls
               </div>
-              <p style={{ fontSize: 12, color: "#A8B1BD", lineHeight: 1.6, margin: 0 }}>
-                The legacy global settings page has been deprecated and removed. All branch protection rules, review requirements, merge policies, and repository parameters are now managed contextually per repository at <code style={{ color: "#38BDF8" }}>/repositories/[name]/settings</code>.
+              <p style={{ fontSize: 12, color: "#A3A3A3", lineHeight: 1.6, margin: 0 }}>
+                The legacy global settings page has been deprecated and removed. All branch protection rules, review requirements, merge policies, and repository parameters are now managed contextually per repository at <code style={{ color: "#F97316" }}>/repositories/[name]/settings</code>.
               </p>
             </div>
 
-            <div style={{ padding: 18, border: "1px solid #212836", borderRadius: 10, background: "#10151C" }}>
+            <div style={{ padding: 18, border: "1px solid #242424", borderRadius: 10, background: "#151515" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#F59E0B", fontWeight: 700, marginBottom: 8 }}>
                 <Terminal size={16} />
                 Task Lifecycle & Confirmation Guards
               </div>
-              <p style={{ fontSize: 12, color: "#A8B1BD", lineHeight: 1.6, margin: 0 }}>
+              <p style={{ fontSize: 12, color: "#A3A3A3", lineHeight: 1.6, margin: 0 }}>
                 Agent task counters and execution metrics update in real-time. Terminating an agent task decrements running counters immediately with guarded confirmation modals to prevent accidental task disruptions.
               </p>
             </div>
 
-            <div style={{ padding: 18, border: "1px solid #212836", borderRadius: 10, background: "#10151C" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#A78BFA", fontWeight: 700, marginBottom: 8 }}>
+            <div style={{ padding: 18, border: "1px solid #242424", borderRadius: 10, background: "#151515" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#3B82F6", fontWeight: 700, marginBottom: 8 }}>
                 <FolderGit2 size={16} />
                 Native GitHub Clone Interoperability
               </div>
-              <p style={{ fontSize: 12, color: "#A8B1BD", lineHeight: 1.6, margin: 0 }}>
+              <p style={{ fontSize: 12, color: "#A3A3A3", lineHeight: 1.6, margin: 0 }}>
                 Clone links throughout the dashboard and repository headers provide authentic GitHub URLs for developer workstations and coding agents, while SUTRA MCP governs remote commits and PR lifecycles.
               </p>
             </div>
@@ -384,20 +384,20 @@ export const GroupMcpIntegration: DocSection[] = [
 
         {/* Client Setup Snippets */}
         <section>
-          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F2F5F8", marginBottom: 12 }}>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F5F5F5", marginBottom: 12 }}>
             Client Configuration
           </h3>
-          <p style={{ color: "#A8B1BD", lineHeight: 1.7, marginBottom: 16 }}>
+          <p style={{ color: "#A3A3A3", lineHeight: 1.7, marginBottom: 16 }}>
             Add SUTRA to your agent configuration file:
           </p>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div style={{ padding: 16, border: "1px solid #212836", borderRadius: 8, background: "#090C10" }}>
+            <div style={{ padding: 16, border: "1px solid #242424", borderRadius: 8, background: "#0B0B0B" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "#CBD5E1" }}>Cursor (~/.cursor/mcp.json)</span>
-                <span style={{ fontSize: 11, color: "#64748B" }}>JSON</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#F5F5F5" }}>Cursor (~/.cursor/mcp.json)</span>
+                <span style={{ fontSize: 11, color: "#737373" }}>JSON</span>
               </div>
-              <pre style={{ margin: 0, fontFamily: "monospace", fontSize: 12, color: "#38BDF8" }}>
+              <pre style={{ margin: 0, fontFamily: "monospace", fontSize: 12, color: "#F97316" }}>
 {`{
   "mcpServers": {
     "sutra": {
@@ -408,12 +408,12 @@ export const GroupMcpIntegration: DocSection[] = [
               </pre>
             </div>
 
-            <div style={{ padding: 16, border: "1px solid #212836", borderRadius: 8, background: "#090C10" }}>
+            <div style={{ padding: 16, border: "1px solid #242424", borderRadius: 8, background: "#0B0B0B" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "#CBD5E1" }}>Claude Code (Terminal)</span>
-                <span style={{ fontSize: 11, color: "#64748B" }}>CLI</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#F5F5F5" }}>Claude Code (Terminal)</span>
+                <span style={{ fontSize: 11, color: "#737373" }}>CLI</span>
               </div>
-              <pre style={{ margin: 0, fontFamily: "monospace", fontSize: 12, color: "#38BDF8" }}>
+              <pre style={{ margin: 0, fontFamily: "monospace", fontSize: 12, color: "#F97316" }}>
 {`claude mcp add --transport http sutra ${CANONICAL_MCP_ENDPOINT}`}
               </pre>
             </div>

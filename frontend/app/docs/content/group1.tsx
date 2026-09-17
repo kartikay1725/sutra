@@ -12,13 +12,13 @@ export const Group1GettingStarted: DocSection[] = [
       <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
         {/* Overview Section */}
         <section>
-          <h2 style={{ fontSize: 20, fontWeight: 700, color: "#F2F5F8", marginBottom: 12 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: "#F5F5F5", marginBottom: 12 }}>
             The engineering execution system for humans and AI agents.
           </h2>
-          <p style={{ color: "#A8B1BD", lineHeight: 1.7, marginBottom: 16 }}>
-            SUTRA is an <strong style={{ color: "#F2F5F8" }}>Engineering Execution System</strong> designed to coordinate software development flows across human engineers, automated CI/CD environments, and agentic AI systems.
+          <p style={{ color: "#A3A3A3", lineHeight: 1.7, marginBottom: 16 }}>
+            SUTRA is an <strong style={{ color: "#F5F5F5" }}>Engineering Execution System</strong> designed to coordinate software development flows across human engineers, automated CI/CD environments, and agentic AI systems.
           </p>
-          <p style={{ color: "#A8B1BD", lineHeight: 1.7, marginBottom: 20 }}>
+          <p style={{ color: "#A3A3A3", lineHeight: 1.7, marginBottom: 20 }}>
             Code generation alone is insufficient for production software engineering. Engineering requires execution: testing, reviewing, verifying policy, and merging safely. SUTRA ensures every participant follows the exact same verification lifecycle.
           </p>
 
@@ -28,10 +28,10 @@ export const Group1GettingStarted: DocSection[] = [
 
         {/* Dual Identity Boundary */}
         <section>
-          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F2F5F8", marginBottom: 12 }}>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F5F5F5", marginBottom: 12 }}>
             Actor & Identity Architecture
           </h3>
-          <p style={{ color: "#A8B1BD", lineHeight: 1.7, marginBottom: 16 }}>
+          <p style={{ color: "#A3A3A3", lineHeight: 1.7, marginBottom: 16 }}>
             SUTRA strictly separates human account management from autonomous agent execution. Agents operate through bounded, short-lived sessions and cannot approve their own work.
           </p>
 
@@ -40,43 +40,43 @@ export const Group1GettingStarted: DocSection[] = [
 
         {/* What SUTRA Controls Section */}
         <section>
-          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F2F5F8", marginBottom: 16 }}>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F5F5F5", marginBottom: 16 }}>
             What SUTRA Controls
           </h3>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14 }}>
-            <div style={{ padding: 18, border: "1px solid #212836", borderRadius: 10, background: "#10151C" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#60A5FA", fontWeight: 700, marginBottom: 6 }}>
+            <div style={{ padding: 18, border: "1px solid #242424", borderRadius: 10, background: "#151515" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#3B82F6", fontWeight: 700, marginBottom: 6 }}>
                 <ShieldCheck size={16} />
                 Identity Scoping
               </div>
-              <p style={{ fontSize: 12, color: "#A8B1BD", lineHeight: 1.6, margin: 0 }}>
+              <p style={{ fontSize: 12, color: "#A3A3A3", lineHeight: 1.6, margin: 0 }}>
                 Differentiates Human vs Agent Actors securely with cryptographic tokens.
               </p>
             </div>
-            <div style={{ padding: 18, border: "1px solid #212836", borderRadius: 10, background: "#10151C" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#6366F1", fontWeight: 700, marginBottom: 6 }}>
+            <div style={{ padding: 18, border: "1px solid #242424", borderRadius: 10, background: "#151515" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#F97316", fontWeight: 700, marginBottom: 6 }}>
                 <Lock size={16} />
                 Repository Authority
               </div>
-              <p style={{ fontSize: 12, color: "#A8B1BD", lineHeight: 1.6, margin: 0 }}>
+              <p style={{ fontSize: 12, color: "#A3A3A3", lineHeight: 1.6, margin: 0 }}>
                 Strict boundaries on clone, branch, and push per Actor capability.
               </p>
             </div>
-            <div style={{ padding: 18, border: "1px solid #212836", borderRadius: 10, background: "#10151C" }}>
+            <div style={{ padding: 18, border: "1px solid #242424", borderRadius: 10, background: "#151515" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#22C55E", fontWeight: 700, marginBottom: 6 }}>
                 <Workflow size={16} />
                 Changes & PRs
               </div>
-              <p style={{ fontSize: 12, color: "#A8B1BD", lineHeight: 1.6, margin: 0 }}>
+              <p style={{ fontSize: 12, color: "#A3A3A3", lineHeight: 1.6, margin: 0 }}>
                 Abstracts atomic Git commits into reviewable work blocks with evidence.
               </p>
             </div>
-            <div style={{ padding: 18, border: "1px solid #212836", borderRadius: 10, background: "#10151C" }}>
+            <div style={{ padding: 18, border: "1px solid #242424", borderRadius: 10, background: "#151515" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#F59E0B", fontWeight: 700, marginBottom: 6 }}>
                 <Eye size={16} />
                 Branch Protection
               </div>
-              <p style={{ fontSize: 12, color: "#A8B1BD", lineHeight: 1.6, margin: 0 }}>
+              <p style={{ fontSize: 12, color: "#A3A3A3", lineHeight: 1.6, margin: 0 }}>
                 Enforces rules on merging via automated CI checks and human sign-off.
               </p>
             </div>
@@ -85,7 +85,7 @@ export const Group1GettingStarted: DocSection[] = [
 
         {/* Quickstart Sequence */}
         <section>
-          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F2F5F8", marginBottom: 14 }}>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F5F5F5", marginBottom: 14 }}>
             Operating Your First Engineering Loop
           </h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -96,9 +96,9 @@ export const Group1GettingStarted: DocSection[] = [
               { step: "4. Git Execution", desc: "Push commits over HTTP and observe automated Change evidence creation." },
               { step: "5. Review & Merge", desc: "Satisfy branch protection policies and complete the merge." },
             ].map((s) => (
-              <div key={s.step} style={{ padding: "14px 18px", border: "1px solid #212836", borderRadius: 8, background: "#10151C", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: "#F2F5F8" }}>{s.step}</span>
-                <span style={{ fontSize: 13, color: "#A8B1BD" }}>{s.desc}</span>
+              <div key={s.step} style={{ padding: "14px 18px", border: "1px solid #242424", borderRadius: 8, background: "#151515", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#F5F5F5" }}>{s.step}</span>
+                <span style={{ fontSize: 13, color: "#A3A3A3" }}>{s.desc}</span>
               </div>
             ))}
           </div>

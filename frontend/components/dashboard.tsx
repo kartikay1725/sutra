@@ -45,7 +45,7 @@ function RepositoryCard({ repo }: { repo: Repository }) {
     >
       <div className="row">
         <div className="repo-name">{repo.name}</div>
-        <Badge tone={repo.visibility === "private" ? "violet" : "green"}>
+        <Badge tone={repo.visibility === "private" ? "neutral" : "green"}>
           {repo.visibility}
         </Badge>
       </div>
@@ -202,7 +202,7 @@ export function Dashboard() {
             <div className="stat">
               <div className="eyebrow" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span>Open changes</span>
-                <span style={{ fontSize: 11, color: "var(--cyan)", fontWeight: 500 }}>View &rarr;</span>
+                <span style={{ fontSize: 11, color: "var(--accent)", fontWeight: 500 }}>View &rarr;</span>
               </div>
               <div className="num">{loading ? "—" : data?.open_changes ?? 0}</div>
               <div className="delta">
@@ -268,7 +268,7 @@ export function Dashboard() {
               <div className="h2">Your repositories</div>
               <div className="sub">Live repositories from the SUTRA API</div>
             </div>
-            <Link href="/repositories" className="badge aqua">
+            <Link href="/repositories" className="badge orange">
               View all
             </Link>
           </div>
@@ -341,7 +341,7 @@ export function Dashboard() {
             <div className="stat">
               <div className="eyebrow" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span>Agent / human changes</span>
-                <span style={{ fontSize: 11, color: "var(--cyan)", fontWeight: 500 }}>Agent changes &rarr;</span>
+                <span style={{ fontSize: 11, color: "var(--accent)", fontWeight: 500 }}>Agent changes &rarr;</span>
               </div>
               <div className="num">
                 {loading

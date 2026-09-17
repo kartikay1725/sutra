@@ -60,9 +60,9 @@ export default function DocsPage() {
               display: "flex",
               alignItems: "center",
               gap: 6,
-              background: "#171D26",
-              border: "1px solid #212836",
-              color: "#F2F5F8",
+              background: "var(--surface-2)",
+              border: "1px solid var(--line)",
+              color: "var(--fg)",
               fontSize: 13,
               fontWeight: 500,
               padding: "6px 14px",
@@ -73,8 +73,8 @@ export default function DocsPage() {
             <ArrowLeft size={14} />
             Back
           </button>
-          <div style={{ fontWeight: 700, fontSize: 15, color: "#F2F5F8", display: "flex", alignItems: "center", gap: 8 }}>
-            <Book size={17} style={{ color: "#3B82F6" }} />
+          <div style={{ fontWeight: 700, fontSize: 15, color: "var(--fg)", display: "flex", alignItems: "center", gap: 8 }}>
+            <Book size={17} style={{ color: "var(--accent)" }} />
             <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               SUTRA Docs
             </span>
@@ -86,7 +86,7 @@ export default function DocsPage() {
             href="/"
             style={{
               fontSize: 13,
-              color: "#A8B1BD",
+              color: "var(--muted)",
               display: "flex",
               alignItems: "center",
               gap: 6,
@@ -98,7 +98,7 @@ export default function DocsPage() {
             href="/about"
             style={{
               fontSize: 13,
-              color: "#A8B1BD",
+              color: "var(--muted)",
               display: "flex",
               alignItems: "center",
               gap: 6,
@@ -118,19 +118,19 @@ export default function DocsPage() {
 
         {/* Docs Sidebar */}
         <aside className={`docs-sidebar ${mobileSidebarOpen ? "open" : ""}`}>
-          <div style={{ padding: "16px 14px", borderBottom: "1px solid #212836" }}>
+          <div style={{ padding: "16px 14px", borderBottom: "1px solid var(--line)" }}>
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
-                background: "#171D26",
-                border: "1px solid #212836",
+                background: "var(--surface-2)",
+                border: "1px solid var(--line)",
                 borderRadius: 8,
                 padding: "6px 10px",
               }}
             >
-              <Search size={14} style={{ color: "#707A88" }} />
+              <Search size={14} style={{ color: "var(--muted)" }} />
               <input
                 type="text"
                 placeholder="Search guides & API..."
@@ -139,7 +139,7 @@ export default function DocsPage() {
                 style={{
                   background: "none",
                   border: "none",
-                  color: "#F2F5F8",
+                  color: "var(--fg)",
                   fontSize: 13,
                   width: "100%",
                   outline: "none",
@@ -158,7 +158,7 @@ export default function DocsPage() {
                     fontWeight: 700,
                     textTransform: "uppercase",
                     padding: "0 16px",
-                    color: "#3B82F6",
+                    color: "var(--accent)",
                     letterSpacing: "0.08em",
                     marginBottom: 8,
                   }}
@@ -184,9 +184,9 @@ export default function DocsPage() {
                         fontSize: 13,
                         textAlign: "left",
                         cursor: "pointer",
-                        background: activeSection === sec.id ? "rgba(59, 130, 246, 0.12)" : "transparent",
-                        color: activeSection === sec.id ? "#60A5FA" : "#A8B1BD",
-                        borderLeft: activeSection === sec.id ? "3px solid #3B82F6" : "3px solid transparent",
+                        background: activeSection === sec.id ? "var(--accent-subtle)" : "transparent",
+                        color: activeSection === sec.id ? "var(--accent)" : "var(--muted)",
+                        borderLeft: activeSection === sec.id ? "3px solid var(--accent)" : "3px solid transparent",
                         fontWeight: activeSection === sec.id ? 600 : 400,
                         transition: "all 0.15s",
                       }}
@@ -207,11 +207,11 @@ export default function DocsPage() {
 
         {/* Content Pane */}
         <main className="docs-content-pane">
-          <div style={{ borderBottom: "1px solid #212836", paddingBottom: 20 }}>
+          <div style={{ borderBottom: "1px solid var(--line)", paddingBottom: 20 }}>
             <div
               style={{
                 fontSize: 12,
-                color: "#3B82F6",
+                color: "var(--accent)",
                 textTransform: "uppercase",
                 fontWeight: 700,
                 letterSpacing: "0.08em",
@@ -219,7 +219,7 @@ export default function DocsPage() {
             >
               {activeDoc.category}
             </div>
-            <h1 style={{ fontSize: 28, fontWeight: 700, marginTop: 8, color: "#F2F5F8", wordBreak: "break-word" }}>
+            <h1 style={{ fontSize: 28, fontWeight: 700, marginTop: 8, color: "var(--fg)", wordBreak: "break-word" }}>
               {activeDoc.title}
             </h1>
           </div>
@@ -228,7 +228,7 @@ export default function DocsPage() {
             style={{
               fontSize: 14,
               lineHeight: 1.7,
-              color: "#A8B1BD",
+              color: "var(--text-secondary)",
               maxWidth: 920,
               width: "100%",
             }}
@@ -238,12 +238,12 @@ export default function DocsPage() {
 
           <footer
             style={{
-              borderTop: "1px solid #212836",
+              borderTop: "1px solid var(--line)",
               marginTop: 64,
               paddingTop: 28,
               paddingBottom: 28,
               fontSize: 12,
-              color: "#707A88",
+              color: "var(--muted)",
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
@@ -254,7 +254,7 @@ export default function DocsPage() {
           >
             <div>© {new Date().getFullYear()} SUTRA. A Sudarshan Harness Product. All rights reserved.</div>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <span>Contact us at <a href="mailto:sutra@sudarshanai.com" style={{ color: "#60A5FA", textDecoration: "none" }}>sutra@sudarshanai.com</a></span>
+              <span>Contact us at <a href="mailto:sutra@sudarshanai.com" style={{ color: "var(--link)", textDecoration: "none" }}>sutra@sudarshanai.com</a></span>
               <span>•</span>
               <span>AI-Native Engineering Control Plane</span>
             </div>

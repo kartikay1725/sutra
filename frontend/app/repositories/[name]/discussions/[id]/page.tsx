@@ -80,7 +80,7 @@ export default function DiscussionDetailPage({ params }: { params: Promise<{ nam
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                 <Badge tone="cyan">{discussion.category || "General"}</Badge>
                 {isMainAgent ? (
-                  <Badge tone="emerald"><I.Bot size={12} style={{ marginRight: 4 }} /> SUTRA Agent</Badge>
+                  <Badge tone="orange"><I.Bot size={12} style={{ marginRight: 4 }} /> SUTRA Agent</Badge>
                 ) : (
                   <Badge tone="dim"><I.User size={12} style={{ marginRight: 4 }} /> Human</Badge>
                 )}
@@ -238,7 +238,7 @@ export default function DiscussionDetailPage({ params }: { params: Promise<{ nam
                   <div style={{ color: "var(--muted)", fontSize: 12, marginBottom: 2 }}>Author Type</div>
                   <div>
                     {isMainAgent ? (
-                      <span style={{ color: "#10b981", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      <span style={{ color: "var(--accent, #f97316)", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
                         <I.Bot size={13} /> SUTRA Agent
                       </span>
                     ) : (

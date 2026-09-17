@@ -12,9 +12,9 @@ import * as I from "lucide-react";
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function statusColor(s: string) {
-  if (s === "active") return "#22d3ee";
+  if (s === "active") return "#10b981";
   if (s === "revoked") return "#ef4444";
-  return "#6b7280";
+  return "#8a8a8a";
 }
 
 function statusLabel(agent: Agent) {
@@ -58,7 +58,7 @@ function RegisterModal({ onClose, onCreated }: { onClose: () => void; onCreated:
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <Card style={{ width: 480, padding: 28, position: "relative" }}>
         <button onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}>
           <I.X size={18} />
@@ -191,7 +191,7 @@ function AgentRunningCard({ agent, task, onClick, onTerminateTask }: { agent: Ag
         )}
 
         <div style={{ height: 4, background: "var(--line)", borderRadius: 2, overflow: "hidden", marginBottom: 12 }}>
-          <div style={{ height: "100%", background: "linear-gradient(90deg, #22d3ee, #10b981)", borderRadius: 2, width: "65%" }} />
+          <div style={{ height: "100%", background: "#10b981", borderRadius: 2, width: "65%" }} />
         </div>
 
         <div className="meta"
@@ -327,7 +327,7 @@ export default function AgentsPage({ params }: { params: Promise<{ name: string 
           <I.Link2
             size={18}
             style={{
-              color: "var(--cyan)",
+              color: "var(--link)",
               flexShrink: 0,
             }}
           />
@@ -356,9 +356,9 @@ export default function AgentsPage({ params }: { params: Promise<{ name: string 
         {/* Stats */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 24 }}>
           {[
-            { label: "Total Agents", value: stats.total, icon: <I.Bot size={18} />, color: "#22d3ee" },
-            { label: "Active", value: stats.active, icon: <I.Zap size={18} />, color: "#10b981" },
-            { label: "Running Tasks", value: stats.running, icon: <I.Activity size={18} />, color: "#a78bfa" },
+            { label: "Total Agents", value: stats.total, icon: <I.Cpu size={18} />, color: "#f97316" },
+            { label: "Active", value: stats.active, icon: <I.Activity size={18} />, color: "#10b981" },
+            { label: "Running Tasks", value: stats.running, icon: <I.Workflow size={18} />, color: stats.running > 0 ? "#10b981" : "#8a8a8a" },
           ].map(s => (
             <Card key={s.label} style={{ padding: "16px 20px", display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ width: 38, height: 38, borderRadius: 8, background: `${s.color}15`, border: `1px solid ${s.color}30`, display: "flex", alignItems: "center", justifyContent: "center", color: s.color }}>
@@ -452,11 +452,11 @@ export default function AgentsPage({ params }: { params: Promise<{ name: string 
                     >
                       {/* Avatar + status dot */}
                       <div style={{ position: "relative", flexShrink: 0 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: isActive ? "rgba(34,211,238,0.1)" : "var(--bg-subtle)", border: `1px solid ${isActive ? "rgba(34,211,238,0.3)" : "var(--line)"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <I.Bot size={16} color={isActive ? "#22d3ee" : "var(--muted)"} />
+                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: isActive ? "var(--accent-subtle)" : "var(--bg-subtle)", border: `1px solid ${isActive ? "var(--border-accent)" : "var(--line)"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <I.Cpu size={16} color={isActive ? "var(--accent)" : "var(--muted)"} />
                         </div>
                         {isActive && (
-                          <div style={{ position: "absolute", bottom: 1, right: 1, width: 8, height: 8, borderRadius: "50%", background: runningTask ? "#10b981" : "#22d3ee", border: "2px solid var(--bg)" }} />
+                          <div style={{ position: "absolute", bottom: 1, right: 1, width: 8, height: 8, borderRadius: "50%", background: "#10b981", border: "2px solid var(--bg)" }} />
                         )}
                       </div>
 

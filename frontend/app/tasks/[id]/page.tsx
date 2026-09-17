@@ -114,7 +114,7 @@ export default function TaskPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span>{"Task #" + id.slice(0, 8)}</span>
           {task.source === "agent" ? (
-            <span className="badge indigo" style={{ fontSize: "11px", padding: "2px 8px", display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <span className="badge orange" style={{ fontSize: "11px", padding: "2px 8px", display: "inline-flex", alignItems: "center", gap: 4 }}>
               <Sparkles size={11} /> Agent-created Task
             </span>
           ) : (
@@ -246,19 +246,19 @@ export default function TaskPage() {
 
       {/* Agent Execution & Validation Record Card */}
       {(task.source === "agent" || task.execution_summary || task.validation_summary) && (
-        <Card className="task-record" style={{ marginBottom: 20, border: "1px solid rgba(129, 140, 248, 0.25)", background: "var(--bg-subtle)" }}>
+        <Card className="task-record" style={{ marginBottom: 20, border: "1px solid rgba(249, 115, 22, 0.25)", background: "var(--bg-subtle)" }}>
           <div style={{ padding: "18px 20px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, borderBottom: "1px solid var(--line)", paddingBottom: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(129, 140, 248, 0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Sparkles size={16} style={{ color: "var(--indigo, #818cf8)" }} />
+                <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(249, 115, 22, 0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Sparkles size={16} style={{ color: "var(--accent, #f97316)" }} />
                 </div>
                 <div>
                   <h3 style={{ fontSize: 14, fontWeight: 600, margin: 0, color: "var(--fg)" }}>Agent Engineering Record</h3>
                   <div style={{ fontSize: 12, color: "var(--muted)" }}>Autonomous task provenance, execution recap & validation telemetry</div>
                 </div>
               </div>
-              <Badge tone={task.source === "agent" ? "purple" : "gray"}>
+              <Badge tone={task.source === "agent" ? "orange" : "gray"}>
                 {task.source === "agent" ? "Auto-created from Prompt" : "Human Created"}
               </Badge>
             </div>

@@ -179,12 +179,12 @@ export default function PullRequestDetailPage({ params }: { params: Promise<{ na
               <EvidenceRow label="Revision" value={<code>{lifecycle.pull_request.source_commit.slice(0, 12)}</code>} detail="source commit" />
             )}
             {lifecycle.governance && (
-              <EvidenceRow label="Governance" value={lifecycle.governance.verdict} detail={lifecycle.governance.blocking_reasons.join("; ") || "No blocking reasons reported"} />
+              <EvidenceRow label="Governance" value={lifecycle.governance.verdict} detail={lifecycle.governance.blocking_reasons?.join("; ") || "No blocking reasons reported"} />
             )}
             {lifecycle.approval && (
               <EvidenceRow label="Approval" value={`${lifecycle.approval.current_approvals}/${lifecycle.approval.required_approvals}`} detail={lifecycle.approval.head_changed_after_approval ? "Revision changed after approval" : "Human approval state"} />
             )}
-            {lifecycle.blocked_reasons.length > 0 && (
+            {Array.isArray(lifecycle.blocked_reasons) && lifecycle.blocked_reasons.length > 0 && (
               <EvidenceRow label="Blocked by" value={lifecycle.blocked_reasons.join("; ")} />
             )}
           </div>
@@ -474,7 +474,7 @@ export default function PullRequestDetailPage({ params }: { params: Promise<{ na
             <Card style={{ padding: 16 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <span>SUTRA Provenance</span>
-                <Badge tone={pr.actor_type === "agent" || pr.agent_id ? "aqua" : "gray"}>
+                <Badge tone={pr.actor_type === "agent" || pr.agent_id ? "orange" : "gray"}>
                   {pr.actor_type === "agent" || pr.agent_id ? "Agent" : "Human"}
                 </Badge>
               </div>
@@ -484,7 +484,7 @@ export default function PullRequestDetailPage({ params }: { params: Promise<{ na
                   <div>
                     <div className="meta" style={{ fontSize: 11 }}>Agent</div>
                     <div style={{ fontWeight: 600, color: "var(--fg)", display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
-                      <I.Bot size={13} style={{ color: "var(--cyan)" }} />
+                      <I.Bot size={13} style={{ color: "var(--accent)" }} />
                       <span>{pr.agent_name || "Autonomous Agent"}</span>
                       {pr.agent_id && <span className="meta" style={{ fontFamily: "monospace", fontSize: 11 }}>({pr.agent_id.slice(0, 6)})</span>}
                     </div>

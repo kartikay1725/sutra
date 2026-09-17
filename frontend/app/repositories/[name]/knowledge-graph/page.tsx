@@ -871,7 +871,9 @@ export default function KnowledgeGraphPage({
                 height: 40,
                 borderRadius: 12,
                 background:
-                  "linear-gradient(135deg, #a855f7, #6366f1)",
+                  "var(--surface-2)",
+                border:
+                  "1px solid var(--line-strong)",
                 display:
                   "flex",
                 alignItems:
@@ -879,12 +881,12 @@ export default function KnowledgeGraphPage({
                 justifyContent:
                   "center",
                 boxShadow:
-                  "0 0 20px rgba(168,85,247,0.3)",
+                  "var(--shadow-sm)",
               }}
             >
               <I.Network
                 size={20}
-                color="#fff"
+                style={{ color: "var(--accent)" }}
               />
             </div>
 
@@ -937,11 +939,11 @@ export default function KnowledgeGraphPage({
                     "4px 10px",
                   borderRadius: 20,
                   background:
-                    "rgba(168,85,247,0.1)",
+                    "var(--accent-subtle)",
                   border:
-                    "1px solid rgba(168,85,247,0.25)",
+                    "1px solid var(--border-accent)",
                   color:
-                    "#a855f7",
+                    "var(--accent)",
                   fontWeight: 600,
                 }}
               >
@@ -956,11 +958,11 @@ export default function KnowledgeGraphPage({
                     "4px 10px",
                   borderRadius: 20,
                   background:
-                    "rgba(34,211,238,0.1)",
+                    "var(--link-subtle)",
                   border:
-                    "1px solid rgba(34,211,238,0.25)",
+                    "1px solid rgba(59,130,246,0.25)",
                   color:
-                    "#22d3ee",
+                    "var(--link)",
                   fontWeight: 600,
                 }}
               >
@@ -1135,7 +1137,7 @@ export default function KnowledgeGraphPage({
                     borderBottom:
                       activeTab ===
                       tab
-                        ? "2px solid #a855f7"
+                        ? "2px solid var(--accent)"
                         : "2px solid transparent",
                     cursor:
                       "pointer",
@@ -1463,7 +1465,7 @@ export default function KnowledgeGraphPage({
                                     background:
                                       selectedNodeId ===
                                       node.id
-                                        ? "rgba(168,85,247,0.1)"
+                                        ? "var(--accent-subtle)"
                                         : "transparent",
                                     cursor:
                                       "pointer",
@@ -1621,7 +1623,7 @@ export default function KnowledgeGraphPage({
                             className="spin"
                             style={{
                               color:
-                                "#a855f7",
+                                "var(--accent)",
                             }}
                           />
                           Loading

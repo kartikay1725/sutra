@@ -19,7 +19,6 @@ import {
   CheckCheck,
   BookOpen
 } from "lucide-react";
-import { SpotlightCard, ShimmerButton, GridBackground } from "./ui/aceternity";
 import { trackEvent } from "./analytics";
 
 export function LandingPage() {
@@ -171,7 +170,7 @@ export function LandingPage() {
   ];
 
   return (
-    <div style={{ background: "#090C10", minHeight: "100vh", color: "#F2F5F8", overflowX: "hidden", position: "relative" }}>
+    <div style={{ background: "#0B0B0B", minHeight: "100vh", color: "#F5F5F5", overflowX: "hidden", position: "relative" }}>
       {/* JSON-LD Structured Data */}
       <script
         type="application/ld+json"
@@ -187,8 +186,8 @@ export function LandingPage() {
           transform: "translateX(-50%)",
           width: "100%",
           maxWidth: 1200,
-          height: 520,
-          background: "radial-gradient(ellipse at 50% 0%, rgba(59, 130, 246, 0.12) 0%, rgba(99, 102, 241, 0.04) 45%, transparent 70%)",
+          height: 480,
+          background: "radial-gradient(ellipse at 50% 0%, rgba(249, 115, 22, 0.08) 0%, transparent 65%)",
           pointerEvents: "none",
           zIndex: 0,
         }}
@@ -200,9 +199,8 @@ export function LandingPage() {
           position: "sticky",
           top: 0,
           zIndex: 50,
-          background: "rgba(16, 21, 28, 0.88)",
-          backdropFilter: "blur(20px)",
-          borderBottom: "1px solid #212836",
+          background: "#0B0B0B",
+          borderBottom: "1px solid #242424",
         }}
       >
         <div
@@ -226,8 +224,8 @@ export function LandingPage() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                background: "#000",
-                border: "1px solid #212836",
+                background: "#151515",
+                border: "1px solid #2A2A2A",
               }}
             >
               <img
@@ -236,16 +234,16 @@ export function LandingPage() {
                 style={{ height: "100%", width: "100%", objectFit: "contain" }}
               />
             </div>
-            <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: "0.04em", color: "#F2F5F8" }}>
+            <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: "0.04em", color: "#F5F5F5" }}>
               SUTRA
             </span>
             <span
               style={{
                 fontSize: 10,
                 fontWeight: 700,
-                background: "rgba(59, 130, 246, 0.12)",
-                border: "1px solid rgba(59, 130, 246, 0.28)",
-                color: "#60A5FA",
+                background: "rgba(249, 115, 22, 0.12)",
+                border: "1px solid rgba(249, 115, 22, 0.28)",
+                color: "#F97316",
                 padding: "2px 7px",
                 borderRadius: 999,
                 letterSpacing: "0.06em",
@@ -265,20 +263,20 @@ export function LandingPage() {
             }}
             className="desktop-nav"
           >
-            <a href="#product" style={{ fontSize: 14, color: "#A8B1BD", textDecoration: "none", fontWeight: 500 }}>
+            <a href="#product" style={{ fontSize: 14, color: "#C4C4C4", textDecoration: "none", fontWeight: 500 }}>
               Product
             </a>
-            <a href="#how-it-works" style={{ fontSize: 14, color: "#A8B1BD", textDecoration: "none", fontWeight: 500 }}>
+            <a href="#how-it-works" style={{ fontSize: 14, color: "#C4C4C4", textDecoration: "none", fontWeight: 500 }}>
               How It Works
             </a>
-            <Link href="/about" style={{ fontSize: 14, color: "#A8B1BD", textDecoration: "none", fontWeight: 500 }}>
+            <Link href="/about" style={{ fontSize: 14, color: "#C4C4C4", textDecoration: "none", fontWeight: 500 }}>
               About
             </Link>
             <Link
               href="/docs"
               style={{
                 fontSize: 13,
-                color: "#60A5FA",
+                color: "#3B82F6",
                 textDecoration: "none",
                 fontWeight: 600,
                 display: "inline-flex",
@@ -335,10 +333,10 @@ export function LandingPage() {
               alignItems: "center",
               justifyContent: "center",
               background: "transparent",
-              border: "1px solid #212836",
+              border: "1px solid #242424",
               borderRadius: 8,
               padding: 6,
-              color: "#F2F5F8",
+              color: "#F5F5F5",
               cursor: "pointer",
             }}
             aria-label="Toggle navigation menu"
@@ -353,8 +351,8 @@ export function LandingPage() {
           <div
             style={{
               padding: "16px 24px 24px",
-              borderTop: "1px solid #212836",
-              background: "#10151C",
+              borderTop: "1px solid #242424",
+              background: "#111111",
               display: "flex",
               flexDirection: "column",
               gap: 16,
@@ -363,36 +361,36 @@ export function LandingPage() {
             <a
               href="#product"
               onClick={() => setMobileMenuOpen(false)}
-              style={{ fontSize: 15, color: "#F2F5F8", textDecoration: "none" }}
+              style={{ fontSize: 15, color: "#F5F5F5", textDecoration: "none" }}
             >
               Product
             </a>
             <a
               href="#how-it-works"
               onClick={() => setMobileMenuOpen(false)}
-              style={{ fontSize: 15, color: "#F2F5F8", textDecoration: "none" }}
+              style={{ fontSize: 15, color: "#F5F5F5", textDecoration: "none" }}
             >
               How It Works
             </a>
             <Link
               href="/about"
               onClick={() => setMobileMenuOpen(false)}
-              style={{ fontSize: 15, color: "#F2F5F8", textDecoration: "none" }}
+              style={{ fontSize: 15, color: "#F5F5F5", textDecoration: "none" }}
             >
               About
             </Link>
             <Link
               href="/docs"
               onClick={() => setMobileMenuOpen(false)}
-              style={{ fontSize: 15, color: "#60A5FA", textDecoration: "none", fontWeight: 600 }}
+              style={{ fontSize: 15, color: "#3B82F6", textDecoration: "none", fontWeight: 600 }}
             >
               Documentation & Guides
             </Link>
-            <div style={{ height: 1, background: "#212836", margin: "6px 0" }} />
+            <div style={{ height: 1, background: "#242424", margin: "6px 0" }} />
             <Link
               href="/login"
               onClick={() => setMobileMenuOpen(false)}
-              style={{ fontSize: 14, color: "#A8B1BD", textDecoration: "none" }}
+              style={{ fontSize: 14, color: "#C4C4C4", textDecoration: "none" }}
             >
               Sign In
             </Link>
@@ -414,7 +412,7 @@ export function LandingPage() {
       </header>
 
       {/* 2. HERO */}
-      <GridBackground>
+      <div style={{ position: "relative", overflow: "hidden" }}>
         <section
           style={{
             maxWidth: 1200,
@@ -432,13 +430,13 @@ export function LandingPage() {
               gap: 8,
               padding: "6px 14px",
               borderRadius: 999,
-              background: "rgba(59, 130, 246, 0.1)",
-              border: "1px solid rgba(59, 130, 246, 0.28)",
+              background: "rgba(249, 115, 22, 0.1)",
+              border: "1px solid rgba(249, 115, 22, 0.28)",
               fontSize: 11,
               fontWeight: 700,
               letterSpacing: "0.14em",
               textTransform: "uppercase",
-              color: "#60A5FA",
+              color: "#F97316",
               marginBottom: 24,
             }}
           >
@@ -486,10 +484,26 @@ export function LandingPage() {
               style={{ textDecoration: "none" }}
               onClick={() => trackEvent("click_cta", "marketing", "hero_join_private_beta")}
             >
-              <ShimmerButton style={{ padding: "14px 34px", fontSize: 15 }}>
+              <button
+                className="btn primary"
+                style={{
+                  padding: "14px 34px",
+                  fontSize: 15,
+                  fontWeight: 600,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: "#F97316",
+                  boxShadow: "0 4px 16px rgba(249, 115, 22, 0.25)",
+                  borderRadius: 10,
+                  color: "#ffffff",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
                 Join the Beta
                 <ArrowRight size={16} />
-              </ShimmerButton>
+              </button>
             </Link>
 
             <a
@@ -502,9 +516,9 @@ export function LandingPage() {
                 fontSize: 15,
                 fontWeight: 500,
                 textDecoration: "none",
-                color: "#F2F5F8",
-                background: "#171D26",
-                border: "1px solid #212836",
+                color: "#F5F5F5",
+                background: "#151515",
+                border: "1px solid #242424",
               }}
             >
               See How SUTRA Works
@@ -532,8 +546,8 @@ export function LandingPage() {
             style={{
               maxWidth: 1020,
               margin: "0 auto",
-              background: "#10151C",
-              border: "1px solid #212836",
+              background: "#111111",
+              border: "1px solid #242424",
               borderRadius: 16,
               padding: "32px 24px",
               boxShadow: "0 24px 60px rgba(0, 0, 0, 0.6)",
@@ -554,7 +568,7 @@ export function LandingPage() {
                   fontSize: 12,
                   textTransform: "uppercase",
                   letterSpacing: "0.12em",
-                  color: "#60A5FA",
+                  color: "#F97316",
                   fontWeight: 700,
                 }}
               >
@@ -564,7 +578,7 @@ export function LandingPage() {
                 href="/docs#git-http-agent-workflow"
                 style={{
                   fontSize: 12,
-                  color: "#A8B1BD",
+                  color: "#C4C4C4",
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 4,
@@ -583,9 +597,9 @@ export function LandingPage() {
               }}
             >
               {[
-                { title: "Task", icon: Terminal, desc: "Intent Defined", color: "#3B82F6" },
-                { title: "Agent", icon: Cpu, desc: "Scoped Session", color: "#6366F1" },
-                { title: "Code", icon: FileCode, desc: "Files Changed", color: "#60A5FA" },
+                { title: "Task", icon: Terminal, desc: "Intent Defined", color: "#F97316" },
+                { title: "Agent", icon: Cpu, desc: "Scoped Session", color: "#F97316" },
+                { title: "Code", icon: FileCode, desc: "Files Changed", color: "#3B82F6" },
                 { title: "Git", icon: GitBranch, desc: "Real Commits", color: "#3B82F6" },
                 { title: "CI", icon: CheckCircle2, desc: "Automated Checks", color: "#22C55E" },
                 { title: "Review", icon: Eye, desc: "Human Sign-off", color: "#F59E0B" },
@@ -594,8 +608,8 @@ export function LandingPage() {
                 <div
                   key={step.title}
                   style={{
-                    background: "#171D26",
-                    border: "1px solid #212836",
+                    background: "#151515",
+                    border: "1px solid #242424",
                     borderRadius: 10,
                     padding: "16px 10px",
                     textAlign: "center",
@@ -608,7 +622,7 @@ export function LandingPage() {
                       width: 34,
                       height: 34,
                       borderRadius: "50%",
-                      background: "rgba(59, 130, 246, 0.08)",
+                      background: "rgba(255, 255, 255, 0.04)",
                       border: `1px solid ${step.color}50`,
                       display: "flex",
                       alignItems: "center",
@@ -619,16 +633,16 @@ export function LandingPage() {
                   >
                     <step.icon size={16} />
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#F2F5F8", marginBottom: 2 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#F5F5F5", marginBottom: 2 }}>
                     {step.title}
                   </div>
-                  <div style={{ fontSize: 11, color: "#707A88" }}>{step.desc}</div>
+                  <div style={{ fontSize: 11, color: "#8A8A8A" }}>{step.desc}</div>
                 </div>
               ))}
             </div>
           </div>
         </section>
-      </GridBackground>
+      </div>
 
       {/* 3. PROBLEM SECTION */}
       <section
@@ -683,7 +697,7 @@ export function LandingPage() {
         }}
       >
         <div style={{ textAlign: "center", marginBottom: 56 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#3B82F6", marginBottom: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#F97316", marginBottom: 12 }}>
             CORE CAPABILITIES
           </div>
           <h2
@@ -692,7 +706,7 @@ export function LandingPage() {
               fontWeight: 700,
               lineHeight: 1.2,
               letterSpacing: "-0.02em",
-              color: "#F2F5F8",
+              color: "#F5F5F5",
               margin: 0,
             }}
           >
@@ -708,68 +722,68 @@ export function LandingPage() {
           }}
         >
           {/* Card 1 */}
-          <SpotlightCard spotlightColor="rgba(59, 130, 246, 0.16)">
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(59, 130, 246, 0.12)", display: "flex", alignItems: "center", justifyContent: "center", color: "#60A5FA", marginBottom: 18 }}>
+          <div className="card" style={{ padding: 24, borderRadius: 14, background: "#151515", border: "1px solid #242424", display: "flex", flexDirection: "column", height: "100%", boxSizing: "border-box" }}>
+            <div style={{ width: 38, height: 38, borderRadius: 8, background: "rgba(249, 115, 22, 0.12)", display: "flex", alignItems: "center", justifyContent: "center", color: "#F97316", marginBottom: 18 }}>
               <ShieldCheck size={20} />
             </div>
-            <h3 style={{ fontSize: 18, fontWeight: 600, color: "#F2F5F8", margin: "0 0 10px 0" }}>
+            <h3 style={{ fontSize: 18, fontWeight: 600, color: "#F5F5F5", margin: "0 0 10px 0" }}>
               Controlled Agent Identity
             </h3>
-            <p style={{ fontSize: 14, lineHeight: 1.6, color: "#A8B1BD", margin: "0 0 16px 0" }}>
+            <p style={{ fontSize: 14, lineHeight: 1.6, color: "#C4C4C4", margin: "0 0 16px 0" }}>
               Every external agent gets a distinct SUTRA identity and short-lived session instead of operating through a human's credentials.
             </p>
-            <Link href="/docs#agent-registration-onboarding" className="btn guide" style={{ fontSize: 11, height: 28, padding: "0 10px" }}>
+            <Link href="/docs#agent-registration-onboarding" className="btn guide" style={{ fontSize: 11, height: 28, padding: "0 10px", marginTop: "auto" }}>
               Identity Guide <ArrowRight size={11} />
             </Link>
-          </SpotlightCard>
+          </div>
 
           {/* Card 2 */}
-          <SpotlightCard spotlightColor="rgba(99, 102, 241, 0.16)">
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(99, 102, 241, 0.12)", display: "flex", alignItems: "center", justifyContent: "center", color: "#818CF8", marginBottom: 18 }}>
+          <div className="card" style={{ padding: 24, borderRadius: 14, background: "#151515", border: "1px solid #242424", display: "flex", flexDirection: "column", height: "100%", boxSizing: "border-box" }}>
+            <div style={{ width: 38, height: 38, borderRadius: 8, background: "rgba(59, 130, 246, 0.12)", display: "flex", alignItems: "center", justifyContent: "center", color: "#3B82F6", marginBottom: 18 }}>
               <Lock size={20} />
             </div>
-            <h3 style={{ fontSize: 18, fontWeight: 600, color: "#F2F5F8", margin: "0 0 10px 0" }}>
+            <h3 style={{ fontSize: 18, fontWeight: 600, color: "#F5F5F5", margin: "0 0 10px 0" }}>
               Repository-Scoped Authority
             </h3>
-            <p style={{ fontSize: 14, lineHeight: 1.6, color: "#A8B1BD", margin: "0 0 16px 0" }}>
+            <p style={{ fontSize: 14, lineHeight: 1.6, color: "#C4C4C4", margin: "0 0 16px 0" }}>
               Agents only receive access to repositories and capabilities explicitly granted to them.
             </p>
-            <Link href="/docs#agent-session-lifecycle" className="btn guide" style={{ fontSize: 11, height: 28, padding: "0 10px" }}>
+            <Link href="/docs#agent-session-lifecycle" className="btn guide" style={{ fontSize: 11, height: 28, padding: "0 10px", marginTop: "auto" }}>
               Authority Guide <ArrowRight size={11} />
             </Link>
-          </SpotlightCard>
+          </div>
 
           {/* Card 3 */}
-          <SpotlightCard spotlightColor="rgba(34, 197, 94, 0.16)">
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(34, 197, 94, 0.12)", display: "flex", alignItems: "center", justifyContent: "center", color: "#22C55E", marginBottom: 18 }}>
+          <div className="card" style={{ padding: 24, borderRadius: 14, background: "#151515", border: "1px solid #242424", display: "flex", flexDirection: "column", height: "100%", boxSizing: "border-box" }}>
+            <div style={{ width: 38, height: 38, borderRadius: 8, background: "rgba(34, 197, 94, 0.12)", display: "flex", alignItems: "center", justifyContent: "center", color: "#22C55E", marginBottom: 18 }}>
               <Workflow size={20} />
             </div>
-            <h3 style={{ fontSize: 18, fontWeight: 600, color: "#F2F5F8", margin: "0 0 10px 0" }}>
+            <h3 style={{ fontSize: 18, fontWeight: 600, color: "#F5F5F5", margin: "0 0 10px 0" }}>
               Real Engineering Workflow
             </h3>
-            <p style={{ fontSize: 14, lineHeight: 1.6, color: "#A8B1BD", margin: "0 0 16px 0" }}>
+            <p style={{ fontSize: 14, lineHeight: 1.6, color: "#C4C4C4", margin: "0 0 16px 0" }}>
               Agents can work through branches, commits, Changes, Pull Requests, CI, review, and merge.
             </p>
-            <Link href="/docs#git-http-agent-workflow" className="btn guide" style={{ fontSize: 11, height: 28, padding: "0 10px" }}>
+            <Link href="/docs#git-http-agent-workflow" className="btn guide" style={{ fontSize: 11, height: 28, padding: "0 10px", marginTop: "auto" }}>
               Workflow Guide <ArrowRight size={11} />
             </Link>
-          </SpotlightCard>
+          </div>
 
           {/* Card 4 */}
-          <SpotlightCard spotlightColor="rgba(245, 158, 11, 0.16)">
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(245, 158, 11, 0.12)", display: "flex", alignItems: "center", justifyContent: "center", color: "#F59E0B", marginBottom: 18 }}>
+          <div className="card" style={{ padding: 24, borderRadius: 14, background: "#151515", border: "1px solid #242424", display: "flex", flexDirection: "column", height: "100%", boxSizing: "border-box" }}>
+            <div style={{ width: 38, height: 38, borderRadius: 8, background: "rgba(245, 158, 11, 0.12)", display: "flex", alignItems: "center", justifyContent: "center", color: "#F59E0B", marginBottom: 18 }}>
               <Eye size={20} />
             </div>
-            <h3 style={{ fontSize: 18, fontWeight: 600, color: "#F2F5F8", margin: "0 0 10px 0" }}>
+            <h3 style={{ fontSize: 18, fontWeight: 600, color: "#F5F5F5", margin: "0 0 10px 0" }}>
               Human Control
             </h3>
-            <p style={{ fontSize: 14, lineHeight: 1.6, color: "#A8B1BD", margin: "0 0 16px 0" }}>
+            <p style={{ fontSize: 14, lineHeight: 1.6, color: "#C4C4C4", margin: "0 0 16px 0" }}>
               Agents cannot approve their own work or bypass repository, review, or merge controls.
             </p>
-            <Link href="/docs#changes-pull-requests-ci" className="btn guide" style={{ fontSize: 11, height: 28, padding: "0 10px" }}>
+            <Link href="/docs#changes-pull-requests-ci" className="btn guide" style={{ fontSize: 11, height: 28, padding: "0 10px", marginTop: "auto" }}>
               Governance Guide <ArrowRight size={11} />
             </Link>
-          </SpotlightCard>
+          </div>
         </div>
       </section>
 
@@ -780,11 +794,11 @@ export function LandingPage() {
           maxWidth: 1100,
           margin: "0 auto",
           padding: "80px 24px",
-          borderTop: "1px solid #212836",
+          borderTop: "1px solid #242424",
         }}
       >
         <div style={{ textAlign: "center", marginBottom: 56 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#3B82F6", marginBottom: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#F97316", marginBottom: 12 }}>
             STEP-BY-STEP LIFECYCLE
           </div>
           <h2
@@ -793,7 +807,7 @@ export function LandingPage() {
               fontWeight: 700,
               lineHeight: 1.2,
               letterSpacing: "-0.02em",
-              color: "#F2F5F8",
+              color: "#F5F5F5",
               margin: 0,
             }}
           >
@@ -844,8 +858,8 @@ export function LandingPage() {
                 gap: 20,
                 padding: "24px",
                 borderRadius: 12,
-                background: "#10151C",
-                border: "1px solid #212836",
+                background: "#151515",
+                border: "1px solid #242424",
               }}
             >
               <div style={{ display: "flex", alignItems: "flex-start", gap: 20 }}>
@@ -854,8 +868,8 @@ export function LandingPage() {
                     fontSize: 15,
                     fontWeight: 800,
                     fontFamily: "monospace",
-                    color: "#60A5FA",
-                    background: "rgba(59, 130, 246, 0.1)",
+                    color: "#F97316",
+                    background: "rgba(249, 115, 22, 0.1)",
                     padding: "6px 12px",
                     borderRadius: 6,
                     lineHeight: 1,
@@ -864,10 +878,10 @@ export function LandingPage() {
                   {item.step}
                 </div>
                 <div>
-                  <h3 style={{ fontSize: 18, fontWeight: 600, color: "#F2F5F8", margin: "0 0 6px 0" }}>
+                  <h3 style={{ fontSize: 18, fontWeight: 600, color: "#F5F5F5", margin: "0 0 6px 0" }}>
                     {item.title}
                   </h3>
-                  <p style={{ fontSize: 14, lineHeight: 1.6, color: "#A8B1BD", margin: 0 }}>
+                  <p style={{ fontSize: 14, lineHeight: 1.6, color: "#C4C4C4", margin: 0 }}>
                     {item.desc}
                   </p>
                 </div>
@@ -957,8 +971,8 @@ export function LandingPage() {
               style={{
                 padding: "22px",
                 borderRadius: 12,
-                background: "#10151C",
-                border: "1px solid #212836",
+                background: "#151515",
+                border: "1px solid #242424",
               }}
             >
               <div
@@ -966,13 +980,13 @@ export function LandingPage() {
                   fontSize: 11,
                   fontWeight: 700,
                   letterSpacing: "0.12em",
-                  color: "#3B82F6",
+                  color: "#F97316",
                   marginBottom: 8,
                 }}
               >
                 {item.tag}
               </div>
-              <p style={{ fontSize: 14, lineHeight: 1.6, color: "#A8B1BD", margin: 0 }}>
+              <p style={{ fontSize: 14, lineHeight: 1.6, color: "#A3A3A3", margin: 0 }}>
                 {item.text}
               </p>
             </div>
@@ -986,7 +1000,7 @@ export function LandingPage() {
           maxWidth: 1100,
           margin: "0 auto",
           padding: "80px 24px",
-          borderTop: "1px solid #212836",
+          borderTop: "1px solid #242424",
           textAlign: "center",
         }}
       >
@@ -996,7 +1010,7 @@ export function LandingPage() {
             fontWeight: 700,
             lineHeight: 1.2,
             letterSpacing: "-0.02em",
-            color: "#F2F5F8",
+            color: "#F5F5F5",
             marginBottom: 16,
           }}
         >
@@ -1006,7 +1020,7 @@ export function LandingPage() {
           style={{
             fontSize: 16,
             lineHeight: 1.6,
-            color: "#A8B1BD",
+            color: "#A3A3A3",
             maxWidth: 700,
             margin: "0 auto 48px",
           }}
@@ -1017,8 +1031,8 @@ export function LandingPage() {
         {/* Evidence Pipeline */}
         <div
           style={{
-            background: "#10151C",
-            border: "1px solid #212836",
+            background: "#151515",
+            border: "1px solid #242424",
             borderRadius: 16,
             padding: "36px 24px",
             maxWidth: 800,
@@ -1051,19 +1065,19 @@ export function LandingPage() {
                     width: "100%",
                     maxWidth: 560,
                     padding: "12px 20px",
-                    background: "#171D26",
-                    border: "1px solid #212836",
+                    background: "#1C1C1C",
+                    border: "1px solid #242424",
                     borderRadius: 10,
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#3B82F6" }} />
-                    <span style={{ fontSize: 14, fontWeight: 700, color: "#F2F5F8" }}>{step.stage}</span>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#F97316" }} />
+                    <span style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>{step.stage}</span>
                   </div>
-                  <span style={{ fontSize: 13, color: "#A8B1BD", fontWeight: 500 }}>{step.label}</span>
+                  <span style={{ fontSize: 13, color: "#A3A3A3", fontWeight: 500 }}>{step.label}</span>
                 </div>
                 {idx < arr.length - 1 && (
-                  <div style={{ color: "#707A88", fontSize: 14 }}>↓</div>
+                  <div style={{ color: "#737373", fontSize: 14 }}>↓</div>
                 )}
               </React.Fragment>
             ))}
@@ -1077,7 +1091,7 @@ export function LandingPage() {
           maxWidth: 900,
           margin: "0 auto",
           padding: "80px 24px",
-          borderTop: "1px solid #212836",
+          borderTop: "1px solid #242424",
           textAlign: "center",
         }}
       >
@@ -1087,7 +1101,7 @@ export function LandingPage() {
             fontWeight: 700,
             lineHeight: 1.25,
             letterSpacing: "-0.02em",
-            color: "#F2F5F8",
+            color: "#F5F5F5",
             marginBottom: 24,
           }}
         >
@@ -1097,7 +1111,7 @@ export function LandingPage() {
           style={{
             fontSize: 17,
             lineHeight: 1.7,
-            color: "#A8B1BD",
+            color: "#A3A3A3",
             marginBottom: 20,
           }}
         >
@@ -1107,7 +1121,7 @@ export function LandingPage() {
           style={{
             fontSize: 17,
             lineHeight: 1.7,
-            color: "#707A88",
+            color: "#737373",
             margin: 0,
           }}
         >
@@ -1121,11 +1135,11 @@ export function LandingPage() {
           maxWidth: 1100,
           margin: "0 auto",
           padding: "80px 24px",
-          borderTop: "1px solid #212836",
+          borderTop: "1px solid #242424",
         }}
       >
         <div style={{ textAlign: "center", marginBottom: 56 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#22C55E", marginBottom: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#F97316", marginBottom: 12 }}>
             TECHNICAL WORKFLOW
           </div>
           <h2
@@ -1134,7 +1148,7 @@ export function LandingPage() {
               fontWeight: 700,
               lineHeight: 1.2,
               letterSpacing: "-0.02em",
-              color: "#F2F5F8",
+              color: "#F5F5F5",
               margin: 0,
             }}
           >
@@ -1166,8 +1180,8 @@ export function LandingPage() {
                 gap: 16,
                 padding: "18px 20px",
                 borderRadius: 12,
-                background: "#10151C",
-                border: "1px solid #212836",
+                background: "#151515",
+                border: "1px solid #242424",
               }}
             >
               <div
@@ -1175,21 +1189,21 @@ export function LandingPage() {
                   width: 38,
                   height: 38,
                   borderRadius: 8,
-                  background: "rgba(59, 130, 246, 0.1)",
+                  background: "rgba(249, 115, 22, 0.12)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  color: "#60A5FA",
+                  color: "#F97316",
                   flexShrink: 0,
                 }}
               >
                 <item.icon size={18} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: "#3B82F6" }}>
+                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: "#F97316" }}>
                   {item.phase}
                 </div>
-                <div style={{ fontSize: 13, color: "#F2F5F8", marginTop: 2 }}>
+                <div style={{ fontSize: 13, color: "#F5F5F5", marginTop: 2 }}>
                   {item.text}
                 </div>
               </div>
@@ -1204,18 +1218,18 @@ export function LandingPage() {
           maxWidth: 900,
           margin: "0 auto",
           padding: "80px 24px",
-          borderTop: "1px solid #212836",
+          borderTop: "1px solid #242424",
         }}
       >
         <div style={{ textAlign: "center", marginBottom: 48 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#3B82F6", marginBottom: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#F97316", marginBottom: 12 }}>
             FREQUENTLY ASKED QUESTIONS
           </div>
           <h2
             style={{
               fontSize: "clamp(24px, 3.5vw, 36px)",
               fontWeight: 700,
-              color: "#F2F5F8",
+              color: "#F5F5F5",
               margin: 0,
             }}
           >
@@ -1230,9 +1244,9 @@ export function LandingPage() {
               <div
                 key={faq.q}
                 style={{
-                  border: "1px solid #212836",
+                  border: "1px solid #242424",
                   borderRadius: 10,
-                  background: "#10151C",
+                  background: "#151515",
                   overflow: "hidden",
                 }}
               >
@@ -1245,7 +1259,7 @@ export function LandingPage() {
                     textAlign: "left",
                     background: "none",
                     border: "none",
-                    color: "#F2F5F8",
+                    color: "#F5F5F5",
                     fontSize: 15,
                     fontWeight: 600,
                     display: "flex",
@@ -1260,7 +1274,7 @@ export function LandingPage() {
                     style={{
                       transform: isOpen ? "rotate(180deg)" : "rotate(0)",
                       transition: "transform 0.2s",
-                      color: "#707A88",
+                      color: "#737373",
                       flexShrink: 0,
                     }}
                   />
@@ -1271,8 +1285,8 @@ export function LandingPage() {
                       padding: "0 20px 18px",
                       fontSize: 14,
                       lineHeight: 1.65,
-                      color: "#A8B1BD",
-                      borderTop: "1px solid #212836",
+                      color: "#A3A3A3",
+                      borderTop: "1px solid #242424",
                       paddingTop: 12,
                     }}
                   >
@@ -1291,8 +1305,8 @@ export function LandingPage() {
           maxWidth: 1000,
           margin: "0 auto 80px",
           padding: "64px 24px",
-          background: "#10151C",
-          border: "1px solid #212836",
+          background: "#151515",
+          border: "1px solid #242424",
           borderRadius: 20,
           textAlign: "center",
           boxShadow: "0 20px 60px rgba(0, 0, 0, 0.5)",
@@ -1304,7 +1318,7 @@ export function LandingPage() {
             fontWeight: 800,
             lineHeight: 1.2,
             letterSpacing: "-0.02em",
-            color: "#F2F5F8",
+            color: "#F5F5F5",
             marginBottom: 16,
           }}
         >
@@ -1314,7 +1328,7 @@ export function LandingPage() {
           style={{
             fontSize: 16,
             lineHeight: 1.6,
-            color: "#A8B1BD",
+            color: "#A3A3A3",
             maxWidth: 620,
             margin: "0 auto 36px",
           }}
@@ -1335,9 +1349,9 @@ export function LandingPage() {
           >
             Join the Beta
           </Link>
-          <div style={{ fontSize: 13, color: "#707A88" }}>
+          <div style={{ fontSize: 13, color: "#737373" }}>
             Already have an account?{" "}
-            <Link href="/login" style={{ color: "#60A5FA", textDecoration: "underline", fontWeight: 500 }}>
+            <Link href="/login" style={{ color: "#3B82F6", textDecoration: "underline", fontWeight: 500 }}>
               Sign in
             </Link>
           </div>
@@ -1347,8 +1361,8 @@ export function LandingPage() {
       {/* 12. FOOTER */}
       <footer
         style={{
-          borderTop: "1px solid #212836",
-          background: "#090C10",
+          borderTop: "1px solid #242424",
+          background: "#0B0B0B",
           padding: "48px 24px 36px",
         }}
       >
@@ -1365,39 +1379,39 @@ export function LandingPage() {
         >
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <div style={{ width: 24, height: 24, borderRadius: 6, overflow: "hidden", background: "#000" }}>
+              <div style={{ width: 24, height: 24, borderRadius: 6, overflow: "hidden", background: "#151515", border: "1px solid #242424" }}>
                 <img src="/icon.png" alt="SUTRA Logo" style={{ height: "100%", width: "100%", objectFit: "contain" }} />
               </div>
-              <span style={{ fontSize: 16, fontWeight: 800, color: "#F2F5F8" }}>SUTRA</span>
+              <span style={{ fontSize: 16, fontWeight: 800, color: "#F5F5F5" }}>SUTRA</span>
             </div>
-            <div style={{ fontSize: 13, color: "#A8B1BD" }}>
+            <div style={{ fontSize: 13, color: "#8A8A8A" }}>
               AI agents that can actually ship software.
             </div>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap", fontSize: 13 }}>
-            <a href="#product" style={{ color: "#A8B1BD", textDecoration: "none" }}>
+            <a href="#product" style={{ color: "#C4C4C4", textDecoration: "none" }}>
               Product
             </a>
-            <a href="#how-it-works" style={{ color: "#A8B1BD", textDecoration: "none" }}>
+            <a href="#how-it-works" style={{ color: "#C4C4C4", textDecoration: "none" }}>
               How It Works
             </a>
-            <Link href="/about" style={{ color: "#A8B1BD", textDecoration: "none" }}>
+            <Link href="/about" style={{ color: "#C4C4C4", textDecoration: "none" }}>
               About
             </Link>
-            <Link href="/docs" style={{ color: "#60A5FA", textDecoration: "none", fontWeight: 600 }}>
+            <Link href="/docs" style={{ color: "#3B82F6", textDecoration: "none", fontWeight: 600 }}>
               Docs
             </Link>
-            <Link href="/security" style={{ color: "#A8B1BD", textDecoration: "none" }}>
+            <Link href="/security" style={{ color: "#C4C4C4", textDecoration: "none" }}>
               Security
             </Link>
-            <Link href="/login" style={{ color: "#A8B1BD", textDecoration: "none" }}>
+            <Link href="/login" style={{ color: "#C4C4C4", textDecoration: "none" }}>
               Sign In
             </Link>
-            <Link href="/register" style={{ color: "#3B82F6", textDecoration: "none", fontWeight: 600 }}>
+            <Link href="/register" style={{ color: "#F97316", textDecoration: "none", fontWeight: 600 }}>
               Join the Beta
             </Link>
-            <a href="mailto:sutra@sudarshanai.com" style={{ color: "#A8B1BD", textDecoration: "none" }}>
+            <a href="mailto:sutra@sudarshanai.com" style={{ color: "#C4C4C4", textDecoration: "none" }}>
               Contact Us
             </a>
           </div>
@@ -1408,9 +1422,9 @@ export function LandingPage() {
             maxWidth: 1200,
             margin: "32px auto 0",
             paddingTop: 24,
-            borderTop: "1px solid #212836",
+            borderTop: "1px solid #242424",
             fontSize: 11,
-            color: "#707A88",
+            color: "#8A8A8A",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
@@ -1420,7 +1434,7 @@ export function LandingPage() {
         >
           <div>© {new Date().getFullYear()} SUTRA. A Sudarshan Harness Product. All rights reserved.</div>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <span>Contact us at <a href="mailto:sutra@sudarshanai.com" style={{ color: "#60A5FA", textDecoration: "none" }}>sutra@sudarshanai.com</a></span>
+            <span>Contact us at <a href="mailto:sutra@sudarshanai.com" style={{ color: "#3B82F6", textDecoration: "none" }}>sutra@sudarshanai.com</a></span>
             <span>•</span>
             <span>AI-Native Engineering Control Plane</span>
           </div>
