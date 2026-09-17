@@ -7,7 +7,18 @@ import { authService } from "../lib/auth";
 import { BookOpen, ArrowRight } from "lucide-react";
 
 function Mark() {
-  return <div className="mark" />;
+  return (
+    <img
+      src="/logo.svg"
+      alt="SUTRA"
+      style={{
+        width: 32,
+        height: 32,
+        objectFit: "contain",
+        borderRadius: 6,
+      }}
+    />
+  );
 }
 
 export function Login() {

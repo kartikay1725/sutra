@@ -925,7 +925,15 @@ export function MyWork() {
         </Card>
       )}
 
-      <div className="grid g4" style={{ marginBottom: 16 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns:
+            "repeat(auto-fill, minmax(180px, 1fr))",
+          gap: 14,
+          marginBottom: 20,
+        }}
+      >
         <Stat
           label="Assigned"
           value={loading ? "—" : assignedCount.toString()}
@@ -983,6 +991,8 @@ export function MyWork() {
                 className="list-row"
                 style={{
                   cursor: "pointer",
+                  padding: "14px 20px",
+                  gap: 14,
                 }}
                 onClick={() =>
                   openTask(item)

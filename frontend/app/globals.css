@@ -1187,22 +1187,23 @@ select optgroup {
 }
 .auth-card {
   width: 100%;
-  max-width: 400px;
-  padding: 36px 32px;
+  max-width: 440px;
+  padding: 40px 36px;
   border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
+  border-radius: 16px;
   background: var(--surface);
-  box-shadow: var(--shadow);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.04);
 }
 .auth-brand {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 10px;
-  font-size: 22px;
-  font-weight: 700;
-  margin-bottom: 24px;
+  gap: 12px;
+  font-size: 24px;
+  font-weight: 800;
+  margin-bottom: 28px;
   color: var(--text-primary);
+  letter-spacing: -0.03em;
 }
 .auth-title {
   text-align: center;
