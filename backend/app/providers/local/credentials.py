@@ -1,4 +1,4 @@
-﻿from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -47,7 +47,7 @@ class LocalCredentialProvider(CredentialProvider):
             "repository.write": "true" if "repository.write" in sutra_capabilities else "false",
         }
 
-        clone_url = f"{settings.sutra_base_url}/git/{owner}/{repo}.git"
+        clone_url = f"https://github.com/{owner}/{repo}.git"
 
         return DownstreamCredential(
             token=session.token_prefix,  # or session token

@@ -101,6 +101,49 @@ export const Group3HumanGuide: DocSection[] = [
 
           <CIPipelineGraph />
         </section>
+
+        {/* Repository Settings & Branch Protection Policies */}
+        <section>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F2F5F8", marginBottom: 12 }}>
+            Repository Branch Protection & Governance Policies
+          </h3>
+          <p style={{ color: "#A8B1BD", lineHeight: 1.7, marginBottom: 16 }}>
+            Repository policies are configured per-repository under <code style={{ color: "#38BDF8" }}>/repositories/[name]/settings</code>.
+            Governance rules enforce organizational engineering standards:
+          </p>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14, marginTop: 16 }}>
+            <div style={{ padding: 16, border: "1px solid #212836", borderRadius: 10, background: "#10151C" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#38BDF8", fontWeight: 700, marginBottom: 6 }}>
+                <ShieldCheck size={16} />
+                Branch Protection Rules
+              </div>
+              <p style={{ fontSize: 12, color: "#A8B1BD", lineHeight: 1.6, margin: 0 }}>
+                Configure branch patterns (e.g. <code style={{ color: "#38BDF8" }}>main</code>, <code style={{ color: "#38BDF8" }}>release/*</code>) with required approval counts, mandatory passing CI status checks, and linear git history requirements.
+              </p>
+            </div>
+
+            <div style={{ padding: 16, border: "1px solid #212836", borderRadius: 10, background: "#10151C" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#10B981", fontWeight: 700, marginBottom: 6 }}>
+                <GitPullRequest size={16} />
+                Human Merge Hand-off
+              </div>
+              <p style={{ fontSize: 12, color: "#A8B1BD", lineHeight: 1.6, margin: 0 }}>
+                AI agents can never bypass branch protection or merge their own pull requests. When ready, agents call <code style={{ color: "#38BDF8" }}>sutra_request_merge</code> to transition the PR to a human approval queue.
+              </p>
+            </div>
+
+            <div style={{ padding: 16, border: "1px solid #212836", borderRadius: 10, background: "#10151C" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#F59E0B", fontWeight: 700, marginBottom: 6 }}>
+                <GitBranch size={16} />
+                Universal GitHub Synchronization
+              </div>
+              <p style={{ fontSize: 12, color: "#A8B1BD", lineHeight: 1.6, margin: 0 }}>
+                Repositories and upstream GitHub status are synchronized directly from the global Topbar sync button or the Repositories overview (<code style={{ color: "#38BDF8" }}>/repositories</code>). Automatic 5-minute debouncing prevents API rate limits with optional Force Sync.
+              </p>
+            </div>
+          </div>
+        </section>
       </div>
     )
   }

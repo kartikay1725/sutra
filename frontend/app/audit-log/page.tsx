@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AppShell, PageHead, Card, Btn, Badge, EmptyState, Table, SutraLoading } from "@/components/shell";
+import { AppShell, PageHead, Card, Btn, Badge, EmptyState, Table, Skeleton } from "@/components/shell";
 import { activityService, ActivityEntry } from "@/lib/activity";
 import * as I from "lucide-react";
 
@@ -72,7 +72,17 @@ export default function AuditLogPage() {
 
         <Card>
           {loading ? (
-            <SutraLoading message="Retrieving compliance telemetry & immutable audit trail..." quote={true} />
+            <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 10, borderBottom: i < 5 ? "1px solid var(--line)" : "none" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
+                    <Skeleton width={16} height={16} borderRadius="50%" />
+                    <Skeleton width={`${40 + (i % 3) * 15}%`} height={14} borderRadius={4} />
+                  </div>
+                  <Skeleton width={80} height={12} borderRadius={3} />
+                </div>
+              ))}
+            </div>
           ) : logs.length === 0 ? (
             <div style={{ padding: 24 }}>
               <EmptyState

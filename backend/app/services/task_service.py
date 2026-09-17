@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, List, Optional
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.orm import Session
 
 import re
@@ -157,31 +157,114 @@ class TaskService:
 
         return task
 
-    def list_tasks_for_repository(self, repository_id: str, actor_id: str) -> List[Task]:
+    def list_tasks_for_repository(self, repository_id: str, actor_id: str, search: Optional[str] = None) -> List[Task]:
         repo = self.db.scalar(select(Repository).where(Repository.id == repository_id))
         if not repo:
             raise ValueError("Repository not found")
 
         self._authorize_actor_access(actor_id, repo)
 
-        return self.db.scalars(
-            select(Task)
-            .where(Task.repository_id == repository_id)
-            .order_by(Task.created_at.desc())
-        ).all()
+        query = select(Task).where(Task.repository_id == repository_id)
+        if search and search.strip():
+            term = f"%{search.strip()}%"
+            query = query.where(
+                or_(
+                    Task.title.ilike(term),
+                    Task.description.ilike(term),
+                    Task.execution_summary.ilike(term),
+                    Task.validation_summary.ilike(term),
+                )
+            )
 
-    def list_all_tasks(self, user_id: str) -> List[Task]:
         return list(
             self.db.scalars(
-                select(Task)
-                .join(Repository, Task.repository_id == Repository.id)
-                .where(
-                    (Repository.owner_id == user_id) | (Repository.visibility == "public"),
-                    Repository.deleted_at.is_(None),
-                )
-                .order_by(Task.created_at.desc())
+                query.order_by(Task.created_at.desc())
             ).all()
         )
+
+    def list_all_tasks(self, user_id: str, search: Optional[str] = None) -> List[Task]:
+        query = (
+            select(Task)
+            .join(Repository, Task.repository_id == Repository.id)
+            .where(
+                (Repository.owner_id == user_id) | (Repository.visibility == "public"),
+                Repository.deleted_at.is_(None),
+            )
+        )
+        if search and search.strip():
+            term = f"%{search.strip()}%"
+            query = query.where(
+                or_(
+                    Task.title.ilike(term),
+                    Task.description.ilike(term),
+                    Task.execution_summary.ilike(term),
+                    Task.validation_summary.ilike(term),
+                )
+            )
+
+        return list(
+            self.db.scalars(
+                query.order_by(Task.created_at.desc())
+            ).all()
+        )
+
+    def get_required_capabilities_for_task(self, task: Task) -> List[str]:
+        capabilities: List[str] = []
+        if task.task_type:
+            capabilities.append(task.task_type.lower())
+        desc = (task.description or "").lower()
+        title = (task.title or "").lower()
+        content = f"{title} {desc}"
+        for keyword in ["security", "refactor", "bugfix", "documentation", "feature", "ci", "python", "typescript", "react"]:
+            if keyword in content and keyword not in capabilities:
+                capabilities.append(keyword)
+        return capabilities
+
+    def check_agent_capabilities(self, agent: Agent, required_capabilities: List[str]) -> bool:
+        if not required_capabilities:
+            return True
+        agent_text = f"{agent.name or ''} {agent.description or ''} {agent.model or ''} {agent.provider or ''}".lower()
+        if any(term in agent_text for term in ("general", "all", "full", "autonomous")):
+            return True
+        for cap in required_capabilities:
+            if cap in agent_text:
+                return True
+        return False
+
+    def find_available_agent_for_task(self, task: Task) -> Optional[Agent]:
+        repo = self.db.scalar(select(Repository).where(Repository.id == task.repository_id))
+        if not repo:
+            return None
+        agents = list(
+            self.db.scalars(
+                select(Agent).where(
+                    Agent.owner_id == repo.owner_id,
+                    Agent.is_active.is_(True),
+                    Agent.status == "active",
+                )
+            ).all()
+        )
+        if not agents:
+            return None
+
+        required_caps = self.get_required_capabilities_for_task(task)
+        available_agents: List[Agent] = []
+        for ag in agents:
+            active_claimed_task = self.db.scalar(
+                select(Task).where(
+                    Task.assigned_agent_id == ag.id,
+                    Task.status == Task.STATUS_IN_PROGRESS,
+                    Task.claimed_by_session_id.is_not(None),
+                )
+            )
+            if not active_claimed_task:
+                available_agents.append(ag)
+
+        candidates = available_agents if available_agents else agents
+        for ag in candidates:
+            if self.check_agent_capabilities(ag, required_caps):
+                return ag
+        return candidates[0] if candidates else None
 
     def assign_task(
         self,
@@ -204,17 +287,24 @@ class TaskService:
         if assigned_user_id and assigned_agent_id:
             raise ValueError("Cannot assign task to both user and agent simultaneously")
 
-        if not assigned_user_id and not assigned_agent_id:
-            raise ValueError("Must assign task to either a user or an agent")
+        if assigned_agent_id in ("auto", "any", "available"):
+            matched_agent = self.find_available_agent_for_task(task)
+            if matched_agent:
+                assigned_agent_id = matched_agent.id
+            else:
+                assigned_agent_id = None
 
-        if assigned_user_id:
+        if not assigned_user_id and not assigned_agent_id:
+            # Leave open for any available capable agent to claim
+            task.assigned_agent_id = None
+            task.assigned_user_id = None
+        elif assigned_user_id:
             user = self.db.scalar(select(User).where(User.id == assigned_user_id))
             if not user:
                 raise ValueError("Assigned user not found")
             task.assigned_user_id = assigned_user_id
             task.assigned_agent_id = None
-
-        if assigned_agent_id:
+        elif assigned_agent_id:
             agent = self.db.scalar(select(Agent).where(Agent.id == assigned_agent_id))
             if not agent:
                 raise ValueError("Assigned agent not found")
@@ -318,7 +408,7 @@ class TaskService:
         task: Task,
         session: AgentSession,
     ) -> None:
-        if task.assigned_agent_id != session.agent_id:
+        if task.assigned_agent_id and task.assigned_agent_id != session.agent_id:
             raise PermissionError(
                 "Task is not assigned to this agent"
             )
@@ -367,6 +457,12 @@ class TaskService:
                 "Agent is inactive or revoked"
             )
 
+        repo = self.db.scalar(select(Repository).where(Repository.id == task.repository_id))
+        if repo and agent.owner_id != repo.owner_id:
+            raise PermissionError(
+                "Agent does not belong to repository owner scope"
+            )
+
     def _lease_is_active(self, task: Task) -> bool:
         if not task.claimed_by_session_id:
             return False
@@ -406,8 +502,10 @@ class TaskService:
                 "Task is already claimed by another session"
             )
 
-        # Reclaim expired lease.
+        # Reclaim expired lease or claim unassigned.
         task.claimed_by_session_id = session.id
+        if task.assigned_agent_id is None:
+            task.assigned_agent_id = session.agent_id
         task.lease_expires_at = (
             now
             + timedelta(

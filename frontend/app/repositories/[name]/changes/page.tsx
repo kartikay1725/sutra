@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AppShell, PageHead, Card, Btn, Badge, EmptyState, SutraLoading } from "@/components/shell";
+import { AppShell, PageHead, Card, Btn, Badge, EmptyState, SkeletonChangeList } from "@/components/shell";
 import { changeService, Change } from "@/lib/changes";
 import { authService } from "@/lib/auth";
 import * as I from "lucide-react";
@@ -77,7 +77,7 @@ export default function ChangesListPage({ params }: { params: Promise<{ name: st
         sub="All code changes produced by humans and agents."
       />
 
-      <div style={{ maxWidth: 1000, margin: "0 auto", padding: "0 20px" }}>
+      <div style={{ width: "100%" }}>
         
         {/* Filters and Stats Row */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -120,7 +120,7 @@ export default function ChangesListPage({ params }: { params: Promise<{ name: st
 
         {/* Changes List */}
         {loading ? (
-           <SutraLoading message="Loading code changes and provenance trail..." quote={true} />
+           <SkeletonChangeList count={4} />
         ) : filteredChanges.length === 0 ? (
            <EmptyState
              icon={<I.GitCommit size={20} />}

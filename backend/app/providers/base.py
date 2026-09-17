@@ -121,6 +121,44 @@ class RepositoryProvider(ABC):
         """Fetch repository details and detected capabilities."""
         ...
 
+    def get_raw_repository(
+        self,
+        owner: str,
+        name: str,
+    ) -> Dict[str, Any]:
+        """Fetch raw substrate repository details including fork, parent, and permissions."""
+        return {}
+
+    def create_fork(
+        self,
+        owner: str,
+        name: str,
+        organization: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a fork of an upstream repository on the substrate."""
+        raise NotImplementedError("Fork creation is not supported by this provider")
+
+    def update_repository(
+        self,
+        owner: str,
+        name: str,
+        *,
+        new_name: Optional[str] = None,
+        description: Optional[str] = None,
+        default_branch: Optional[str] = None,
+        is_private: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """Update repository configuration on the substrate."""
+        return {}
+
+    def delete_repository(
+        self,
+        owner: str,
+        name: str,
+    ) -> bool:
+        """Delete repository on the substrate if supported."""
+        return False
+
     # ========================================================
     # BRANCHES
     # ========================================================

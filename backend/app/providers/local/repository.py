@@ -1,4 +1,4 @@
-﻿import os
+import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -75,7 +75,11 @@ class LocalRepositoryProvider(RepositoryProvider):
         is_private = repo.visibility == "private" if repo else True
         external_id = repo.id if repo else name
 
-        clone_url = f"{settings.sutra_base_url}/git/{owner}/{name}.git"
+        clone_url = (
+            repo.upstream_url
+            if repo and repo.upstream_url and "github.com" in repo.upstream_url
+            else f"https://github.com/{getattr(repo, 'provider_owner', None) or owner}/{name}.git"
+        )
         return ProviderRepoMetadata(
             provider_type="local",
             owner=owner,

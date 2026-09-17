@@ -4,6 +4,7 @@ from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Query,
     status,
 )
 from pydantic import BaseModel, Field
@@ -222,6 +223,7 @@ def create_task(
 def list_tasks(
     owner: str,
     repo: str,
+    q: str | None = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -235,6 +237,7 @@ def list_tasks(
         tasks = TaskService(db).list_tasks_for_repository(
             repository.id,
             current_user.id,
+            search=q,
         )
 
         return [
@@ -251,11 +254,12 @@ def list_tasks(
     response_model=list[TaskResponse],
 )
 def list_all_tasks(
+    q: str | None = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     try:
-        tasks = TaskService(db).list_all_tasks(current_user.id)
+        tasks = TaskService(db).list_all_tasks(current_user.id, search=q)
         return [_to_response(task) for task in tasks]
     except Exception as exc:
         raise _service_error(exc) from exc

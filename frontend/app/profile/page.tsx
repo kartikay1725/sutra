@@ -20,8 +20,8 @@ import {
   MessageCircle,
   Save,
   ExternalLink,
-  Settings,
 } from "lucide-react";
+import { profileService, type ContributionGraph } from "@/lib/profiles";
 
 type SocialLinks = {
   github: string;
@@ -97,6 +97,8 @@ export default function ProfilePage() {
   const [bio, setBio] = useState("");
   const [socialLinks, setSocialLinks] =
     useState<SocialLinks>(emptyLinks);
+  const [contributions, setContributions] =
+    useState<ContributionGraph | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -116,6 +118,15 @@ export default function ProfilePage() {
           ...emptyLinks,
           ...((user as any).social_links || {}),
         });
+
+        if (user.username) {
+          try {
+            const graph = await profileService.getContributions(user.username);
+            setContributions(graph);
+          } catch (e) {
+            console.warn("Could not load contribution graph:", e);
+          }
+        }
       } catch (err: any) {
         console.error(err);
         router.replace("/login");
@@ -414,6 +425,109 @@ export default function ProfilePage() {
             </div>
           </Card>
 
+          {/* GitHub Contribution Activity Card */}
+          <Card>
+            <div className="card-pad" style={{ padding: 24 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 16,
+                  flexWrap: "wrap",
+                  gap: 10,
+                }}
+              >
+                <div>
+                  <div
+                    style={{
+                      fontSize: 16,
+                      fontWeight: 700,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <Github size={16} color="var(--cyan)" />
+                    GitHub Contribution Activity
+                  </div>
+                  <div className="sub" style={{ marginTop: 4 }}>
+                    Your public profile engineering calendar reflects activity synchronized with GitHub.
+                  </div>
+                </div>
+
+                {contributions?.github_synced ? (
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: "#22d3ee",
+                      background: "rgba(34, 211, 238, 0.12)",
+                      border: "1px solid rgba(34, 211, 238, 0.25)",
+                      padding: "3px 10px",
+                      borderRadius: 6,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 5,
+                    }}
+                  >
+                    <Github size={12} />
+                    Synced with @{contributions.github_account}
+                  </span>
+                ) : (
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: "var(--muted)",
+                      background: "rgba(255, 255, 255, 0.04)",
+                      border: "1px solid var(--line)",
+                      padding: "3px 10px",
+                      borderRadius: 6,
+                    }}
+                  >
+                    Add your GitHub profile link above to synchronize
+                  </span>
+                )}
+              </div>
+
+              {contributions && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "12px 16px",
+                    background: "rgba(255, 255, 255, 0.02)",
+                    border: "1px solid var(--line)",
+                    borderRadius: 8,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                    <span style={{ fontSize: 22, fontWeight: 700, color: "var(--fg)" }}>
+                      {contributions.total_contributions}
+                    </span>
+                    <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                      recorded contributions across the last 365 days
+                    </span>
+                  </div>
+
+                  <Btn
+                    sm
+                    onClick={() =>
+                      router.push(
+                        `/profile/${encodeURIComponent(username)}`,
+                      )
+                    }
+                  >
+                    <ExternalLink size={12} />
+                    View calendar
+                  </Btn>
+                </div>
+              )}
+            </div>
+          </Card>
+
           <div
             style={{
               display: "flex",
@@ -463,11 +577,6 @@ export default function ProfilePage() {
               >
                 <ExternalLink size={14} />
                 View public profile
-              </Btn>
-
-              <Btn onClick={() => router.push("/settings")}>
-                <Settings size={14} />
-                Settings
               </Btn>
 
               <Btn

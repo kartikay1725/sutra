@@ -24,7 +24,6 @@ import {
   CircleDot,
   MessageSquare,
   Rocket,
-  LineChart,
   ChevronLeft,
   Sliders,
   Network,
@@ -85,10 +84,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { label: "Profile", href: "/profile", icon: UserRound },
   ];
 
-  const globalSettingsNav = [
-    { label: "Settings", href: "/settings", icon: Settings },
-  ];
-
   // Repository-Scoped Navigation
   const repoBase = `/repositories/${repoName}`;
   const repoNav = [
@@ -98,7 +93,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { label: "Tasks", href: `${repoBase}/tasks`, icon: ListTodo },
     { label: "Changes", href: `${repoBase}/changes`, icon: GitBranch },
     { label: "Pull Requests", href: `${repoBase}/pull-requests`, icon: GitPullRequest },
-    { label: "Discussions", href: `${repoBase}/discussions`, icon: MessageSquare },
   ];
 
   const repoEngineeringNav = [
@@ -115,7 +109,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const repoDeliveryNav = [
     { label: "Releases", href: `${repoBase}/releases`, icon: Package },
     // { label: "Deployments", href: `${repoBase}/deployments`, icon: Rocket },
-    { label: "Insights", href: `${repoBase}/insights`, icon: LineChart },
   ];
 
   const repoSettingsNav = [
@@ -143,7 +136,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         tasks: "Tasks",
         changes: "Changes",
         "pull-requests": "Pull Requests",
-        discussions: "Discussions",
         agents: "Agents",
         ci: "CI / CD",
         security: "Security",
@@ -165,7 +157,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (pathname === "/agents") return "Agents Gateway";
     if (pathname === "/notifications") return "Notifications";
     if (pathname === "/profile") return "Profile";
-    if (pathname === "/settings") return "Settings";
     return "Engineering workspace";
   };
 
@@ -333,23 +324,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 })}
               </div>
             </nav>
-
-            <div className="sidebottom">
-              {globalSettingsNav.map((item) => {
-                const Icon = item.icon;
-                const active = isNavActive(item.href);
-                return (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className={`navitem ${active ? "active" : ""}`}
-                  >
-                    <Icon size={16} />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
           </>
         )}
       </aside>

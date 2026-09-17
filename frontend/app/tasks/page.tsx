@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Filter, Bot, UserRound, CheckCircle2, Clock, AlertCircle, Search, RefreshCw, Sparkles, GitPullRequest } from "lucide-react";
-import { Page, Card, Badge, EmptyState, Table, Btn, SutraLoading } from "@/components/ui";
+import { Plus, Filter, Bot, UserRound, CheckCircle2, Clock, Search, RefreshCw, Sparkles, GitPullRequest, Square } from "lucide-react";
+import { AppShell } from "@/components/shell";
+import { Page, Card, Badge, EmptyState, ErrorState, Table, Btn, Skeleton } from "@/components/ui";
 import { taskService, Task } from "@/lib/tasks";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 export default function Tasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -12,11 +14,34 @@ export default function Tasks() {
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState<string>("");
+  const [terminatingId, setTerminatingId] = useState<string | null>(null);
+  const [taskToTerminate, setTaskToTerminate] = useState<Task | null>(null);
 
-  const loadTasks = () => {
+  const handleTerminate = (task: Task) => {
+    setTaskToTerminate(task);
+  };
+
+  const executeTerminate = async () => {
+    if (!taskToTerminate) return;
+    const taskId = taskToTerminate.id;
+    setTerminatingId(taskId);
+    try {
+      await taskService.terminateTask(taskId);
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, status: "cancelled" } : t))
+      );
+      setTaskToTerminate(null);
+    } catch (err: any) {
+      alert(err?.message || "Failed to terminate task");
+    } finally {
+      setTerminatingId(null);
+    }
+  };
+
+  const loadTasks = (query?: string) => {
     setLoading(true);
     setError(null);
-    taskService.listAllTasks()
+    taskService.listAllTasks(query)
       .then((data) => {
         setTasks(Array.isArray(data) ? data : []);
       })
@@ -29,8 +54,11 @@ export default function Tasks() {
   };
 
   useEffect(() => {
-    loadTasks();
-  }, []);
+    const handler = setTimeout(() => {
+      loadTasks(search);
+    }, 250);
+    return () => clearTimeout(handler);
+  }, [search]);
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((t) => {
@@ -57,16 +85,17 @@ export default function Tasks() {
   const agentCreatedCount = tasks.filter(t => t.source === "agent").length;
 
   return (
-    <Page 
-      eyebrow="Engineering Control Plane" 
-      title="Tasks" 
-      description="Intent becomes executable work. Tasks can be dispatched to agents or humans under sovereign governance."
-      actions={
-        <Btn onClick={loadTasks} disabled={loading}>
-          <RefreshCw size={13} className={loading ? "spin" : ""} /> Refresh
-        </Btn>
-      }
-    >
+    <AppShell>
+      <Page
+        eyebrow="Engineering Control Plane"
+        title="Tasks"
+        description="Intent becomes executable work. Tasks can be dispatched to agents or humans under sovereign governance."
+        actions={
+          <Btn onClick={() => loadTasks(search)} disabled={loading}>
+            <RefreshCw size={13} className={loading ? "spin" : ""} /> Refresh
+          </Btn>
+        }
+      >
       <div className="grid g4" style={{ marginBottom: 16 }}>
         <Card>
           <div className="stat">
@@ -140,14 +169,27 @@ export default function Tasks() {
         </div>
 
         {loading ? (
-          <SutraLoading message="Querying tasks across monitored repositories..." quote={true} />
-        ) : error ? (
-          <div style={{ padding: "32px 20px" }}>
-            <div className="error-banner">
-              <AlertCircle size={16} />
-              <span>{error}</span>
-            </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Card key={i} style={{ padding: "16px 20px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
+                    <Skeleton width={18} height={18} borderRadius={4} />
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
+                      <Skeleton width={`${40 + (i % 3) * 15}%`} height={15} borderRadius={4} />
+                      <Skeleton width={130} height={12} borderRadius={3} />
+                    </div>
+                  </div>
+                  <Skeleton width={80} height={22} borderRadius={11} />
+                </div>
+              </Card>
+            ))}
           </div>
+        ) : error ? (
+          <ErrorState
+            description={error}
+            action={<Btn sm onClick={() => loadTasks(search)}>Try again</Btn>}
+          />
         ) : filteredTasks.length === 0 ? (
           <div style={{ padding: "20px" }}>
             <EmptyState
@@ -222,9 +264,31 @@ export default function Tasks() {
                     )}
                   </td>
                   <td>
-                    <Badge tone={task.status === "completed" || task.status === "done" ? "green" : task.status === "in_progress" ? "blue" : "amber"}>
-                      {task.status}
-                    </Badge>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <Badge tone={task.status === "completed" || task.status === "done" ? "green" : task.status === "cancelled" ? "red" : task.status === "in_progress" ? "blue" : "amber"}>
+                        {task.status}
+                      </Badge>
+                      {(task.status === "in_progress" || task.status === "assigned" || task.status === "open") && (
+                        <button
+                          type="button"
+                          onClick={() => handleTerminate(task)}
+                          disabled={terminatingId === task.id}
+                          className="badge red"
+                          style={{
+                            cursor: "pointer",
+                            padding: "2px 8px",
+                            fontSize: "10px",
+                            background: "rgba(239,68,68,0.12)",
+                            border: "1px solid rgba(239,68,68,0.3)",
+                            color: "#ef4444",
+                            fontWeight: 600,
+                          }}
+                          title="Terminate active task"
+                        >
+                          <Square size={9} fill="currentColor" /> {terminatingId === task.id ? "Stopping…" : "Terminate"}
+                        </button>
+                      )}
+                    </div>
                   </td>
                   <td style={{ fontSize: "11px", textAlign: "right" }} className="meta">
                     {task.created_at ? new Date(task.created_at).toLocaleDateString() : "—"}
@@ -235,6 +299,22 @@ export default function Tasks() {
           </Table>
         )}
       </Card>
-    </Page>
+      </Page>
+
+      <ConfirmModal
+        isOpen={Boolean(taskToTerminate)}
+        onClose={() => setTaskToTerminate(null)}
+        onConfirm={executeTerminate}
+        title="Terminate Task"
+        description={
+          <>
+            Are you sure you want to terminate <strong>&ldquo;{taskToTerminate?.title}&rdquo;</strong>? The task execution will be aborted immediately and set to cancelled.
+          </>
+        }
+        confirmText="Terminate Task"
+        confirmTone="danger"
+        loading={Boolean(terminatingId)}
+      />
+    </AppShell>
   );
 }

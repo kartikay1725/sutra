@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, UserRound, LogOut, Settings, ChevronDown, Menu, X } from "lucide-react";
+import { Bell, UserRound, LogOut, Settings, ChevronDown, ExternalLink, X } from "lucide-react";
+import { GitHubSyncButton } from "./GitHubSyncButton";
 import { globalNav, repoNav } from "../lib/nav";
 import { authService, User } from "../lib/auth";
 import { I } from "../lib/icons";
@@ -24,11 +25,41 @@ function Mark(){
   );
 }
 
+let _cachedUser: User | null = null;
+
+export function ContentSkeleton() {
+  return (
+    <div style={{ padding: "24px 28px", maxWidth: 1200, margin: "0 auto", width: "100%" }}>
+      <div style={{ marginBottom: 24 }}>
+        <div className="skeleton" style={{ width: 120, height: 14, marginBottom: 8 }} />
+        <div className="skeleton" style={{ width: 260, height: 28, marginBottom: 8 }} />
+        <div className="skeleton" style={{ width: 400, height: 16 }} />
+      </div>
+      <div className="grid g4" style={{ marginBottom: 24 }}>
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="card" style={{ padding: 20 }}>
+            <div className="skeleton" style={{ width: 80, height: 12, marginBottom: 12 }} />
+            <div className="skeleton" style={{ width: 140, height: 28 }} />
+          </div>
+        ))}
+      </div>
+      <div className="card" style={{ padding: 24 }}>
+        <div className="skeleton" style={{ width: 180, height: 20, marginBottom: 16 }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="skeleton" style={{ width: "100%", height: 38 }} />
+          <div className="skeleton" style={{ width: "100%", height: 38 }} />
+          <div className="skeleton" style={{ width: "100%", height: 38 }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AppShell({children, isPublic = false}:{children:React.ReactNode, isPublic?: boolean}){
   const path = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(_cachedUser);
+  const [loading, setLoading] = useState(!_cachedUser && !isPublic);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -40,6 +71,7 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
 
   useEffect(() => {
     if (!authService.isAuthenticated()) {
+      _cachedUser = null;
       if (isPublic) {
         setLoading(false);
       } else {
@@ -50,10 +82,12 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
     
     authService.getCurrentUser()
       .then(u => {
+        _cachedUser = u;
         setUser(u);
         setLoading(false);
       })
       .catch(() => {
+        _cachedUser = null;
         authService.logout();
         if (isPublic) {
           setLoading(false);
@@ -76,6 +110,7 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
 
   const handleLogout = async () => {
     setDropdownOpen(false);
+    _cachedUser = null;
     await authService.logout();
     router.push("/login");
   };
@@ -92,13 +127,10 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [router]);
 
-  if (loading) {
-    return <SutraLoading fullscreen quote message="Connecting to engineering control plane..." />;
-  }
-
   const repoMatch = path.match(/^\/repositories\/([^/]+)/);
   const repoName = repoMatch ? repoMatch[1] : null;
   const isRepoScope = Boolean(repoName);
+  const isCodePage = Boolean(repoName && (path.endsWith("/code") || path.includes("/code/")));
   
   const currentNav = isRepoScope ? repoNav : globalNav;
 
@@ -138,9 +170,15 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
       {currentNav.map(group=><div key={group.label}>
         <div className="navlabel">{group.label}</div>
         {group.items.map(([href,label,Icon])=>{
-          const isGlobalGroup = (group.label as string) === "Workspace" || (group.label as string) === "Organization";
-          const actualHref = isRepoScope && !isGlobalGroup ? `/repositories/${repoName}${href}` : href;
-          const active = path===actualHref || (actualHref!=="/home" && path.startsWith(actualHref));
+          const actualHref = isRepoScope
+            ? (href === "" ? `/repositories/${repoName}` : `/repositories/${repoName}${href}`)
+            : href;
+          const isRepoRoot = isRepoScope && (href === "" || actualHref === `/repositories/${repoName}`);
+          const isHomeRoot = actualHref === "/home" || actualHref === "/";
+          const isExactMatch = isRepoRoot || isHomeRoot;
+          const active = isExactMatch
+            ? path === actualHref
+            : (path === actualHref || path.startsWith(actualHref + "/"));
           return <Link key={actualHref} href={actualHref} className={"navitem "+(active?"active":"")}>
             <Icon/><span>{label}</span>
           </Link>
@@ -175,11 +213,140 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
             onClick={() => setMobileOpen(true)}
             aria-label="Open navigation menu"
           >
-            <Menu size={18} />
           </button>
-          <div className="crumb"><span>SUTRA</span><span>/</span><strong>{path === "/home" ? "Home" : path.split("/").filter(Boolean).slice(-1)[0]?.replaceAll("-"," ")}</strong></div>
+          {(() => {
+            if (isRepoScope && repoName) {
+              const subPath = path.replace(`/repositories/${repoName}`, "").replace(/^\//, "");
+              const section = subPath.split("/")[0] || "";
+              const sectionNames: Record<string, string> = {
+                "": "Overview",
+                code: "Code",
+                tasks: "Tasks",
+                issues: "Issues",
+                changes: "Changes",
+                "pull-requests": "Pull Requests",
+                ci: "CI / CD",
+                agents: "Agents",
+                "knowledge-graph": "Knowledge Graph",
+                assistant: "AI Assistant",
+                insights: "Insights",
+                settings: "Settings",
+                releases: "Releases",
+                security: "Security",
+              };
+              const title = sectionNames[section] || (section ? section.replaceAll("-", " ") : "Overview");
+              const hasSubId = subPath.split("/").length > 1;
+              const subId = hasSubId ? subPath.split("/")[1] : null;
+
+              return (
+                <div className="crumb" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                  <Link href="/repositories" style={{ color: "var(--muted)", textDecoration: "none" }}>Repositories</Link>
+                  <span style={{ color: "var(--muted)" }}>/</span>
+                  <Link href={`/repositories/${repoName}`} style={{ color: section ? "var(--muted)" : "var(--fg)", textDecoration: "none", fontWeight: section ? 400 : 600 }}>
+                    {repoName}
+                  </Link>
+                  {section && (
+                    <>
+                      <span style={{ color: "var(--muted)" }}>/</span>
+                      {hasSubId ? (
+                        <Link href={`/repositories/${repoName}/${section}`} style={{ color: "var(--muted)", textDecoration: "none" }}>
+                          {title}
+                        </Link>
+                      ) : (
+                        <strong style={{ color: "var(--fg)" }}>{title}</strong>
+                      )}
+                    </>
+                  )}
+                  {hasSubId && subId && (
+                    <>
+                      <span style={{ color: "var(--muted)" }}>/</span>
+                      <strong style={{ color: "var(--fg)", fontFamily: "monospace", fontSize: 12 }}>#{subId.slice(0, 8)}</strong>
+                    </>
+                  )}
+                </div>
+              );
+            }
+
+            const globalTitles: Record<string, string> = {
+              "/": "Overview",
+              "/home": "Overview",
+              "/tasks": "Tasks",
+              "/my-work": "My Work",
+              "/repositories": "Repositories",
+              "/changes": "Changes",
+              "/pull-requests": "Pull Requests",
+              "/ci": "CI / CD",
+              "/agents": "Agents",
+              "/governance": "Governance & Policies",
+              "/audit-log": "Audit",
+              "/activity": "Activity",
+              "/knowledge-graph": "Knowledge Graph",
+              "/assistant": "Assistant",
+              "/profile": "Profile",
+              "/notifications": "Notifications",
+              "/search": "Search",
+              "/docs": "Documentation",
+            };
+
+            const segments = path.split("/").filter(Boolean);
+            const rootRoute = `/${segments[0] || ""}`;
+            const pageTitle = globalTitles[path] || globalTitles[rootRoute] || (segments[0]?.replaceAll("-", " ") || "Overview");
+            const hasDetailId = segments.length > 1;
+            const detailId = hasDetailId ? segments[1] : null;
+
+            return (
+              <div className="crumb" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                <span>SUTRA</span>
+                <span style={{ color: "var(--muted)" }}>/</span>
+                {hasDetailId && detailId ? (
+                  <>
+                    <Link href={rootRoute} style={{ color: "var(--muted)", textDecoration: "none" }}>
+                      {globalTitles[rootRoute] || segments[0]?.replaceAll("-", " ")}
+                    </Link>
+                    <span style={{ color: "var(--muted)" }}>/</span>
+                    <strong style={{ color: "var(--fg)", fontFamily: "monospace", fontSize: 12 }}>#{detailId.slice(0, 8)}</strong>
+                  </>
+                ) : (
+                  <strong style={{ color: "var(--fg)" }}>{pageTitle}</strong>
+                )}
+              </div>
+            );
+          })()}
         </div>
         <div className="top-actions">
+          <button
+            type="button"
+            onClick={() => router.push("/search")}
+            className="btn outline"
+            title="Search repositories, tasks, pull requests, and changes (Ctrl+K)"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 12,
+              height: 34,
+              padding: "0 12px",
+              color: "var(--muted)",
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid var(--line)",
+              borderRadius: 6,
+              cursor: "pointer",
+            }}
+          >
+            <I.Search size={14} />
+            <span>Search...</span>
+            <kbd style={{
+              fontSize: 10,
+              background: "rgba(255,255,255,0.08)",
+              padding: "1px 5px",
+              borderRadius: 4,
+              border: "1px solid var(--line)",
+              marginLeft: 4,
+            }}>
+              ⌘K
+            </kbd>
+          </button>
+          <GitHubSyncButton variant="compact" />
           <Link
             href="/docs"
             className="btn guide"
@@ -243,21 +410,6 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
                     Profile
                   </Link>
 
-                  <Link
-                    href="/settings"
-                    onClick={() => setDropdownOpen(false)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 10,
-                      padding: "8px 14px", fontSize: 13, color: "var(--fg)",
-                      textDecoration: "none", transition: "background 120ms",
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
-                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                  >
-                    <Settings size={14} style={{ opacity: 0.6 }} />
-                    Settings
-                  </Link>
-
                   <div style={{ height: 1, background: "var(--line)", margin: "6px 0" }} />
 
                   <button
@@ -280,29 +432,31 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
           </div>
         </div>
       </header>
-      <div className="content" style={{ flex: 1 }}>{children}</div>
-      <footer
-        style={{
-          borderTop: "1px solid var(--line)",
-          background: "var(--surface)",
-          padding: "18px 28px",
-          marginTop: "auto",
-          fontSize: 12,
-          color: "var(--muted)",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: 12,
-        }}
-      >
-        <div>© {new Date().getFullYear()} SUTRA. A Sudarshan Harness Product. All rights reserved.</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <span>Contact us at <a href="mailto:sutra@sudarshanai.com" style={{ color: "#60A5FA", textDecoration: "none" }}>sutra@sudarshanai.com</a></span>
-          <span>•</span>
-          <span>AI-Native Engineering Control Plane</span>
-        </div>
-      </footer>
+      <div className={`content ${isCodePage ? "content-fullbleed" : ""}`} style={{ flex: 1 }}>{loading ? <ContentSkeleton /> : children}</div>
+      {!isCodePage && (
+        <footer
+          style={{
+            borderTop: "1px solid var(--line)",
+            background: "var(--surface)",
+            padding: "18px 28px",
+            marginTop: "auto",
+            fontSize: 12,
+            color: "var(--muted)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 12,
+          }}
+        >
+          <div>© {new Date().getFullYear()} SUTRA. A Sudarshan Harness Product. All rights reserved.</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <span>Contact us at <a href="mailto:sutra@sudarshanai.com" style={{ color: "#60A5FA", textDecoration: "none" }}>sutra@sudarshanai.com</a></span>
+            <span>•</span>
+            <span>AI-Native Engineering Control Plane</span>
+          </div>
+        </footer>
+      )}
     </main>
   </div>
 }
@@ -367,3 +521,17 @@ export function Table({
 }
 
 export { SutraLoading } from "./sutra-loading";
+export {
+  Skeleton,
+  SkeletonFileTree,
+  SkeletonCodeViewer,
+  SkeletonCommitList,
+  SkeletonPRList,
+  SkeletonIssueList,
+  SkeletonChangeList,
+  SkeletonAgentList,
+  SkeletonCIRuns,
+  SkeletonRepoOverview,
+  SkeletonRepoSettings,
+} from "./skeleton";
+

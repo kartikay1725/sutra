@@ -39,6 +39,6 @@ Intelligence: `/knowledge-graph`, `/insights`
 
 Network: `/profile`, `/organizations`, `/governance`, `/audit-log`, `/marketplace`
 
-Account: `/settings`, `/search`
+Account: `/search`
 
 The root `/` is a polished marketing/landing page matching the provided SUTRA reference direction.

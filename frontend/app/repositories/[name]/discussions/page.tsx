@@ -58,7 +58,7 @@ export default function DiscussionsPage({ params }: { params: Promise<{ name: st
         title="Discussions"
         sub="Welcome to Discussions! Ask questions, share ideas, or make announcements."
       />
-      <div style={{ display: "flex", gap: "24px", maxWidth: "1200px", margin: "0 auto", padding: "0 20px", marginTop: "20px" }}>
+      <div style={{ display: "flex", gap: "24px", width: "100%", marginTop: "20px" }}>
         
         {/* Left Sidebar - Categories */}
         <div style={{ width: "240px", flexShrink: 0 }}>

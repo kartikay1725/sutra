@@ -1,14 +1,15 @@
+const CANONICAL_PRODUCTION_API_URL = "https://api.sutra.sudarshanai.com";
+
 function getApiUrl(): string {
-  if (process.env.NEXT_PUBLIC_API_URL) {
+  if (process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.trim()) {
     return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, "");
   }
+
   if (typeof window !== "undefined") {
-    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-      return "http://localhost:8000";
-    }
-    return "";
+    return "/api";
   }
-  return "http://127.0.0.1:8000";
+
+  return CANONICAL_PRODUCTION_API_URL;
 }
 
 export class SutraAPIError extends Error {
@@ -71,7 +72,7 @@ export function formatErrorMessage(err: unknown): string {
 async function fetchWithHandler<T>(path: string, init?: RequestInit): Promise<T> {
   const baseUrl = getApiUrl();
   const url = `${baseUrl}${path}`;
-  
+
   let response: Response;
   try {
     response = await fetch(url, {
@@ -96,7 +97,6 @@ async function fetchWithHandler<T>(path: string, init?: RequestInit): Promise<T>
     throw new SutraAPIError(response.status, detail);
   }
 
-  // Handle 204 No Content
   if (response.status === 204) {
     return {} as T;
   }
@@ -114,7 +114,7 @@ export async function apiPublic<T>(path: string, init?: RequestInit): Promise<T>
 
 export async function apiAuth<T>(path: string, init?: RequestInit): Promise<T> {
   let token = null;
-  
+
   if (typeof window !== "undefined") {
     token = localStorage.getItem("sutra_token");
   }
@@ -130,5 +130,5 @@ export async function apiAuth<T>(path: string, init?: RequestInit): Promise<T> {
   return fetchWithHandler<T>(path, { ...init, headers });
 }
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || CANONICAL_PRODUCTION_API_URL;
 export { getApiUrl };

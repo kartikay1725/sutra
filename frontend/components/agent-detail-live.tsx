@@ -7,6 +7,8 @@ import { agentService, type Agent, type AgentSession, type AgentRepositoryAccess
 import { Badge, Btn, Card, PageHead, Stat } from "./shell";
 import { I } from "../lib/icons";
 import { repositoryService, type Repository } from "../lib/repositories";
+import { taskService, type Task } from "../lib/tasks";
+import { ConfirmModal } from "./ConfirmModal";
 
 function fmt(value: string | null): string {
   if (!value) return "—";
@@ -29,29 +31,40 @@ export function AgentDetailLive() {
   const [allRepos, setAllRepos] = useState<Repository[]>([]);
   const [selectedRepoId, setSelectedRepoId] = useState("");
   const [granting, setGranting] = useState(false);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [terminatingTaskId, setTerminatingTaskId] = useState<string | null>(null);
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: React.ReactNode;
+    confirmText?: string;
+    confirmTone?: "danger" | "warning";
+    onConfirm: () => Promise<void>;
+  } | null>(null);
 
   const load = async () => {
     if (!agentId) return;
     try {
       setLoading(true);
       setError(null);
-      const agents = await agentService.listAgents();
-      const current = agents.find((item) => item.id === agentId);
+      const current = await agentService.getAgent(agentId);
       if (!current) {
         setError("Agent not found.");
         return;
       }
       setAgent(current);
       
-      const [sess, access, repos] = await Promise.all([
-        agentService.listSessions(current.id),
-        agentService.listRepositoryAccess(current.id),
+      const [sess, access, repos, allTasks] = await Promise.all([
+        agentService.listSessions(current.id).catch(() => [] as AgentSession[]),
+        agentService.listRepositoryAccess(current.id).catch(() => [] as AgentRepositoryAccess[]),
         repositoryService.listRepositories().catch(() => [] as Repository[]),
+        taskService.listAllTasks().catch(() => [] as Task[]),
       ]);
       
       setSessions(sess);
       setAccessList(access);
       setAllRepos(repos);
+      setTasks(allTasks.filter((t) => t.assigned_agent_id === current.id));
     } catch (err: any) {
       console.error(err);
       setError(err?.detail || err?.message || "Failed to load agent.");
@@ -81,18 +94,57 @@ export function AgentDetailLive() {
     }
   };
 
-  const handleRevokeAgent = async () => {
+  const handleRevokeAgent = () => {
     if (!agent) return;
-    if (!confirm("Are you sure you want to revoke this agent? This will deactivate the agent and invalidate all active sessions.")) return;
-    try {
-      setRevokingAgent(true);
-      await agentService.revokeAgent(agent.id);
-      await load();
-    } catch (err: any) {
-      setError(err?.detail || err?.message || "Failed to revoke agent.");
-    } finally {
-      setRevokingAgent(false);
-    }
+    setConfirmConfig({
+      isOpen: true,
+      title: "Revoke Agent",
+      description: (
+        <>
+          Are you sure you want to revoke <strong>{agent.name}</strong>? This will deactivate the agent and invalidate all active sessions immediately.
+        </>
+      ),
+      confirmText: "Revoke Agent",
+      confirmTone: "danger",
+      onConfirm: async () => {
+        setRevokingAgent(true);
+        try {
+          await agentService.revokeAgent(agent.id);
+          await load();
+          setConfirmConfig(null);
+        } catch (err: any) {
+          setError(err?.detail || err?.message || "Failed to revoke agent.");
+        } finally {
+          setRevokingAgent(false);
+        }
+      },
+    });
+  };
+
+  const handleTerminateTask = (task: Task) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: "Terminate Task",
+      description: (
+        <>
+          Are you sure you want to terminate <strong>&ldquo;{task.title}&rdquo;</strong>? Active execution will be aborted immediately and the task status will be set to cancelled.
+        </>
+      ),
+      confirmText: "Terminate Task",
+      confirmTone: "danger",
+      onConfirm: async () => {
+        setTerminatingTaskId(task.id);
+        try {
+          await taskService.terminateTask(task.id);
+          await load();
+          setConfirmConfig(null);
+        } catch (err: any) {
+          setError(err?.detail || err?.message || "Failed to terminate task.");
+        } finally {
+          setTerminatingTaskId(null);
+        }
+      },
+    });
   };
 
   const togglePermission = async (access: AgentRepositoryAccess, permission: string) => {
@@ -129,23 +181,54 @@ export function AgentDetailLive() {
     }
   };
 
-  const handleRevokeAccess = async (repositoryId: string) => {
+  const handleRevokeAccess = (repositoryId: string, repoName?: string) => {
     if (!agent) return;
-    if (!confirm("Revoke this repository access grant?")) return;
-    try {
-      await agentService.revokeRepositoryAccess(agent.id, repositoryId);
-      await load();
-    } catch (err: any) {
-      setError(err?.detail || err?.message || "Failed to revoke repository access.");
-    }
+    setConfirmConfig({
+      isOpen: true,
+      title: "Revoke Repository Access",
+      description: (
+        <>
+          Are you sure you want to revoke access to <strong>{repoName || "this repository"}</strong>? This agent will no longer be able to perform operations on that repository.
+        </>
+      ),
+      confirmText: "Revoke Access",
+      confirmTone: "danger",
+      onConfirm: async () => {
+        try {
+          await agentService.revokeRepositoryAccess(agent.id, repositoryId);
+          await load();
+          setConfirmConfig(null);
+        } catch (err: any) {
+          setError(err?.detail || err?.message || "Failed to revoke repository access.");
+        }
+      },
+    });
   };
 
   if (loading) {
-    return <div className="muted" style={{ padding: 40 }}>Loading agent…</div>;
+    return (
+      <div style={{ padding: 48, textAlign: "center", color: "var(--muted)" }}>
+        <div style={{ marginBottom: 12 }}>Loading agent…</div>
+      </div>
+    );
   }
 
   if (error || !agent) {
-    return <div className="muted" style={{ padding: 40, color: "#ff8fa0" }}>{error || "Agent not found."}</div>;
+    return (
+      <div style={{ padding: 48, maxWidth: 460, margin: "60px auto", textAlign: "center", background: "var(--bg-subtle, rgba(255,255,255,0.02))", borderRadius: 12, border: "1px solid var(--line)" }}>
+        <I.Bot size={32} style={{ marginBottom: 12, opacity: 0.3 }} />
+        <div style={{ fontSize: 17, fontWeight: 600, color: "var(--fg, #fff)", marginBottom: 8 }}>
+          Agent Not Found
+        </div>
+        <div className="sub" style={{ marginBottom: 18, color: "#ff8fa0" }}>
+          {error || "The agent does not exist or has been removed."}
+        </div>
+        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+          <Btn onClick={() => void load()}>Try Again</Btn>
+          <Link className="btn" href="/agents">Back to Agents</Link>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -153,7 +236,13 @@ export function AgentDetailLive() {
       <PageHead
         eyebrow={`Agent · ${agent.name}`}
         title={agent.name}
-        sub={agent.description || agent.model || "Registered SUTRA agent"}
+        sub={
+          [
+            agent.description || "No description provided.",
+            agent.provider ? `Provider: ${agent.provider}` : null,
+            agent.model ? `Model: ${agent.model}` : null,
+          ].filter(Boolean).join(" · ")
+        }
         action={
           <div style={{ display: "flex", gap: 8 }}>
             <Btn onClick={() => void load()}>
@@ -174,9 +263,9 @@ export function AgentDetailLive() {
 
       <div className="grid g4">
         <Stat label="Status" value={agent.status} />
-        <Stat label="Provider" value={agent.provider || "—"} />
-        <Stat label="Model" value={agent.model || "—"} />
-        <Stat label="Active sessions" value={String(activeSessions.length)} />
+        <Stat label="Token prefix" value={agent.token_prefix} />
+        <Stat label="Repo access" value={`${accessList.length} ${accessList.length === 1 ? "repo" : "repos"}`} />
+        <Stat label="Active sessions" value={`${activeSessions.length} active`} />
       </div>
 
       <Card style={{ marginTop: 14 }}>
@@ -283,7 +372,7 @@ export function AgentDetailLive() {
                     </div>
                     <Btn
                       style={{ backgroundColor: "var(--red, #ff4d4f)", color: "#fff", padding: "4px 8px", fontSize: 12 }}
-                      onClick={() => void handleRevokeAccess(access.repository_id)}
+                      onClick={() => handleRevokeAccess(access.repository_id, `${access.repository_owner}/${access.repository_name}`)}
                     >
                       Revoke Repo
                     </Btn>
@@ -326,17 +415,146 @@ export function AgentDetailLive() {
       </Card>
 
       <Card style={{ marginTop: 14 }}>
-        <div className="card-pad">
-          <div className="eyebrow">Execution history</div>
-          <div className="h2">Not exposed by the current backend</div>
-          <div className="sub" style={{ marginTop: 8 }}>
-            Agent sessions are now real. Task execution traces still require a task-event/run-history aggregation before this view can honestly show past runs.
+        <div className="card-head">
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <I.ShieldCheck size={16} style={{ color: "var(--cyan)" }} />
+            <div className="h2">Authority Boundaries & Governance Invariants</div>
           </div>
-          <div style={{ marginTop: 16 }}>
-            <Link href={`/agents/${agent.id}`} className="badge aqua">Refresh agent</Link>
+          <Badge tone="aqua">Enforced</Badge>
+        </div>
+        <div className="card-pad" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="sub" style={{ fontSize: 13, lineHeight: 1.5 }}>
+            SUTRA enforces sovereign governance boundaries on all agent actions regardless of assigned capabilities:
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, marginTop: 4 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 12px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--line)", borderRadius: 6 }}>
+              <I.XCircle size={15} style={{ color: "var(--red)", flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600 }}>Cannot Approve Own Work</div>
+                <div className="meta" style={{ fontSize: 11, marginTop: 2 }}>Agents cannot approve their own pull requests or peer changes.</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 12px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--line)", borderRadius: 6 }}>
+              <I.XCircle size={15} style={{ color: "var(--red)", flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600 }}>Cannot Execute Governed Merges</div>
+                <div className="meta" style={{ fontSize: 11, marginTop: 2 }}>Merge execution requires explicit human authorization and passing CI.</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 12px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--line)", borderRadius: 6 }}>
+              <I.XCircle size={15} style={{ color: "var(--red)", flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600 }}>Cannot Bypass Governance</div>
+                <div className="meta" style={{ fontSize: 11, marginTop: 2 }}>Changes without verified provenance or failing policy checks are blocked.</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 12px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--line)", borderRadius: 6 }}>
+              <I.XCircle size={15} style={{ color: "var(--red)", flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600 }}>No Human Approval Authority</div>
+                <div className="meta" style={{ fontSize: 11, marginTop: 2 }}>Agents connect through supported protocols; human operators retain sovereignty.</div>
+              </div>
+            </div>
           </div>
         </div>
       </Card>
+
+      <Card style={{ marginTop: 14 }}>
+        <div className="card-head">
+          <div>
+            <div className="h2">Assigned Tasks</div>
+            <div className="sub">Engineering tasks assigned to this agent across authorized repositories.</div>
+          </div>
+          <Badge tone={tasks.filter((t) => t.status === "in_progress").length ? "green" : "neutral"}>
+            {tasks.filter((t) => t.status === "in_progress").length} in progress
+          </Badge>
+        </div>
+
+        {tasks.length === 0 ? (
+          <div className="card-pad">
+            <div className="sub">No tasks currently assigned to this agent.</div>
+          </div>
+        ) : (
+          <div className="list">
+            {tasks.map((task) => (
+              <div
+                className="list-row"
+                key={task.id}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                  <I.CheckSquare
+                    size={16}
+                    style={{
+                      color:
+                        task.status === "done"
+                          ? "var(--green)"
+                          : task.status === "in_progress"
+                          ? "var(--cyan)"
+                          : "var(--muted)",
+                    }}
+                  />
+                  <div style={{ minWidth: 0 }}>
+                    <div className="title-sm" style={{ fontWeight: 600 }}>
+                      <Link href={`/tasks/${task.id}`} style={{ color: "inherit", textDecoration: "none" }}>
+                        {task.title}
+                      </Link>
+                    </div>
+                    <div className="meta">
+                      {task.priority && (
+                        <span style={{ textTransform: "uppercase", marginRight: 8 }}>
+                          {task.priority}
+                        </span>
+                      )}
+                      Created {fmt(task.created_at)}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Badge
+                    tone={
+                      task.status === "done"
+                        ? "green"
+                        : task.status === "in_progress"
+                        ? "cyan"
+                        : "neutral"
+                    }
+                  >
+                    {task.status.replace("_", " ")}
+                  </Badge>
+                  {task.status === "in_progress" && (
+                    <Btn
+                      disabled={terminatingTaskId === task.id}
+                      onClick={() => handleTerminateTask(task)}
+                      style={{
+                        backgroundColor: "rgba(239, 68, 68, 0.15)",
+                        color: "#f87171",
+                        border: "1px solid rgba(239, 68, 68, 0.3)",
+                        padding: "4px 8px",
+                        fontSize: 12,
+                      }}
+                    >
+                      {terminatingTaskId === task.id ? "Terminating…" : "Terminate"}
+                    </Btn>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+      {confirmConfig && (
+        <ConfirmModal
+          isOpen={confirmConfig.isOpen}
+          onClose={() => setConfirmConfig(null)}
+          onConfirm={confirmConfig.onConfirm}
+          title={confirmConfig.title}
+          description={confirmConfig.description}
+          confirmText={confirmConfig.confirmText}
+          confirmTone={confirmConfig.confirmTone}
+          loading={revokingAgent || Boolean(terminatingTaskId)}
+        />
+      )}
     </>
   );
 }

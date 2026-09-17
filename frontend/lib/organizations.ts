@@ -16,6 +16,10 @@ export interface OrganizationMember {
 }
 
 export const organizationService = {
+  async listMyOrganizations(): Promise<Organization[]> {
+    return apiAuth<Organization[]>("/v1/organizations/mine");
+  },
+
   async getOrganization(orgName: string): Promise<Organization> {
     return apiAuth<Organization>(`/v1/organizations/${orgName}`);
   },

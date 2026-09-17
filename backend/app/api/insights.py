@@ -44,13 +44,42 @@ def _repository_for_user(
         select(Repository)
         .join(User, Repository.owner_id == User.id)
         .where(
-            User.username == owner,
-            Repository.name == repo,
+            (User.username == owner) | (Repository.provider_owner == owner),
+            (Repository.name == repo) | (Repository.slug == repo.lower()),
             Repository.deleted_at.is_(None),
         )
     )
 
-    if repository is None or repository.owner_id != current_user.id:
+    if repository is None:
+        repository = db.scalar(
+            select(Repository)
+            .join(Actor, Repository.owner_id == Actor.id)
+            .where(
+                (Actor.name == owner) | (Repository.provider_owner == owner),
+                (Repository.name == repo) | (Repository.slug == repo.lower()),
+                Repository.deleted_at.is_(None),
+            )
+        )
+
+    if repository is None:
+        candidates = db.scalars(
+            select(Repository).where(
+                (Repository.name == repo) | (Repository.slug == repo.lower()),
+                Repository.deleted_at.is_(None),
+            )
+        ).all()
+        for c in candidates:
+            if c.owner_id == current_user.id or c.visibility == "public":
+                repository = c
+                break
+
+    if repository is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Repository not found",
+        )
+
+    if repository.owner_id != current_user.id and repository.visibility != "public":
         raise HTTPException(
             status_code=404,
             detail="Repository not found",

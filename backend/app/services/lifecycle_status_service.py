@@ -195,7 +195,9 @@ class LifecycleStatusService:
                     is_approved = True
                     approved_by = approved_by or review.reviewer_id
                     approved_at = approved_at or review.created_at.isoformat()
-                    approved_head_sha = approved_head_sha or review.head_commit_sha
+                    # ChangeReview stores review identity and status; the commit
+                    # binding is persisted in the change metadata.
+                    approved_head_sha = approved_head_sha or change_meta.get("approved_head_sha")
 
         current_head = (pr.source_commit if pr else None) or (change.resulting_commit if change else None)
         head_changed_after_approval = bool(is_approved and approved_head_sha and current_head and approved_head_sha != current_head)

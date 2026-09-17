@@ -1,5 +1,10 @@
-import { SutraLoading } from "@/components/sutra-loading";
+import { AppShell, ContentSkeleton } from "@/components/shell";
 
 export default function Loading() {
-  return <SutraLoading fullscreen quote message="Loading control plane..." />;
+  return (
+    <AppShell>
+      <ContentSkeleton />
+    </AppShell>
+  );
 }
+

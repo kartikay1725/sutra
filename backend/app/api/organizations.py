@@ -82,6 +82,20 @@ def create_organization(
     return org
 
 
+@router.get("/mine", response_model=list[OrganizationResponse])
+def list_my_organizations(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return (
+        db.query(Organization)
+        .join(OrganizationMember, OrganizationMember.organization_id == Organization.id)
+        .filter(OrganizationMember.user_id == current_user.id)
+        .order_by(Organization.name.asc())
+        .all()
+    )
+
+
 @router.get("/{org_name}", response_model=OrganizationResponse)
 def get_organization(org_name: str, db: Session = Depends(get_db)):
     org = db.query(Organization).filter(Organization.name == org_name).first()

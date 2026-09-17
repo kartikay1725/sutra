@@ -1,6 +1,7 @@
 "use client";
 
 import { AppShell } from "@/components/shell";
+import { SkeletonFileTree, SkeletonCodeViewer, SkeletonCommitList } from "@/components/skeleton";
 import React, {
   useState,
   useEffect,
@@ -10,7 +11,7 @@ import React, {
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authService } from "@/lib/auth";
-import { repositoryService } from "@/lib/repositories";
+import { repositoryService, type Repository } from "@/lib/repositories";
 import { apiAuth, API_URL } from "@/lib/api";
 import { clientCache, CACHE_TTL } from "@/lib/cache";
 import {
@@ -2482,6 +2483,9 @@ export default function CodePage({
     setCopiedClone,
   ] = useState(false);
 
+  const [cloneProtocol, setCloneProtocol] = useState<"https" | "ssh" | "cli">("https");
+  const [repoData, setRepoData] = useState<Repository | null>(null);
+
   const dropdownRef =
     useRef<HTMLDivElement>(
       null,
@@ -2515,18 +2519,41 @@ export default function CodePage({
       );
   }, []);
 
-  // ─── Load current user ─────────────────────────────────────
+  // ─── Load repository owner ─────────────────────────────────
 
   useEffect(() => {
-    authService
-      .getCurrentUser()
-      .then((user) => {
-        setOwner(
-          user.username,
+    let cancelled = false;
+    async function initRepo() {
+      try {
+        const user = await authService.getCurrentUser().catch(() => null);
+        const repos = await repositoryService.listRepositories().catch(() => []);
+        const userMatch = user ? repos.find(
+          (r) => r.name.toLowerCase() === repoName.toLowerCase() &&
+                 (r.owner?.toLowerCase() === user.username.toLowerCase() || r.owner_id === user.id)
+        ) : null;
+        const matched = userMatch || repos.find(
+          (r) => r.name.toLowerCase() === repoName.toLowerCase()
         );
-      })
-      .catch(() => {});
-  }, []);
+        let resolvedOwner = matched?.provider_owner || matched?.owner || user?.username || "";
+        if (cancelled) return;
+        setRepoData(matched || null);
+        if (resolvedOwner) {
+          setOwner(resolvedOwner);
+        } else {
+          setLoadingTree(false);
+          setLoadingCommits(false);
+          setError(`Repository "${repoName}" was not found`);
+        }
+      } catch (err: any) {
+        if (cancelled) return;
+        setLoadingTree(false);
+        setLoadingCommits(false);
+        setError(err?.message || "Failed to resolve repository owner");
+      }
+    }
+    void initRepo();
+    return () => { cancelled = true; };
+  }, [repoName]);
 
   // ─── Load branches ─────────────────────────────────────────
 
@@ -2535,8 +2562,11 @@ export default function CodePage({
       return;
     }
 
+    let cancelled = false;
+
     repositoryService.getBranches(owner, repoName)
       .then((data) => {
+        if (cancelled) return;
         const branchList: Branch[] = (data.branches || []).map((b) => ({
           name: b.name,
           commit: b.commit,
@@ -2560,20 +2590,32 @@ export default function CodePage({
             )?.name ||
             branchList[0]
               ?.name ||
-            "main";
+            "";
 
           setBranch(
             defaultBranch,
           );
+
+          if (!defaultBranch) {
+            setLoadingTree(false);
+            setLoadingCommits(false);
+          }
         }
       })
       .catch((err: unknown) => {
+        if (cancelled) return;
+        setLoadingTree(false);
+        setLoadingCommits(false);
         setError(
           err instanceof Error
             ? err.message
             : "Failed to load branches",
         );
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     owner,
     repoName,
@@ -2596,9 +2638,9 @@ export default function CodePage({
     ) => {
       if (
         !owner ||
-        !overrideBranch &&
-          !branch
+        (!overrideBranch && !branch)
       ) {
+        setLoadingCommits(false);
         return;
       }
 
@@ -2683,6 +2725,9 @@ export default function CodePage({
       !owner ||
       !branch
     ) {
+      if (owner && branches.length === 0) {
+        setLoadingTree(false);
+      }
       return;
     }
 
@@ -2733,6 +2778,7 @@ export default function CodePage({
     owner,
     repoName,
     branch,
+    branches.length,
   ]);
 
   // ─── Open file + blame ─────────────────────────────────────
@@ -3259,160 +3305,151 @@ export default function CodePage({
                 />
               </button>
 
-              {showCloneDropdown && (
-                <div
-                  style={{
-                    position:
-                      "absolute",
-                    top:
-                      "calc(100% + 6px)",
-                    right: 0,
-                    zIndex: 100,
-                    background:
-                      "var(--bg-card)",
-                    border:
-                      "1px solid var(--line)",
-                    borderRadius:
-                      8,
-                    width: 320,
-                    padding: 14,
-                    boxShadow:
-                      "0 8px 32px rgba(0,0,0,0.4)",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight:
-                        600,
-                      marginBottom:
-                        8,
-                      color:
-                        "var(--fg)",
-                    }}
-                  >
-                    Clone repository
-                  </div>
+              {showCloneDropdown && (() => {
+                const githubOwner = repoData?.provider_owner || repoData?.owner || owner || "kartikay1725";
+                const githubRepoName = repoData?.name || repoName;
+                const githubHttpsUrl = repoData?.upstream_url && repoData.upstream_url.includes("github.com")
+                  ? (repoData.upstream_url.endsWith(".git") ? repoData.upstream_url : `${repoData.upstream_url}.git`)
+                  : `https://github.com/${githubOwner}/${githubRepoName}.git`;
+                const githubSshUrl = `git@github.com:${githubOwner}/${githubRepoName}.git`;
+                const githubCliCmd = `gh repo clone ${githubOwner}/${githubRepoName}`;
 
-                  <div
-                    style={{
-                      fontSize: 11,
-                      opacity:
-                        0.6,
-                      marginBottom:
-                        10,
-                    }}
-                  >
-                    Use this command
-                    to clone this
-                    repository
-                    locally.
-                  </div>
+                const currentCloneCmd = cloneProtocol === "https"
+                  ? `git clone ${githubHttpsUrl}`
+                  : cloneProtocol === "ssh"
+                  ? `git clone ${githubSshUrl}`
+                  : githubCliCmd;
 
+                return (
                   <div
                     style={{
-                      display:
-                        "flex",
-                      alignItems:
-                        "center",
-                      gap: 6,
-                      background:
-                        "var(--bg-page)",
-                      border:
-                        "1px solid var(--line)",
-                      borderRadius:
-                        6,
-                      padding:
-                        "6px 10px",
-                      fontSize: 12,
-                      fontFamily:
-                        "monospace",
+                      position: "absolute",
+                      top: "calc(100% + 6px)",
+                      right: 0,
+                      zIndex: 100,
+                      background: "linear-gradient(145deg, #141418 0%, #0D0D11 100%)",
+                      border: "1px solid var(--line)",
+                      borderRadius: 14,
+                      width: 360,
+                      padding: 16,
+                      boxShadow: "0 16px 40px rgba(0,0,0,0.6), 0 0 20px rgba(34, 211, 238, 0.05)",
                     }}
                   >
-                    <span
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--fg)", display: "flex", alignItems: "center", gap: 6 }}>
+                        <GitBranch size={14} color="var(--cyan)" />
+                        Clone with GitHub
+                      </div>
+                      <a
+                        href={`https://github.com/${githubOwner}/${githubRepoName}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ fontSize: 11, color: "var(--cyan)", textDecoration: "none", display: "flex", alignItems: "center", gap: 3 }}
+                        title="Open on GitHub"
+                      >
+                        GitHub ↗
+                      </a>
+                    </div>
+
+                    {/* Protocol Switcher */}
+                    <div style={{ display: "flex", background: "rgba(255,255,255,0.04)", padding: 2, borderRadius: 8, gap: 2, marginBottom: 12 }}>
+                      {(["https", "ssh", "cli"] as const).map((proto) => (
+                        <button
+                          key={proto}
+                          type="button"
+                          onClick={() => setCloneProtocol(proto)}
+                          style={{
+                            flex: 1,
+                            padding: "5px 0",
+                            fontSize: 11,
+                            fontWeight: 600,
+                            border: "none",
+                            borderRadius: 6,
+                            background: cloneProtocol === proto ? "var(--bg-card)" : "transparent",
+                            color: cloneProtocol === proto ? "var(--fg)" : "var(--muted)",
+                            cursor: "pointer",
+                            boxShadow: cloneProtocol === proto ? "0 2px 6px rgba(0,0,0,0.3)" : "none",
+                            transition: "all 0.15s ease",
+                          }}
+                        >
+                          {proto === "https" ? "HTTPS" : proto === "ssh" ? "SSH" : "GitHub CLI"}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Command Box */}
+                    <div
                       style={{
-                        flex: 1,
-                        overflow:
-                          "hidden",
-                        textOverflow:
-                          "ellipsis",
-                        whiteSpace:
-                          "nowrap",
-                        color:
-                          "var(--fg)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        background: "rgba(0,0,0,0.4)",
+                        border: "1px solid var(--line)",
+                        borderRadius: 8,
+                        padding: "8px 10px",
+                        fontSize: 12,
+                        fontFamily: "monospace",
                       }}
                     >
-                      {`git clone ${
-                        typeof window !== "undefined" && !API_URL.includes("localhost")
-                          ? API_URL
-                          : typeof window !== "undefined"
-                          ? window.location.origin.replace(":3000", ":8000")
-                          : API_URL
-                      }/git/${owner}/${repoName}.git`}
-                    </span>
+                      <span
+                        style={{
+                          flex: 1,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          color: "var(--fg)",
+                        }}
+                        title={currentCloneCmd}
+                      >
+                        {currentCloneCmd}
+                      </span>
 
-                    <button
-                      onClick={() => {
-                        const baseUrl =
-                          typeof window !== "undefined" && !API_URL.includes("localhost")
-                            ? API_URL
-                            : typeof window !== "undefined"
-                            ? window.location.origin.replace(":3000", ":8000")
-                            : API_URL;
-                        const url = `${baseUrl}/git/${owner}/${repoName}.git`;
+                      <button
+                        onClick={() => {
+                          void navigator.clipboard.writeText(currentCloneCmd);
+                          setCopiedClone(true);
+                          window.setTimeout(() => setCopiedClone(false), 1500);
+                        }}
+                        style={{
+                          background: copiedClone ? "rgba(34, 197, 94, 0.15)" : "rgba(255,255,255,0.06)",
+                          border: `1px solid ${copiedClone ? "rgba(34, 197, 94, 0.3)" : "var(--line)"}`,
+                          borderRadius: 6,
+                          cursor: "pointer",
+                          color: copiedClone ? "var(--green)" : "var(--fg)",
+                          padding: "4px 8px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          transition: "all 0.15s ease",
+                        }}
+                        title="Copy clone command"
+                      >
+                        {copiedClone ? (
+                          <>
+                            <Check size={12} />
+                            <span>Copied</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={12} />
+                            <span>Copy</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
 
-                        void navigator.clipboard.writeText(
-                          `git clone ${url}`,
-                        );
-
-                        setCopiedClone(
-                          true,
-                        );
-
-                        window.setTimeout(
-                          () =>
-                            setCopiedClone(
-                              false,
-                            ),
-                          1500,
-                        );
-                      }}
-                      style={{
-                        background:
-                          "none",
-                        border:
-                          "none",
-                        cursor:
-                          "pointer",
-                        color:
-                          copiedClone
-                            ? "var(--cyan)"
-                            : "var(--fg)",
-                        opacity:
-                          0.8,
-                        padding: 2,
-                        display:
-                          "flex",
-                        alignItems:
-                          "center",
-                        justifyContent:
-                          "center",
-                      }}
-                      title="Copy clone command"
-                    >
-                      {copiedClone ? (
-                        <Check
-                          size={14}
-                        />
-                      ) : (
-                        <Copy
-                          size={14}
-                        />
-                      )}
-                    </button>
+                    <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 8 }}>
+                      {cloneProtocol === "https"
+                        ? "Clone with GitHub HTTPS repository link."
+                        : cloneProtocol === "ssh"
+                        ? "Clone with an SSH key registered with GitHub."
+                        : "Clone directly using GitHub CLI."}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -3486,17 +3523,7 @@ export default function CodePage({
               }}
             >
               {loadingCommits ? (
-                <div
-                  style={{
-                    padding: 30,
-                    textAlign:
-                      "center",
-                    opacity: 0.5,
-                    fontSize: 13,
-                  }}
-                >
-                  Loading commits...
-                </div>
+                <SkeletonCommitList count={5} />
               ) : (
                 <CommitsPanel
                   commits={
@@ -3541,17 +3568,7 @@ export default function CodePage({
                 </div>
 
                 {loadingTree ? (
-                  <div
-                    style={{
-                      padding:
-                        "12px 14px",
-                      fontSize: 13,
-                      opacity:
-                        0.5,
-                    }}
-                  >
-                    Loading...
-                  </div>
+                  <SkeletonFileTree count={10} />
                 ) : tree.length ===
                   0 ? (
                   <div
@@ -3603,42 +3620,13 @@ export default function CodePage({
                 }}
               >
                 {loadingFile ? (
-                  <div
-                    style={{
-                      display:
-                        "flex",
-                      alignItems:
-                        "center",
-                      justifyContent:
-                        "center",
-                      height:
-                        "100%",
-                      opacity:
-                        0.5,
-                      fontSize: 13,
-                    }}
-                  >
-                    Loading file...
+                  <div style={{ flex: 1, overflowY: "auto" }}>
+                    <SkeletonCodeViewer lines={18} />
                   </div>
                 ) : selectedFile ? (
                   loadingBlame ? (
-                    <div
-                      style={{
-                        display:
-                          "flex",
-                        alignItems:
-                          "center",
-                        justifyContent:
-                          "center",
-                        height:
-                          "100%",
-                        opacity:
-                          0.5,
-                        fontSize: 13,
-                      }}
-                    >
-                      Loading line
-                      provenance...
+                    <div style={{ flex: 1, overflowY: "auto" }}>
+                      <SkeletonCodeViewer lines={18} />
                     </div>
                   ) : (
                     <CodeViewer

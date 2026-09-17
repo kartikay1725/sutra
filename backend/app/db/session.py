@@ -23,14 +23,18 @@ engine_kwargs = {
     "pool_pre_ping": True,
 }
 
-# Production pooling for non-SQLite databases.
-if (
-    settings.app_env.lower() == "production"
-    and "sqlite" not in settings.database_url.lower()
-):
-    engine_kwargs["pool_size"] = 10
-    engine_kwargs["max_overflow"] = 20
-    engine_kwargs["pool_timeout"] = 30
+# Supabase session-mode / transaction-mode pooling has a small connection ceiling
+# and multiplexes connections through PgBouncer. Disabling prepared statements
+# via prepare_threshold=None prevents DuplicatePreparedStatement errors.
+if "sqlite" not in settings.database_url.lower():
+    engine_kwargs.update(
+        connect_args={"prepare_threshold": None},
+        pool_size=settings.database_pool_size,
+        max_overflow=settings.database_max_overflow,
+        pool_timeout=settings.database_pool_timeout_seconds,
+        pool_recycle=settings.database_pool_recycle_seconds,
+        pool_use_lifo=True,
+    )
 
 
 engine = create_engine(

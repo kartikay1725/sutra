@@ -10,7 +10,7 @@ import {
 
 import {
   AppShell,
-  SutraLoading,
+  Skeleton,
 } from "@/components/shell";
 
 import {
@@ -847,10 +847,7 @@ export default function KnowledgeGraphPage({
     <AppShell>
       <div
         style={{
-          maxWidth: 1200,
-          margin: "0 auto",
-          padding:
-            "24px 20px 40px",
+          width: "100%",
         }}
       >
         {/* Header */}
@@ -1079,7 +1076,22 @@ export default function KnowledgeGraphPage({
               overflow: "hidden",
             }}
           >
-            <SutraLoading message="Synthesizing entity nodes, relationships & substrate provenance..." quote={true} />
+            <div style={{ padding: "32px 28px", display: "flex", flexDirection: "column", gap: 20 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <Skeleton width={180} height={20} borderRadius={4} />
+                <div style={{ display: "flex", gap: 10 }}>
+                  <Skeleton width={80} height={28} borderRadius={6} />
+                  <Skeleton width={80} height={28} borderRadius={6} />
+                </div>
+              </div>
+              <div style={{ height: 320, borderRadius: 10, border: "1px dashed var(--line)", background: "var(--bg-subtle)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
+                  <Skeleton width={72} height={72} borderRadius="50%" />
+                  <Skeleton width={96} height={96} borderRadius="50%" />
+                  <Skeleton width={64} height={64} borderRadius="50%" />
+                </div>
+              </div>
+            </div>
           </div>
         ) : (
           <>

@@ -9,6 +9,7 @@ import {
   ArrowLeft, GitCommit, RotateCcw, User as UserIcon,
   CheckCircle2, AlertCircle, X, Zap, Clock, FileCode2
 } from "lucide-react";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 interface CommitDetail {
   sha: string; short_sha: string; author_name: string; author_email: string;
@@ -94,6 +95,7 @@ export default function CommitDetailPage({ params }: { params: Promise<{ name: s
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [rolling, setRolling] = useState(false);
+  const [showRollbackModal, setShowRollbackModal] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
   useEffect(() => { authService.getCurrentUser().then(u => setOwner(u.username)).catch(() => {}); }, []);
@@ -106,17 +108,17 @@ export default function CommitDetailPage({ params }: { params: Promise<{ name: s
       .finally(() => setLoading(false));
   }, [owner, repoName, sha]);
 
-  const handleRollback = async () => {
-    if (!confirm(
-      `Rollback to state before "${commit?.subject}"?\n\n` +
-      `This creates a new revert commit on the branch.\n` +
-      `Anyone doing git clone/pull will get the rolled-back code.`
-    )) return;
+  const handleRollback = () => {
+    setShowRollbackModal(true);
+  };
+
+  const executeRollback = async () => {
     setRolling(true);
     try {
       const res = await apiAuth<{ message: string; new_commit: string }>(
         `/v1/repositories/${owner}/${repoName}/commits/${sha}/revert`, { method: "POST" }
       );
+      setShowRollbackModal(false);
       setToast({ msg: `${res.message} — branch updated. Clone/pull will reflect rolled-back code.`, ok: true });
       setTimeout(() => router.push(`/repositories/${repoName}/code`), 3500);
     } catch (e: any) {
@@ -130,7 +132,7 @@ export default function CommitDetailPage({ params }: { params: Promise<{ name: s
 
   return (
     <AppShell>
-      <div style={{ maxWidth: 940, margin: "0 auto", padding: "24px 20px" }}>
+      <div style={{ width: "100%" }}>
 
         {/* Toast */}
         {toast && (
@@ -244,6 +246,20 @@ export default function CommitDetailPage({ params }: { params: Promise<{ name: s
         )}
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <ConfirmModal
+        isOpen={showRollbackModal}
+        onClose={() => setShowRollbackModal(false)}
+        onConfirm={executeRollback}
+        title="Rollback Commit"
+        description={
+          <>
+            Are you sure you want to rollback to state before <strong>&ldquo;{commit?.subject}&rdquo;</strong>? This creates a new revert commit on the branch and updates branch HEAD immediately.
+          </>
+        }
+        confirmText="Confirm Rollback"
+        confirmTone="danger"
+        loading={rolling}
+      />
     </AppShell>
   );
 }

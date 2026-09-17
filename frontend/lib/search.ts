@@ -1,7 +1,7 @@
 import { apiAuth } from "./api";
 
 export interface SearchResult {
-  type: string; // "repository", "user", "organization"
+  type: "repository" | "user" | "organization" | "task" | "pull_request" | "issue" | "change" | string;
   name: string;
   description: string | null;
   url: string;

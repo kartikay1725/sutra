@@ -28,6 +28,8 @@ export interface CachedFetchOptions {
   forceRefresh?: boolean;
   /** If true, persists the cached item in sessionStorage. Default false. */
   persistSession?: boolean;
+  /** If true, persists the cached item in localStorage. Default false. */
+  persistLocal?: boolean;
 }
 
 export interface CacheMetadata {
@@ -43,9 +45,45 @@ class ClientCacheManager {
   private inFlightRequests = new Map<string, Promise<any>>();
   private listeners = new Map<string, Set<Listener<any>>>();
   private readonly SESSION_PREFIX = "sutra_cache:";
+  private readonly LOCAL_PREFIX = "sutra_local_cache:";
 
   constructor() {
+    this.hydrateFromLocal();
     this.hydrateFromSession();
+  }
+
+  /**
+   * Safely read localStorage on initialization.
+   */
+  private hydrateFromLocal(): void {
+    if (typeof window === "undefined") return;
+
+    try {
+      const now = Date.now();
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const key = window.localStorage.key(i);
+        if (key && key.startsWith(this.LOCAL_PREFIX)) {
+          const raw = window.localStorage.getItem(key);
+          if (raw) {
+            try {
+              const entry: CacheEntry<any> = JSON.parse(raw);
+              if (entry && typeof entry.expiresAt === "number") {
+                if (entry.expiresAt > now) {
+                  const cacheKey = key.slice(this.LOCAL_PREFIX.length);
+                  this.memoryCache.set(cacheKey, entry);
+                } else {
+                  window.localStorage.removeItem(key);
+                }
+              }
+            } catch {
+              window.localStorage.removeItem(key);
+            }
+          }
+        }
+      }
+    } catch {
+      // Local storage might be disabled or restricted in private mode
+    }
   }
 
   /**
@@ -83,12 +121,12 @@ class ClientCacheManager {
   }
 
   /**
-   * Write an entry to memory and optionally to sessionStorage.
+   * Write an entry to memory and optionally to sessionStorage or localStorage.
    */
   public set<T>(
     key: string,
     data: T,
-    options: { staleMs?: number; ttlMs?: number; persistSession?: boolean } = {}
+    options: { staleMs?: number; ttlMs?: number; persistSession?: boolean; persistLocal?: boolean } = {}
   ): CacheEntry<T> {
     const now = Date.now();
     const staleMs = options.staleMs ?? 30_000;
@@ -111,6 +149,17 @@ class ClientCacheManager {
         );
       } catch {
         // Handle QuotaExceededError or sessionStorage disabled gracefully
+      }
+    }
+
+    if (options.persistLocal && typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(
+          `${this.LOCAL_PREFIX}${key}`,
+          JSON.stringify(entry)
+        );
+      } catch {
+        // Handle QuotaExceededError or localStorage disabled gracefully
       }
     }
 
@@ -150,6 +199,9 @@ class ClientCacheManager {
       try {
         window.sessionStorage.removeItem(`${this.SESSION_PREFIX}${key}`);
       } catch {}
+      try {
+        window.localStorage.removeItem(`${this.LOCAL_PREFIX}${key}`);
+      } catch {}
     }
   }
 
@@ -165,22 +217,36 @@ class ClientCacheManager {
     if (typeof window !== "undefined") {
       try {
         const fullPrefix = `${this.SESSION_PREFIX}${prefix}`;
-        const toRemove: string[] = [];
+        const toRemoveSession: string[] = [];
         for (let i = 0; i < window.sessionStorage.length; i++) {
           const k = window.sessionStorage.key(i);
           if (k && k.startsWith(fullPrefix)) {
-            toRemove.push(k);
+            toRemoveSession.push(k);
           }
         }
-        for (const k of toRemove) {
+        for (const k of toRemoveSession) {
           window.sessionStorage.removeItem(k);
+        }
+      } catch {}
+
+      try {
+        const fullLocalPrefix = `${this.LOCAL_PREFIX}${prefix}`;
+        const toRemoveLocal: string[] = [];
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const k = window.localStorage.key(i);
+          if (k && k.startsWith(fullLocalPrefix)) {
+            toRemoveLocal.push(k);
+          }
+        }
+        for (const k of toRemoveLocal) {
+          window.localStorage.removeItem(k);
         }
       } catch {}
     }
   }
 
   /**
-   * Clear entire memory and session cache.
+   * Clear entire memory, session, and local cache.
    */
   public clear(): void {
     this.memoryCache.clear();
@@ -196,6 +262,19 @@ class ClientCacheManager {
         }
         for (const k of toRemove) {
           window.sessionStorage.removeItem(k);
+        }
+      } catch {}
+
+      try {
+        const toRemove: string[] = [];
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const k = window.localStorage.key(i);
+          if (k && k.startsWith(this.LOCAL_PREFIX)) {
+            toRemove.push(k);
+          }
+        }
+        for (const k of toRemove) {
+          window.localStorage.removeItem(k);
         }
       } catch {}
     }
@@ -215,6 +294,7 @@ class ClientCacheManager {
       ttlMs = 300_000,
       forceRefresh = false,
       persistSession = false,
+      persistLocal = false,
     } = options;
 
     const now = Date.now();
@@ -239,7 +319,7 @@ class ClientCacheManager {
     const requestPromise = (async () => {
       try {
         const freshData = await fetcher();
-        this.set<T>(key, freshData, { staleMs, ttlMs, persistSession });
+        this.set<T>(key, freshData, { staleMs, ttlMs, persistSession, persistLocal });
         return freshData;
       } finally {
         this.inFlightRequests.delete(key);
@@ -308,16 +388,17 @@ export const clientCache = new ClientCacheManager();
  * Standard TTL Presets (milliseconds)
  */
 export const CACHE_TTL = {
-  USER: { staleMs: 300_000, ttlMs: 900_000, persistSession: true },     // 5m fresh, 15m hard
-  REPOSITORIES: { staleMs: 120_000, ttlMs: 600_000, persistSession: true }, // 2m fresh, 10m hard
-  REPO_DETAIL: { staleMs: 120_000, ttlMs: 600_000, persistSession: true },  // 2m fresh, 10m hard
-  BRANCHES: { staleMs: 30_000, ttlMs: 180_000, persistSession: false },     // 30s fresh, 3m hard
-  COMMITS: { staleMs: 30_000, ttlMs: 180_000, persistSession: false },      // 30s fresh, 3m hard
-  TREE: { staleMs: 60_000, ttlMs: 300_000, persistSession: false },         // 1m fresh, 5m hard
-  FILE: { staleMs: 300_000, ttlMs: 3_600_000, persistSession: false },     // 5m fresh, 1h hard
-  ISSUES: { staleMs: 60_000, ttlMs: 300_000, persistSession: true },       // 1m fresh, 5m hard
-  PULL_REQUESTS: { staleMs: 30_000, ttlMs: 120_000, persistSession: false },// 30s fresh, 2m hard
-  CHECKS: { staleMs: 10_000, ttlMs: 30_000, persistSession: false },        // 10s fresh, 30s hard
+  OVERVIEW: { staleMs: 1_200_000, ttlMs: 1_200_000, persistLocal: true },     // 20m fresh, 20m hard, persisted in localStorage
+  USER: { staleMs: 300_000, ttlMs: 900_000, persistSession: true },          // 5m fresh, 15m hard
+  REPOSITORIES: { staleMs: 120_000, ttlMs: 600_000, persistSession: true },      // 2m fresh, 10m hard
+  REPO_DETAIL: { staleMs: 120_000, ttlMs: 600_000, persistSession: true },       // 2m fresh, 10m hard
+  BRANCHES: { staleMs: 30_000, ttlMs: 180_000, persistSession: false },          // 30s fresh, 3m hard
+  COMMITS: { staleMs: 30_000, ttlMs: 180_000, persistSession: false },           // 30s fresh, 3m hard
+  TREE: { staleMs: 60_000, ttlMs: 300_000, persistSession: false },              // 1m fresh, 5m hard
+  FILE: { staleMs: 300_000, ttlMs: 3_600_000, persistSession: false },          // 5m fresh, 1h hard
+  ISSUES: { staleMs: 60_000, ttlMs: 300_000, persistSession: true },            // 1m fresh, 5m hard
+  PULL_REQUESTS: { staleMs: 30_000, ttlMs: 120_000, persistSession: false },     // 30s fresh, 2m hard
+  CHECKS: { staleMs: 10_000, ttlMs: 30_000, persistSession: false },             // 10s fresh, 30s hard
 } as const;
 
 /**
@@ -385,7 +466,7 @@ export function useCachedQuery<T>(
         setLoading(false);
       }
     },
-    [key, options.staleMs, options.ttlMs, options.persistSession]
+    [key, options.staleMs, options.ttlMs, options.persistSession, options.persistLocal]
   );
 
   useEffect(() => {

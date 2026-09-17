@@ -26,6 +26,10 @@ import {
   MessageCircle,
 } from "lucide-react";
 
+// Always SSR — contribution data is real-time and user-specific.
+// Without this Next.js may statically cache the first render.
+export const dynamic = "force-dynamic";
+
 interface PageProps {
   params: Promise<{
     username: string;
@@ -54,25 +58,26 @@ function initials(name: string) {
     .toUpperCase();
 }
 
-function contributionTone(count: number) {
+/**
+ * Maps a contribution count to a visual intensity color.
+ * Uses logarithmic scaling so gradients are meaningful across
+ * the typical GitHub range of 1–30+ contributions per day.
+ */
+function contributionTone(count: number, maxCount = 30): string {
   if (count <= 0) {
     return "rgba(255,255,255,.045)";
   }
 
-  if (count === 1) {
-    return "rgba(34,211,238,.25)";
-  }
+  // Clamp and normalize on a log scale (same approach GitHub uses)
+  const effectiveMax = Math.max(maxCount, count, 10);
+  const ratio = Math.log1p(count) / Math.log1p(effectiveMax);
 
-  if (count === 2) {
-    return "rgba(34,211,238,.45)";
-  }
-
-  if (count <= 4) {
-    return "rgba(34,211,238,.68)";
-  }
-
+  if (ratio < 0.25) return "rgba(34,211,238,.22)";
+  if (ratio < 0.50) return "rgba(34,211,238,.42)";
+  if (ratio < 0.75) return "rgba(34,211,238,.66)";
   return "#22d3ee";
 }
+
 
 export default async function PublicProfile({
   params,
@@ -328,7 +333,29 @@ export default async function PublicProfile({
                     <div className="section-eyebrow">
                       ENGINEERING ACTIVITY
                     </div>
-                    <h2>Contribution history</h2>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <h2 style={{ margin: 0 }}>Contribution history</h2>
+                      {contributions.github_synced && (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color: "#22d3ee",
+                            background: "rgba(34, 211, 238, 0.1)",
+                            border: "1px solid rgba(34, 211, 238, 0.25)",
+                            padding: "2px 8px",
+                            borderRadius: 4,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                          }}
+                          title={`Synchronized with GitHub (@${contributions.github_account})`}
+                        >
+                          <Github size={12} />
+                          GitHub Synced
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <span className="activity-total">
@@ -377,21 +404,22 @@ export default async function PublicProfile({
                   </div>
 
                   <div className="contribution-grid">
-                    {contributions.days.map(
-                      (day) => (
+                    {(() => {
+                      const maxCount = Math.max(
+                        10,
+                        ...contributions.days.map((d) => d.count),
+                      );
+                      return contributions.days.map((day) => (
                         <div
                           key={day.date}
-                          title={`${day.date}: ${day.count} contributions`}
+                          title={`${day.date}: ${day.count} contribution${day.count !== 1 ? "s" : ""}`}
                           className="contribution-cell"
                           style={{
-                            background:
-                              contributionTone(
-                                day.count,
-                              ),
+                            background: contributionTone(day.count, maxCount),
                           }}
                         />
-                      ),
-                    )}
+                      ));
+                    })()}
                   </div>
                 </div>
               </section>

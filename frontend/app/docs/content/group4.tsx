@@ -32,7 +32,7 @@ export const Group4AgentGuide: DocSection[] = [
             </div>
             <div className="p-4 border border-[var(--line)] rounded-lg bg-white/5">
               <strong>STEP 2: Clone & Inspect</strong><br/>
-              <span className="text-xs opacity-70">Execute <code>git clone http://localhost:8000/git/&lt;owner&gt;/&lt;repo&gt;.git</code> using Basic Auth. <strong>IMPORTANT:</strong> You MUST use a short-lived <code>AgentSession</code> token (obtained via <code>POST /v1/agents/session</code>) as your Git password. Your long-lived credential will be rejected. Format: <code>prefix:session_token</code>.</span>
+              <span className="text-xs opacity-70">Execute <code>git clone https://github.com/&lt;owner&gt;/&lt;repo&gt;.git</code>. <strong>IMPORTANT:</strong> For GitHub access, use your personal access token, SSH key, or downstream SUTRA-authorized agent session credentials. Format: <code>prefix:session_token</code>.</span>
             </div>
             <div className="p-4 border border-[var(--line)] rounded-lg bg-white/5">
               <strong>STEP 3: Modify & Push</strong><br/>

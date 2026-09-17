@@ -294,6 +294,11 @@ def _to_change_response(change: Change, actor: Actor | None, db: Session) -> Cha
 def list_changes(
     owner: str | None = None,
     repo: str | None = None,
+    actor_type: str | None = None,
+    status: str | None = None,
+    risk_level: str | None = None,
+    agent_id: str | None = None,
+    search: str | None = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -322,8 +327,12 @@ def list_changes(
         if repository.visibility == "private" and repository.owner_id != current_user.id:
             raise HTTPException(status_code=404, detail="Repository not found")
 
-        stmt = select(Change, Actor).join(Actor, Actor.id == Change.actor_id, isouter=True)
-        stmt = stmt.where(Change.repository_id == repository.id)
+        stmt = (
+            select(Change, Actor)
+            .join(Actor, Actor.id == Change.actor_id, isouter=True)
+            .join(Repository, Repository.id == Change.repository_id)
+            .where(Change.repository_id == repository.id)
+        )
     else:
         # Scope global change listing to repositories owned by or visible to current_user
         stmt = (
@@ -334,6 +343,40 @@ def list_changes(
                 (Repository.owner_id == current_user.id) | (Repository.visibility == "public"),
                 Repository.deleted_at.is_(None),
             )
+        )
+
+    # Optional query filters
+    if status and status != "all":
+        stmt = stmt.where(Change.status == status)
+
+    if risk_level and risk_level != "all":
+        stmt = stmt.where(Change.risk_level == risk_level)
+
+    if actor_type and actor_type != "all":
+        if actor_type == "agent":
+            stmt = stmt.where(
+                (Actor.type == "agent") | 
+                (Change.metadata_json.like('%"agent_id"%'))
+            )
+        elif actor_type in ("human", "user"):
+            stmt = stmt.where(
+                (Actor.type != "agent") & 
+                (~Change.metadata_json.like('%"agent_id"%'))
+            )
+
+    if agent_id:
+        stmt = stmt.where(
+            (Change.actor_id == agent_id) | 
+            (Change.metadata_json.like(f'%"agent_id": "{agent_id}"%'))
+        )
+
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        stmt = stmt.where(
+            Change.intent.ilike(term) | 
+            Actor.name.ilike(term) | 
+            Repository.name.ilike(term) |
+            Change.metadata_json.ilike(term)
         )
 
     results = db.execute(stmt.order_by(Change.updated_at.desc())).all()

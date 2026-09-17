@@ -28,12 +28,14 @@ export interface Task {
 }
 
 export const taskService = {
-  async listAllTasks(): Promise<Task[]> {
-    return apiAuth<Task[]>("/v1/tasks");
+  async listAllTasks(search?: string): Promise<Task[]> {
+    const query = search && search.trim() ? `?q=${encodeURIComponent(search.trim())}` : "";
+    return apiAuth<Task[]>(`/v1/tasks${query}`);
   },
 
-  async listTasks(username: string, repo: string): Promise<Task[]> {
-    return apiAuth<Task[]>(`/v1/repositories/${username}/${repo}/tasks`);
+  async listTasks(username: string, repo: string, search?: string): Promise<Task[]> {
+    const query = search && search.trim() ? `?q=${encodeURIComponent(search.trim())}` : "";
+    return apiAuth<Task[]>(`/v1/repositories/${username}/${repo}/tasks${query}`);
   },
   
   async getTask(taskId: string): Promise<Task> {
@@ -57,6 +59,12 @@ export const taskService = {
   async deleteTask(taskId: string): Promise<void> {
     return apiAuth<void>(`/v1/tasks/${taskId}`, {
       method: "DELETE"
+    });
+  },
+
+  async terminateTask(taskId: string): Promise<Task> {
+    return apiAuth<Task>(`/v1/tasks/${taskId}/cancel`, {
+      method: "POST"
     });
   }
 };

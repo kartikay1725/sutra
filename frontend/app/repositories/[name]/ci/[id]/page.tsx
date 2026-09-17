@@ -24,6 +24,7 @@ import {
   type CIJob,
   type CILog,
 } from "@/lib/ci";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 import {
   pullRequestService,
@@ -230,6 +231,9 @@ export default function CIDetailPage({
   const [cancelling, setCancelling] =
     useState(false);
 
+  const [showCancelModal, setShowCancelModal] =
+    useState(false);
+
   const [refreshing, setRefreshing] =
     useState(false);
 
@@ -304,51 +308,22 @@ export default function CIDetailPage({
         setRefreshing(false);
       }
     };
+    const handleCancel = () => {
+      if (!job || !prId) return;
+      setShowCancelModal(true);
+    };
 
-  const handleCancel =
-    async () => {
-      if (
-        !job ||
-        !prId
-      ) {
-        return;
-      }
-
-      if (
-        !window.confirm(
-          "Cancel this CI run?",
-        )
-      ) {
-        return;
-      }
-
+    const executeCancel = async () => {
+      if (!job || !prId) return;
       try {
         setCancelling(true);
-
-        const updated =
-          await ciService.cancelJob(
-            prId,
-            jobId,
-          );
-
+        const updated = await ciService.cancelJob(prId, jobId);
         setJob(updated);
-
-        const logData =
-          await ciService
-            .getLogs(
-              prId,
-              jobId,
-            )
-            .catch(
-              () => null,
-            );
-
+        const logData = await ciService.getLogs(prId, jobId).catch(() => null);
         setLogs(logData);
+        setShowCancelModal(false);
       } catch (err: any) {
-        alert(
-          err?.message ||
-            "Failed to cancel CI run.",
-        );
+        console.error("Failed to cancel CI job", err);
       } finally {
         setCancelling(false);
       }
@@ -661,10 +636,7 @@ export default function CIDetailPage({
 
       <div
         style={{
-          maxWidth: 1100,
-          margin: "0 auto",
-          padding:
-            "0 20px 40px",
+          width: "100%",
         }}
       >
         {/* Status */}
@@ -1133,6 +1105,21 @@ export default function CIDetailPage({
           }
         }
       `}</style>
+
+      <ConfirmModal
+        isOpen={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        onConfirm={executeCancel}
+        title="Cancel CI Run"
+        description={
+          <>
+            Are you sure you want to cancel CI run <strong>&ldquo;{job?.id}&rdquo;</strong>? Active pipeline stages will be stopped immediately.
+          </>
+        }
+        confirmText="Cancel CI Run"
+        confirmTone="danger"
+        loading={cancelling}
+      />
     </AppShell>
   );
 }

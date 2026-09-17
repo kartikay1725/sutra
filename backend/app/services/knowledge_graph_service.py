@@ -241,19 +241,68 @@ def index_engineering_lifecycle(
 ) -> dict[str, int]:
     """
     Ingests and interlinks authoritative SUTRA engineering lifecycle entities:
-    Task -> Agent -> Change -> Commit -> PullRequest -> Discussion.
+    Repository -> Task -> AgentSession -> Change -> Commit -> PullRequest -> Review -> Issue -> Discussion.
     """
     from app.models.task import Task
     from app.models.change import Change
     from app.models.pull_request import PullRequest
     from app.models.agent import Agent
+    from app.models.agent_session import AgentSession
+    from app.models.change_review import ChangeReview
+    from app.models.actor import Actor
     from app.models.discussion import Discussion
+    from app.models.issue import Issue
 
-    repo_id = repository.id if hasattr(repository, "id") else str(repository)
+    if hasattr(repository, "id"):
+        repo_obj = repository
+        repo_id = repository.id
+    else:
+        repo_id = str(repository)
+        repo_obj = db.scalar(select(Repository).where(Repository.id == repo_id))
+
     node_count = 0
     edge_count = 0
 
-    # 1. Tasks & Agents
+    # 0. Repository Node
+    repo_node = None
+    if repo_obj:
+        repo_node = upsert_node(
+            db=db,
+            repository_id=repo_id,
+            entity_type="repository",
+            name=f"Repository: {repo_obj.name}",
+            summary=repo_obj.description or f"Repository {repo_obj.name} ({getattr(repo_obj, 'connection_type', 'owned')})",
+            metadata={
+                "repository_id": repo_obj.id,
+                "connection_type": getattr(repo_obj, "connection_type", "owned"),
+                "upstream_url": getattr(repo_obj, "upstream_url", None),
+                "default_branch": repo_obj.default_branch,
+            },
+        )
+        node_count += 1
+
+        # Fork relationship edge
+        if getattr(repo_obj, "upstream_repository_id", None):
+            upstream_repo = db.scalar(select(Repository).where(Repository.id == repo_obj.upstream_repository_id))
+            if upstream_repo:
+                upstream_node = upsert_node(
+                    db=db,
+                    repository_id=repo_id,
+                    entity_type="repository",
+                    name=f"Upstream: {upstream_repo.name}",
+                    summary=f"Upstream repository {upstream_repo.name}",
+                    metadata={"repository_id": upstream_repo.id, "is_upstream": True},
+                )
+                node_count += 1
+                add_edge(
+                    db=db,
+                    source_node_id=repo_node.id,
+                    target_node_id=upstream_node.id,
+                    relationship_type="fork_of",
+                )
+                edge_count += 1
+
+    # 1. Tasks & Agents & Sessions
     tasks = db.scalars(
         select(Task).where(Task.repository_id == repo_id)
     ).all()
@@ -269,6 +318,16 @@ def index_engineering_lifecycle(
         )
         node_count += 1
 
+        if repo_node:
+            add_edge(
+                db=db,
+                source_node_id=repo_node.id,
+                target_node_id=task_node.id,
+                relationship_type="contains_task",
+            )
+            edge_count += 1
+
+        agent_node = None
         if t.assigned_agent_id:
             agent = db.scalar(select(Agent).where(Agent.id == t.assigned_agent_id))
             if agent:
@@ -289,7 +348,34 @@ def index_engineering_lifecycle(
                 )
                 edge_count += 1
 
-        # 2. Resulting Change
+        # AgentSession node
+        if t.claimed_by_session_id:
+            sess_node = upsert_node(
+                db=db,
+                repository_id=repo_id,
+                entity_type="session",
+                name=f"Session #{t.claimed_by_session_id[:8]}",
+                summary="Active Agent Execution Lease Session",
+                metadata={"session_id": t.claimed_by_session_id},
+            )
+            node_count += 1
+            add_edge(
+                db=db,
+                source_node_id=task_node.id,
+                target_node_id=sess_node.id,
+                relationship_type="claimed_by",
+            )
+            edge_count += 1
+            if agent_node:
+                add_edge(
+                    db=db,
+                    source_node_id=agent_node.id,
+                    target_node_id=sess_node.id,
+                    relationship_type="session_of",
+                )
+                edge_count += 1
+
+        # 2. Resulting Change & Commits
         if t.resulting_change_id:
             change = db.scalar(select(Change).where(Change.id == t.resulting_change_id))
             if change:
@@ -316,6 +402,42 @@ def index_engineering_lifecycle(
                     relationship_type="produced",
                 )
                 edge_count += 1
+
+                # Commit node
+                if change.resulting_commit:
+                    commit_node = upsert_node(
+                        db=db,
+                        repository_id=repo_id,
+                        entity_type="commit",
+                        name=f"Commit #{change.resulting_commit[:8]}",
+                        summary=f"Commit {change.resulting_commit[:8]} for change {change.id[:8]}",
+                        metadata={"commit_sha": change.resulting_commit},
+                    )
+                    node_count += 1
+                    add_edge(
+                        db=db,
+                        source_node_id=change_node.id,
+                        target_node_id=commit_node.id,
+                        relationship_type="resulting_commit",
+                    )
+                    edge_count += 1
+
+                    if t.claimed_by_session_id:
+                        sess_match = db.scalar(
+                            select(KnowledgeNode).where(
+                                KnowledgeNode.repository_id == repo_id,
+                                KnowledgeNode.entity_type == "session",
+                                KnowledgeNode.name == f"Session #{t.claimed_by_session_id[:8]}",
+                            )
+                        )
+                        if sess_match:
+                            add_edge(
+                                db=db,
+                                source_node_id=sess_match.id,
+                                target_node_id=commit_node.id,
+                                relationship_type="committed",
+                            )
+                            edge_count += 1
 
                 # 3. Code files touched
                 for f in files:
@@ -371,6 +493,33 @@ def index_engineering_lifecycle(
         )
         node_count += 1
 
+        if repo_node and pr.status == PullRequest.STATUS_MERGED:
+            add_edge(
+                db=db,
+                source_node_id=pr_node.id,
+                target_node_id=repo_node.id,
+                relationship_type="merged_into",
+            )
+            edge_count += 1
+
+        if pr.source_commit:
+            c_node = upsert_node(
+                db=db,
+                repository_id=repo_id,
+                entity_type="commit",
+                name=f"Commit #{pr.source_commit[:8]}",
+                summary=f"HEAD commit {pr.source_commit[:8]} for PR {pr.id[:8]}",
+                metadata={"commit_sha": pr.source_commit},
+            )
+            node_count += 1
+            add_edge(
+                db=db,
+                source_node_id=pr_node.id,
+                target_node_id=c_node.id,
+                relationship_type="head_commit",
+            )
+            edge_count += 1
+
         if pr.source_change_id:
             ch_node = db.scalar(
                 select(KnowledgeNode).where(
@@ -400,8 +549,49 @@ def index_engineering_lifecycle(
                 )
                 edge_count += 1
 
+            # Reviews for this change
+            reviews = db.scalars(
+                select(ChangeReview).where(ChangeReview.change_id == pr.source_change_id)
+            ).all()
+            for r in reviews:
+                rev_node = upsert_node(
+                    db=db,
+                    repository_id=repo_id,
+                    entity_type="review",
+                    name=f"Review #{r.id[:8]}: {r.status}",
+                    summary=r.reason or f"Review {r.status} by {r.reviewer_id[:8] if r.reviewer_id else 'pending'}",
+                    metadata={"review_id": r.id, "status": r.status, "reviewer_id": r.reviewer_id},
+                )
+                node_count += 1
+                add_edge(
+                    db=db,
+                    source_node_id=rev_node.id,
+                    target_node_id=pr_node.id,
+                    relationship_type="reviews_pr",
+                )
+                edge_count += 1
+
+                if r.reviewer_id:
+                    rev_actor = db.scalar(select(Actor).where(Actor.id == r.reviewer_id))
+                    if rev_actor:
+                        actor_node = upsert_node(
+                            db=db,
+                            repository_id=repo_id,
+                            entity_type="actor",
+                            name=f"Reviewer: {rev_actor.name}",
+                            summary=f"Human Reviewer ({rev_actor.name})",
+                            metadata={"actor_id": rev_actor.id, "type": rev_actor.type},
+                        )
+                        node_count += 1
+                        add_edge(
+                            db=db,
+                            source_node_id=actor_node.id,
+                            target_node_id=rev_node.id,
+                            relationship_type="reviewed_by",
+                        )
+                        edge_count += 1
+
     # 5. Issues
-    from app.models.issue import Issue
     issues = db.scalars(
         select(Issue).where(Issue.repository_id == repo_id)
     ).all()
@@ -422,6 +612,15 @@ def index_engineering_lifecycle(
             },
         )
         node_count += 1
+
+        if repo_node:
+            add_edge(
+                db=db,
+                source_node_id=repo_node.id,
+                target_node_id=iss_node.id,
+                relationship_type="tracks_issue",
+            )
+            edge_count += 1
 
         if iss.task_id:
             t_node = db.scalar(
@@ -455,6 +654,15 @@ def index_engineering_lifecycle(
             metadata={"discussion_id": d.id, "category": d.category},
         )
         node_count += 1
+
+        if repo_node:
+            add_edge(
+                db=db,
+                source_node_id=disc_node.id,
+                target_node_id=repo_node.id,
+                relationship_type="belongs_to",
+            )
+            edge_count += 1
 
         import re
         task_uuid_match = re.search(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', f"{d.title} {d.body}")

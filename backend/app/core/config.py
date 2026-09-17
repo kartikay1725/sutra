@@ -16,6 +16,10 @@ class Settings(BaseSettings):
 
     database_url: str
     redis_url: str
+    database_pool_size: int = Field(default=15, ge=1, le=50)
+    database_max_overflow: int = Field(default=10, ge=0, le=50)
+    database_pool_timeout_seconds: int = Field(default=30, ge=1, le=120)
+    database_pool_recycle_seconds: int = Field(default=1800, ge=60, le=86400)
 
     @field_validator("database_url")
     @classmethod
@@ -54,9 +58,9 @@ class Settings(BaseSettings):
     )
 
     repository_storage_path: str = "./data/repositories"
-    sutra_base_url: str = "http://localhost:8000"
+    sutra_base_url: str = "https://api.sutra.sudarshanai.com"
     sutra_public_api_url: str | None = None
-    cors_origins: str = "http://localhost:3000"
+    cors_origins: str = "https://sutra.sudarshanai.com,http://localhost:3000"
 
     @field_validator("sutra_public_api_url")
     @classmethod
@@ -114,7 +118,7 @@ class Settings(BaseSettings):
     password_reset_cooldown_seconds: int = 60
     password_reset_max_attempts: int = 5
 
-    frontend_base_url: str = "http://localhost:3000"
+    frontend_base_url: str = "https://sutra.sudarshanai.com"
     rate_limit_enabled: bool = True
 
     # ---------------------------------------------------------

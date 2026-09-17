@@ -2,7 +2,7 @@ from datetime import datetime
 import json
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -415,6 +415,124 @@ def _to_response(pr, db: Session | None = None) -> PullRequestResponse:
     )
 
 
+def _to_responses(prs: list[PullRequest], db: Session | None = None) -> list[PullRequestResponse]:
+    if not prs:
+        return []
+    if db is None:
+        return [_to_response(pr) for pr in prs]
+
+    repo_ids = {p.repository_id for p in prs if p.repository_id}
+    author_ids = {p.author_id for p in prs if p.author_id}
+    change_ids = {p.source_change_id for p in prs if p.source_change_id}
+    pr_ids = {p.id for p in prs}
+
+    repo_map = {r.id: r for r in db.scalars(select(Repository).where(Repository.id.in_(repo_ids))).all()} if repo_ids else {}
+    actor_map = {a.id: a for a in db.scalars(select(Actor).where(Actor.id.in_(author_ids))).all()} if author_ids else {}
+    change_map = {c.id: c for c in db.scalars(select(Change).where(Change.id.in_(change_ids))).all()} if change_ids else {}
+
+    jobs_by_pr: dict[str, list[CIJob]] = {}
+    if pr_ids:
+        try:
+            all_jobs = db.scalars(select(CIJob).where(CIJob.pull_request_id.in_(pr_ids))).all()
+            for j in all_jobs:
+                jobs_by_pr.setdefault(j.pull_request_id, []).append(j)
+        except Exception:
+            pass
+
+    results = []
+    for pr in prs:
+        repo = repo_map.get(pr.repository_id)
+        repo_name = repo.name if repo else None
+
+        actor = actor_map.get(pr.author_id)
+        actor_name = actor.name if actor else None
+        actor_type = actor.type if actor else None
+
+        change = change_map.get(pr.source_change_id)
+        head_branch = None
+        github_pr_number = None
+        github_html_url = None
+        task_id = None
+        task_title = None
+        agent_id = None
+        agent_name = None
+        agent_session_id = None
+
+        if change:
+            try:
+                meta = json.loads(change.metadata_json or "{}")
+            except Exception:
+                meta = {}
+            head_branch = meta.get("branch") or meta.get("head_branch")
+            github_pr_number = meta.get("github_pr_number")
+            github_html_url = meta.get("github_pr_url")
+            task_id = meta.get("task_id")
+            task_title = meta.get("task_title")
+            agent_id = meta.get("agent_id")
+            agent_name = meta.get("agent_name")
+            agent_session_id = meta.get("agent_session_id")
+
+        checks_summary = None
+        checks_verdict = None
+        head_jobs = jobs_by_pr.get(pr.id, [])
+        if head_jobs and pr.source_commit:
+            head_commit_jobs = [j for j in head_jobs if j.commit_sha == pr.source_commit]
+            if head_commit_jobs:
+                total_c = len(head_commit_jobs)
+                passed_c = sum(1 for j in head_commit_jobs if j.status == CIJob.STATUS_PASSED)
+                failed_c = sum(1 for j in head_commit_jobs if j.status == CIJob.STATUS_FAILED)
+                running_c = sum(1 for j in head_commit_jobs if j.status == CIJob.STATUS_RUNNING)
+                pending_c = sum(1 for j in head_commit_jobs if j.status in (CIJob.STATUS_QUEUED, "pending"))
+                checks_summary = {
+                    "total": total_c,
+                    "passed": passed_c,
+                    "failed": failed_c,
+                    "running": running_c,
+                    "pending": pending_c,
+                }
+                if failed_c > 0:
+                    checks_verdict = "BLOCKED BY CI"
+                elif running_c > 0 or pending_c > 0:
+                    checks_verdict = "CHECKS IN PROGRESS"
+                else:
+                    checks_verdict = "READY FOR GOVERNANCE"
+
+        results.append(
+            PullRequestResponse(
+                id=pr.id,
+                repository_id=pr.repository_id,
+                author_id=pr.author_id,
+                source_change_id=pr.source_change_id,
+                title=pr.title,
+                description=pr.description,
+                target_branch=pr.target_branch,
+                source_commit=pr.source_commit,
+                target_commit=pr.target_commit,
+                status=pr.status,
+                created_at=pr.created_at,
+                updated_at=pr.updated_at,
+                merged_at=pr.merged_at,
+                closed_at=pr.closed_at,
+                repository_name=repo_name,
+                head_branch=head_branch,
+                base_branch=pr.target_branch,
+                github_pr_number=github_pr_number,
+                github_html_url=github_html_url,
+                task_id=task_id,
+                task_title=task_title,
+                agent_id=agent_id,
+                agent_name=agent_name,
+                agent_session_id=agent_session_id,
+                actor_name=actor_name,
+                actor_type=actor_type,
+                checks_summary=checks_summary,
+                checks_verdict=checks_verdict,
+                approved=(pr.status == "approved"),
+            )
+        )
+    return results
+
+
 @router.get(
     "/v1/pull-requests/{id}/checks",
     status_code=status.HTTP_200_OK,
@@ -715,7 +833,7 @@ def list_all_pull_requests(
                 limit=limit,
                 offset=offset,
             )
-            return [_to_response(pr, db) for pr in prs]
+            return _to_responses(prs, db)
         except PermissionError as e:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -734,7 +852,7 @@ def list_all_pull_requests(
         limit=limit,
         offset=offset,
     )
-    return [_to_response(pr, db) for pr in prs]
+    return _to_responses(prs, db)
 
 
 @router.get(
@@ -971,7 +1089,7 @@ def list_pull_requests(
             limit=limit,
             offset=offset,
         )
-        return [_to_response(pr, db) for pr in prs]
+        return _to_responses(prs, db)
     except PermissionError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -990,6 +1108,7 @@ def list_pull_requests(
 )
 def approve_pull_request(
     pull_request_id: str,
+    background_tasks: BackgroundTasks,
     payload: PullRequestActionRequest | None = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -1065,6 +1184,10 @@ def approve_pull_request(
     try:
         approved_pr = svc.approve_pull_request(pr, current_user.id, reason=reason)
         db.commit()
+        background_tasks.add_task(
+            GovernanceService(db).sync_governance_check_to_github,
+            approved_pr.id,
+        )
         return _to_response(approved_pr, db)
     except ValueError as e:
         raise HTTPException(

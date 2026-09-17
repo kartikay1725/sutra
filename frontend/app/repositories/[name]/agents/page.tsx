@@ -2,10 +2,11 @@
 
 import { use, useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { AppShell, PageHead, Card, Btn } from "@/components/shell";
+import { AppShell, PageHead, Card, Btn, SkeletonAgentList } from "@/components/shell";
 import { agentService, Agent } from "@/lib/agents";
 import { taskService } from "@/lib/tasks";
 import { authService } from "@/lib/auth";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import * as I from "lucide-react";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -123,7 +124,7 @@ function RegisterModal({ onClose, onCreated }: { onClose: () => void; onCreated:
 
 // ── Running Agent Card ────────────────────────────────────────────────────────
 
-function AgentRunningCard({ agent, task, onClick }: { agent: Agent; task: any; onClick: () => void }) {
+function AgentRunningCard({ agent, task, onClick, onTerminateTask }: { agent: Agent; task: any; onClick: () => void; onTerminateTask?: (taskId: string) => void }) {
   return (
     <div onClick={onClick} style={{ cursor: "pointer" }}>
     <Card style={{ padding: 0, overflow: "hidden", borderLeft: "3px solid #10b981" }}>
@@ -149,13 +150,43 @@ function AgentRunningCard({ agent, task, onClick }: { agent: Agent; task: any; o
         </div>
 
         {task && (
-          <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: "6px 12px", fontSize: 13, marginBottom: 16 }}>
-            <span style={{ color: "var(--muted)" }}>Task</span>
-            <span style={{ color: "var(--fg)", fontWeight: 500 }}>{task.title}</span>
-            <span style={{ color: "var(--muted)" }}>Priority</span>
-            <span style={{ color: task.priority === "urgent" ? "#ef4444" : task.priority === "high" ? "#f59e0b" : "var(--fg)", fontWeight: 500 }}>
-              {task.priority}
-            </span>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, background: "var(--bg-subtle)", padding: "10px 14px", borderRadius: 6 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "60px 1fr", gap: "4px 8px", fontSize: 13, flex: 1, minWidth: 0 }}>
+              <span style={{ color: "var(--muted)" }}>Task:</span>
+              <span style={{ color: "var(--fg)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{task.title}</span>
+              <span style={{ color: "var(--muted)" }}>Priority:</span>
+              <span style={{ color: task.priority === "urgent" ? "#ef4444" : task.priority === "high" ? "#f59e0b" : "var(--fg)", fontWeight: 500 }}>
+                {task.priority || "normal"}
+              </span>
+            </div>
+            {onTerminateTask && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTerminateTask(task.id);
+                }}
+                className="badge red"
+                style={{
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  padding: "4px 10px",
+                  fontSize: "11px",
+                  background: "rgba(239,68,68,0.12)",
+                  border: "1px solid rgba(239,68,68,0.3)",
+                  color: "#ef4444",
+                  fontWeight: 600,
+                  borderRadius: 4,
+                  marginLeft: 12,
+                  flexShrink: 0,
+                }}
+                title="Terminate running task"
+              >
+                <I.Square size={10} fill="currentColor" /> Terminate Task
+              </button>
+            )}
           </div>
         )}
 
@@ -190,6 +221,8 @@ export default function AgentsPage({ params }: { params: Promise<{ name: string 
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
+  const [taskToTerminate, setTaskToTerminate] = useState<{ id: string; title?: string } | null>(null);
+  const [terminating, setTerminating] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -218,6 +251,39 @@ export default function AgentsPage({ params }: { params: Promise<{ name: string 
 
   useEffect(() => { load(); }, [repoName]);
 
+  const handleTerminateTask = (taskId: string) => {
+    let title = "Active task";
+    for (const k in agentTasks) {
+      const found = agentTasks[k].find(t => t.id === taskId);
+      if (found) {
+        title = found.title;
+        break;
+      }
+    }
+    setTaskToTerminate({ id: taskId, title });
+  };
+
+  const executeTerminateTask = async () => {
+    if (!taskToTerminate) return;
+    const taskId = taskToTerminate.id;
+    setTerminating(true);
+    try {
+      await taskService.terminateTask(taskId);
+      setAgentTasks(prev => {
+        const next = { ...prev };
+        for (const k in next) {
+          next[k] = next[k].map(t => t.id === taskId ? { ...t, status: "cancelled" } : t);
+        }
+        return next;
+      });
+      setTaskToTerminate(null);
+    } catch (err: any) {
+      alert(err?.message || "Failed to terminate task");
+    } finally {
+      setTerminating(false);
+    }
+  };
+
   const filtered = useMemo(() => agents.filter(a => {
     const matchSearch = !search || a.name.toLowerCase().includes(search.toLowerCase());
     if (!matchSearch) return false;
@@ -232,8 +298,9 @@ export default function AgentsPage({ params }: { params: Promise<{ name: string 
 
   const stats = {
     total: agents.length,
-    active: agents.filter(a => a.is_active).length,
-    running: agents.filter(a => (agentTasks[a.id] || []).some(t => t.status === "in_progress")).length,
+    active: agents.filter(a => a.is_active && a.status === "active").length,
+    running: agents.filter(a => a.is_active && a.status === "active" && (agentTasks[a.id] || []).some(t => t.status === "in_progress")).length,
+    revoked: agents.filter(a => !a.is_active || a.status === "revoked").length,
   };
 
   return (
@@ -284,7 +351,7 @@ export default function AgentsPage({ params }: { params: Promise<{ name: string 
         </div>
       </Card>
 
-      <div style={{ maxWidth: 1000, margin: "0 auto", padding: "0 20px" }}>
+      <div style={{ width: "100%" }}>
 
         {/* Stats */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 24 }}>
@@ -326,7 +393,7 @@ export default function AgentsPage({ params }: { params: Promise<{ name: string 
         </div>
 
         {loading ? (
-          <div style={{ padding: 48, textAlign: "center", color: "var(--muted)" }}>Loading agents…</div>
+          <SkeletonAgentList count={3} />
         ) : filtered.length === 0 ? (
           <div style={{ padding: 48, textAlign: "center", background: "var(--bg-subtle)", borderRadius: 10, border: "1px dashed var(--line)", color: "var(--muted)" }}>
             <I.Bot size={36} style={{ marginBottom: 12, opacity: 0.3 }} />
@@ -351,6 +418,7 @@ export default function AgentsPage({ params }: { params: Promise<{ name: string 
                         agent={agent}
                         task={runningTask}
                         onClick={() => router.push(`/repositories/${repoName}/agents/${agent.id}`)}
+                        onTerminateTask={handleTerminateTask}
                       />
                     );
                   })}
@@ -407,12 +475,14 @@ export default function AgentsPage({ params }: { params: Promise<{ name: string 
                         </div>
                       )}
 
-                      {/* Status pill */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 80, justifyContent: "flex-end", flexShrink: 0 }}>
-                        <div style={{ width: 7, height: 7, borderRadius: "50%", background: runningTask ? "#10b981" : statusColor(agent.status) }} />
-                        <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 500 }}>
-                          {runningTask ? "Running" : statusLabel(agent)}
-                        </span>
+                      {/* Status pill + optional terminate */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 80, justifyContent: "flex-end", flexShrink: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                          <div style={{ width: 7, height: 7, borderRadius: "50%", background: runningTask ? "#10b981" : statusColor(agent.status) }} />
+                          <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 500 }}>
+                            {runningTask ? "Running" : statusLabel(agent)}
+                          </span>
+                        </div>
                       </div>
 
                       {/* Task count */}
@@ -436,6 +506,20 @@ export default function AgentsPage({ params }: { params: Promise<{ name: string 
           100% { transform: scale(2.5); opacity: 0; }
         }
       `}</style>
+      <ConfirmModal
+        isOpen={Boolean(taskToTerminate)}
+        onClose={() => setTaskToTerminate(null)}
+        onConfirm={executeTerminateTask}
+        title="Terminate Agent Task"
+        description={
+          <>
+            Are you sure you want to terminate <strong>&ldquo;{taskToTerminate?.title}&rdquo;</strong>? Active execution will be cancelled immediately.
+          </>
+        }
+        confirmText="Terminate Task"
+        confirmTone="danger"
+        loading={terminating}
+      />
     </AppShell>
   );
 }

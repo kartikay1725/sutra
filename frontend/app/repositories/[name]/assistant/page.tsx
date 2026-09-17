@@ -11,7 +11,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
   AppShell,
-  SutraLoading,
+  Skeleton,
 } from "@/components/shell";
 
 import {
@@ -801,14 +801,11 @@ export default function AssistantPage({
       <div
         style={{
           height:
-            "calc(100vh - 60px)",
+            "calc(100vh - 120px)",
           display: "flex",
           flexDirection:
             "column",
-          maxWidth: 1200,
-          margin: "0 auto",
-          padding:
-            "0 20px",
+          width: "100%",
         }}
       >
         {/* Header */}
@@ -1200,7 +1197,21 @@ export default function AssistantPage({
             >
               {isInitializing ||
               isLoadingMessages ? (
-                <SutraLoading message="Attaching repository context, open tasks & knowledge graph..." quote={true} />
+                <div style={{ display: "flex", flexDirection: "column", gap: 18, padding: 16 }}>
+                  <div style={{ alignSelf: "flex-end", width: "50%", padding: 14, borderRadius: 12, background: "var(--bg-subtle)" }}>
+                    <Skeleton width="85%" height={14} borderRadius={4} style={{ marginBottom: 6 }} />
+                    <Skeleton width="60%" height={14} borderRadius={4} />
+                  </div>
+                  <div style={{ alignSelf: "flex-start", width: "70%", padding: 16, borderRadius: 12, border: "1px solid var(--line)", background: "var(--surface)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                      <Skeleton width={20} height={20} borderRadius="50%" />
+                      <Skeleton width={110} height={14} borderRadius={4} />
+                    </div>
+                    <Skeleton width="95%" height={14} borderRadius={4} style={{ marginBottom: 8 }} />
+                    <Skeleton width="90%" height={14} borderRadius={4} style={{ marginBottom: 8 }} />
+                    <Skeleton width="65%" height={14} borderRadius={4} />
+                  </div>
+                </div>
               ) : messages.length ===
                 0 ? (
                 <div

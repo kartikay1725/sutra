@@ -4,9 +4,11 @@ import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AppShell, PageHead, Card, Btn, Badge } from "@/components/shell";
+import { EvidenceRow } from "@/components/ui";
 import { pullRequestService, PullRequest, PRReview, PREvent, PRChange } from "@/lib/pull-requests";
 import { ciService, CIJob } from "@/lib/ci";
 import { authService } from "@/lib/auth";
+import { lifecycleService, LifecycleStatusResponse } from "@/lib/lifecycle";
 import * as I from "lucide-react";
 
 function timeAgo(dateStr: string) {
@@ -32,6 +34,7 @@ export default function PullRequestDetailPage({ params }: { params: Promise<{ na
   const [reviews, setReviews] = useState<PRReview[]>([]);
   const [events, setEvents] = useState<PREvent[]>([]);
   const [ciJobs, setCiJobs] = useState<CIJob[]>([]);
+  const [lifecycle, setLifecycle] = useState<LifecycleStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("Conversation");
   const [actionLoading, setActionLoading] = useState(false);
@@ -40,16 +43,18 @@ export default function PullRequestDetailPage({ params }: { params: Promise<{ na
     const load = async () => {
       setLoading(true);
       try {
-        const [prData, reviewData, eventData, jobsData] = await Promise.all([
+        const [prData, reviewData, eventData, jobsData, lifecycleData] = await Promise.all([
           pullRequestService.getPR(prId),
           pullRequestService.getPRReviews(prId).catch(() => []),
           pullRequestService.getPREvents(prId).catch(() => []),
           ciService.listJobsForPR(prId).catch(() => []),
+          lifecycleService.getStatus({ pullRequestId: prId }).catch(() => null),
         ]);
         setPr(prData);
         setReviews(reviewData);
         setEvents(eventData);
         setCiJobs(jobsData);
+        setLifecycle(lifecycleData);
 
         // Load the associated Change and its diffs
         try {
@@ -158,7 +163,35 @@ export default function PullRequestDetailPage({ params }: { params: Promise<{ na
         }
       />
 
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 20px" }}>
+      {lifecycle && (
+        <Card className="evidence-panel">
+          <div className="card-head">
+            <div>
+              <div className="eyebrow">Engineering evidence</div>
+              <h2 className="h2">Current decision context</h2>
+            </div>
+            <Badge tone={lifecycle.overall_state.toLowerCase()}>{lifecycle.overall_state.replaceAll("_", " ")}</Badge>
+          </div>
+          <div className="card-pad">
+            <EvidenceRow label="Current stage" value={lifecycle.current_stage.replaceAll("_", " ")} detail={`Next: ${lifecycle.next_actor}`} />
+            <EvidenceRow label="Next action" value={lifecycle.next_action} />
+            {lifecycle.pull_request?.source_commit && (
+              <EvidenceRow label="Revision" value={<code>{lifecycle.pull_request.source_commit.slice(0, 12)}</code>} detail="source commit" />
+            )}
+            {lifecycle.governance && (
+              <EvidenceRow label="Governance" value={lifecycle.governance.verdict} detail={lifecycle.governance.blocking_reasons.join("; ") || "No blocking reasons reported"} />
+            )}
+            {lifecycle.approval && (
+              <EvidenceRow label="Approval" value={`${lifecycle.approval.current_approvals}/${lifecycle.approval.required_approvals}`} detail={lifecycle.approval.head_changed_after_approval ? "Revision changed after approval" : "Human approval state"} />
+            )}
+            {lifecycle.blocked_reasons.length > 0 && (
+              <EvidenceRow label="Blocked by" value={lifecycle.blocked_reasons.join("; ")} />
+            )}
+          </div>
+        </Card>
+      )}
+
+      <div style={{ width: "100%" }}>
 
         {/* Status Bar */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24, padding: "12px 20px", background: "var(--bg-subtle)", borderRadius: 8, border: `1px solid ${statusColor}40` }}>

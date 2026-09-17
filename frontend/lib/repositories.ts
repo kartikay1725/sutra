@@ -9,8 +9,12 @@ export interface Repository {
   is_private: boolean;
   default_branch: string;
   owner?: string;
+  owner_id?: string;
   provider_owner?: string;
   provider_type?: string;
+  connection_type?: string;
+  upstream_url?: string | null;
+  upstream_repository_id?: string | null;
   clone_url?: string;
   settings?: Record<string, any>;
   created_at: string;
@@ -27,11 +31,13 @@ function normalizeRepository(input: any): Repository {
 }
 
 export const repositoryService = {
-  async listRepositories(options?: { forceRefresh?: boolean }): Promise<Repository[]> {
+  async listRepositories(options?: { forceRefresh?: boolean; search?: string }): Promise<Repository[]> {
+    const searchParam = options?.search?.trim() ? `?q=${encodeURIComponent(options.search.trim())}` : "";
+    const key = `repos:list${searchParam}`;
     return clientCache.fetch<Repository[]>(
-      "repos:list",
+      key,
       async () => {
-        const rows = await apiAuth<any[]>("/v1/repositories");
+        const rows = await apiAuth<any[]>(`/v1/repositories${searchParam}`);
         return rows.map(normalizeRepository);
       },
       {
@@ -41,14 +47,6 @@ export const repositoryService = {
     );
   },
 
-  async createRepository(name: string, description: string, is_private: boolean = false): Promise<Repository> {
-    const row = await apiAuth<any>("/v1/repositories", {
-      method: "POST",
-      body: JSON.stringify({ name, description, visibility: is_private ? "private" : "public" }),
-    });
-    clientCache.delete("repos:list");
-    return normalizeRepository(row);
-  },
 
   async getTrending(since: string = "daily"): Promise<Repository[]> {
     const rows = await apiAuth<any[]>(`/v1/explore/trending/repositories?since=${since}`);

@@ -134,6 +134,71 @@ class GitHubRepositoryProvider(RepositoryProvider):
             },
         )
 
+    def get_raw_repository(self, owner: str, name: str) -> Dict[str, Any]:
+        """Fetch raw GitHub repository details including fork, parent, and permissions."""
+        headers = self._get_installation_headers(owner, name)
+        res = self._client.get(f"/repos/{owner}/{name}", headers=headers)
+        res.raise_for_status()
+        return res.json()
+
+    def create_fork(
+        self,
+        owner: str,
+        name: str,
+        organization: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a fork of an upstream repository on GitHub."""
+        headers = self._get_installation_headers(owner, name)
+        url = f"/repos/{owner}/{name}/forks"
+        payload = {}
+        if organization:
+            payload["organization"] = organization
+        res = self._client.post(url, headers=headers, json=payload if payload else None)
+        res.raise_for_status()
+        return res.json()
+
+    def update_repository(
+        self,
+        owner: str,
+        name: str,
+        *,
+        new_name: Optional[str] = None,
+        description: Optional[str] = None,
+        default_branch: Optional[str] = None,
+        is_private: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """Update repository settings on GitHub."""
+        headers = self._get_installation_headers(owner, name)
+        payload: Dict[str, Any] = {}
+        if new_name is not None and new_name.strip() and new_name.strip() != name:
+            payload["name"] = new_name.strip()
+        if description is not None:
+            payload["description"] = description
+        if default_branch is not None and default_branch.strip():
+            payload["default_branch"] = default_branch.strip()
+        if is_private is not None:
+            payload["private"] = is_private
+
+        if not payload:
+            return {}
+
+        res = self._client.patch(f"/repos/{owner}/{name}", headers=headers, json=payload)
+        res.raise_for_status()
+        return res.json()
+
+    def delete_repository(
+        self,
+        owner: str,
+        name: str,
+    ) -> bool:
+        """Delete repository on GitHub if authorized."""
+        headers = self._get_installation_headers(owner, name)
+        res = self._client.delete(f"/repos/{owner}/{name}", headers=headers)
+        if res.status_code in (204, 200, 404):
+            return True
+        res.raise_for_status()
+        return True
+
     def get_branch(self, owner: str, name: str, branch: str) -> Optional[ProviderBranch]:
         headers = self._get_installation_headers(owner, name)
         res = self._client.get(f"/repos/{owner}/{name}/branches/{branch}", headers=headers)

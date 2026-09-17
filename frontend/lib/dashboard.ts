@@ -1,4 +1,5 @@
 import { apiAuth } from "./api";
+import { clientCache, CACHE_TTL } from "./cache";
 
 export interface DashboardActivity {
   id: string;
@@ -13,6 +14,9 @@ export interface DashboardData {
   repository_count: number;
   open_changes: number;
   changes_needing_review: number;
+  blocked_changes?: number;
+  blocked_tasks?: number;
+  failed_ci_jobs?: number;
   agent_changes: number;
   human_changes: number;
   median_lead_time_minutes: number | null;
@@ -43,7 +47,15 @@ export interface DashboardData {
 }
 
 export const dashboardService = {
-  async get(): Promise<DashboardData> {
-    return apiAuth<DashboardData>("/v1/me/dashboard");
+  async get(options?: { forceRefresh?: boolean }): Promise<DashboardData> {
+    return clientCache.fetch<DashboardData>(
+      "overview:workspace_dashboard",
+      () => apiAuth<DashboardData>("/v1/me/dashboard"),
+      {
+        ...CACHE_TTL.OVERVIEW,
+        forceRefresh: options?.forceRefresh,
+      }
+    );
   },
 };
+

@@ -119,6 +119,42 @@ export function EmptyState({
   );
 }
 
+export function ErrorState({
+  title = "Unable to load this view",
+  description,
+  action,
+}: {
+  title?: string;
+  description: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="state-panel state-panel-error" role="alert">
+      <div className="state-panel-title">{title}</div>
+      <div className="state-panel-desc">{description}</div>
+      {action && <div className="state-panel-action">{action}</div>}
+    </div>
+  );
+}
+
+export function EvidenceRow({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: React.ReactNode;
+  detail?: React.ReactNode;
+}) {
+  return (
+    <div className="evidence-row">
+      <span className="evidence-label">{label}</span>
+      <span className="evidence-value">{value}</span>
+      {detail && <span className="evidence-detail">{detail}</span>}
+    </div>
+  );
+}
+
 export function Table({
   children,
   className = "",
@@ -134,3 +170,17 @@ export function Table({
 }
 
 export { SutraLoading } from "./sutra-loading";
+export {
+  Skeleton,
+  SkeletonFileTree,
+  SkeletonCodeViewer,
+  SkeletonCommitList,
+  SkeletonPRList,
+  SkeletonIssueList,
+  SkeletonChangeList,
+  SkeletonAgentList,
+  SkeletonCIRuns,
+  SkeletonRepoOverview,
+  SkeletonRepoSettings,
+} from "./skeleton";
+

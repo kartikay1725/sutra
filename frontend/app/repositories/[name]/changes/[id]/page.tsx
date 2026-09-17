@@ -204,9 +204,7 @@ export default function ChangeDetailPage({
 
       <div
         style={{
-          maxWidth: 1200,
-          margin: "0 auto",
-          padding: "0 20px 40px",
+          width: "100%",
         }}
       >
         {/* Pipeline */}

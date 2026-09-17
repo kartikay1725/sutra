@@ -486,7 +486,23 @@ class CIService:
             head_sha = change.resulting_commit if change else None
 
         if repo.provider_type == "github":
-            self.sync_github_checks(pull_request_id, actor_id=actor_id)
+            # Throttle external GitHub sync so repeated/concurrent calls within 20s don't block
+            sync_key = f"github:checks:sync:{pull_request_id}"
+            from app.core.redis_service import redis_service
+            should_sync = True
+            try:
+                if redis_service.get(sync_key):
+                    should_sync = False
+                else:
+                    redis_service.set(sync_key, "1", ex=20)
+            except Exception:
+                pass
+
+            if should_sync:
+                try:
+                    self.sync_github_checks(pull_request_id, actor_id=actor_id)
+                except Exception as exc:
+                    logger.warning(f"Failed to sync GitHub checks: {exc}")
 
         # Query all jobs associated with the PR head commit
         jobs = []

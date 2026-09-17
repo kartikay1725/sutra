@@ -14,6 +14,7 @@ import {
   Card,
   Btn,
   Badge,
+  SkeletonCIRuns,
 } from "@/components/shell";
 
 import {
@@ -410,10 +411,7 @@ export default function CIPage({
 
       <div
         style={{
-          maxWidth: 1050,
-          margin: "0 auto",
-          padding:
-            "0 20px 40px",
+          width: "100%",
         }}
       >
         {error && (
@@ -558,20 +556,7 @@ export default function CIPage({
         </div>
 
         {loading ? (
-          <Card>
-            <div
-              className="card-pad"
-              style={{
-                textAlign: "center",
-                paddingTop: 50,
-                paddingBottom: 50,
-              }}
-            >
-              <div className="sub">
-                Loading CI runs…
-              </div>
-            </div>
-          </Card>
+          <SkeletonCIRuns count={5} />
         ) : recent.length === 0 ? (
           jobs.length === 0 ? null : (
             <Card>

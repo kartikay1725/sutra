@@ -434,6 +434,55 @@ def agent_me(
     )
 
 
+@router.get(
+    "/{agent_id}",
+    response_model=AgentResponse,
+    summary="Get Agent Detail (Human JWT required)",
+    description="Returns full agent details by ID.",
+)
+def get_agent(
+    agent_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    agent = db.scalar(
+        select(Agent).where(Agent.id == agent_id)
+    )
+    if not agent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agent not found",
+        )
+
+    if agent.owner_id != current_user.id:
+        from app.models.agent_repository_access import AgentRepositoryAccess
+        from app.models.repository import Repository
+        has_repo_access = db.scalar(
+            select(func.count(AgentRepositoryAccess.id))
+            .join(Repository, Repository.id == AgentRepositoryAccess.repository_id)
+            .where(
+                AgentRepositoryAccess.agent_id == agent.id,
+                Repository.owner_id == current_user.id,
+            )
+        )
+        if not has_repo_access:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Agent not found",
+            )
+
+    return AgentResponse(
+        id=agent.id,
+        name=agent.name,
+        description=agent.description,
+        provider=agent.provider,
+        model=agent.model,
+        status=agent.status,
+        is_active=agent.is_active,
+        token_prefix=agent.token_prefix,
+    )
+
+
 @router.delete(
     "/{agent_id}",
     status_code=status.HTTP_204_NO_CONTENT,

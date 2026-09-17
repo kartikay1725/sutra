@@ -24,6 +24,7 @@ import {
 
 import { taskService } from "@/lib/tasks";
 import { authService } from "@/lib/auth";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 import * as I from "lucide-react";
 
@@ -177,6 +178,9 @@ export default function AgentDetailPage({
     setIsRevokeModalOpen,
   ] = useState(false);
 
+  const [terminatingTaskId, setTerminatingTaskId] = useState<string | null>(null);
+  const [taskToTerminate, setTaskToTerminate] = useState<TaskRow | null>(null);
+
   const load = async () => {
     try {
       setLoading(true);
@@ -186,11 +190,11 @@ export default function AgentDetailPage({
         await authService.getCurrentUser();
 
       const [
-        agentList,
+        fetchedAgent,
         taskList,
         sessionList,
       ] = await Promise.all([
-        agentService.listAgents(),
+        agentService.getAgent(agentId).catch(() => null),
 
         taskService
           .listTasks(
@@ -204,19 +208,14 @@ export default function AgentDetailPage({
           .catch(() => []),
       ]);
 
-      const found = agentList.find(
-        (item) =>
-          item.id === agentId,
-      );
-
-      if (!found) {
+      if (!fetchedAgent) {
         setAgent(null);
         setAgentTasks([]);
         setSessions([]);
         return;
       }
 
-      setAgent(found);
+      setAgent(fetchedAgent);
 
       setAgentTasks(
         (taskList || []).filter(
@@ -285,6 +284,27 @@ export default function AgentDetailPage({
 
       setRevoking(false);
       setIsRevokeModalOpen(false);
+    }
+  };
+
+  const handleTerminateTask = (task: TaskRow) => {
+    setTaskToTerminate(task);
+  };
+
+  const executeTerminateTask = async () => {
+    if (!taskToTerminate) return;
+    const taskId = taskToTerminate.id;
+    setTerminatingTaskId(taskId);
+    try {
+      await taskService.terminateTask(taskId);
+      setAgentTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, status: "cancelled" } : t))
+      );
+      setTaskToTerminate(null);
+    } catch (err: any) {
+      alert(err?.message || "Failed to terminate task");
+    } finally {
+      setTerminatingTaskId(null);
     }
   };
 
@@ -505,9 +525,7 @@ export default function AgentDetailPage({
 
       <div
         style={{
-          maxWidth: 1000,
-          margin: "0 auto",
-          padding: "0 20px 40px",
+          width: "100%",
         }}
       >
         {error && (
@@ -745,9 +763,33 @@ export default function AgentDetailPage({
                     )}
                   </div>
 
-                  <Badge tone="green">
-                    In Progress
-                  </Badge>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <Badge tone="green">
+                      In Progress
+                    </Badge>
+                    <button
+                      type="button"
+                      onClick={() => handleTerminateTask(runningTask)}
+                      disabled={terminatingTaskId === runningTask.id}
+                      className="badge red"
+                      style={{
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        padding: "4px 10px",
+                        fontSize: "11px",
+                        background: "rgba(239,68,68,0.12)",
+                        border: "1px solid rgba(239,68,68,0.3)",
+                        color: "#ef4444",
+                        fontWeight: 600,
+                        borderRadius: 4,
+                      }}
+                      title="Terminate active task"
+                    >
+                      <I.Square size={10} fill="currentColor" /> {terminatingTaskId === runningTask.id ? "Terminating…" : "Terminate"}
+                    </button>
+                  </div>
                 </div>
 
                 <div
@@ -1089,24 +1131,42 @@ export default function AgentDetailPage({
                         </Badge>
                       )}
 
-                      <Badge
-                        tone={
-                          task.status ===
-                          "completed"
-                            ? "green"
-                            : task.status ===
-                                "failed"
-                              ? "red"
-                              : task.status ===
-                                  "in_progress"
-                                ? "aqua"
-                                : "amber"
-                        }
-                      >
-                        {humanStatus(
-                          task.status,
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <Badge
+                          tone={
+                            task.status === "completed"
+                              ? "green"
+                              : task.status === "failed" || task.status === "cancelled"
+                                ? "red"
+                                : task.status === "in_progress"
+                                  ? "aqua"
+                                  : "amber"
+                          }
+                        >
+                          {humanStatus(task.status)}
+                        </Badge>
+                        {(task.status === "in_progress" || task.status === "assigned" || task.status === "open") && (
+                          <button
+                            type="button"
+                            onClick={() => handleTerminateTask(task)}
+                            disabled={terminatingTaskId === task.id}
+                            className="badge red"
+                            style={{
+                              cursor: "pointer",
+                              padding: "2px 8px",
+                              fontSize: "10px",
+                              background: "rgba(239,68,68,0.12)",
+                              border: "1px solid rgba(239,68,68,0.3)",
+                              color: "#ef4444",
+                              fontWeight: 600,
+                              borderRadius: 4,
+                            }}
+                            title="Terminate task"
+                          >
+                            Terminate
+                          </button>
                         )}
-                      </Badge>
+                      </div>
                     </div>
                   ),
                 )}
@@ -1487,6 +1547,21 @@ export default function AgentDetailPage({
           </Card>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={Boolean(taskToTerminate)}
+        onClose={() => setTaskToTerminate(null)}
+        onConfirm={executeTerminateTask}
+        title="Terminate Active Task"
+        description={
+          <>
+            Are you sure you want to terminate <strong>&ldquo;{taskToTerminate?.title}&rdquo;</strong>? Active execution will be aborted immediately and the task status will be marked as cancelled.
+          </>
+        }
+        confirmText="Terminate Task"
+        confirmTone="danger"
+        loading={Boolean(terminatingTaskId)}
+      />
     </AppShell>
   );
 }

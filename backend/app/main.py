@@ -5,6 +5,7 @@ from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.api.agents import router as agents_router
@@ -246,9 +247,8 @@ app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list if settings.cors_origins != "*" else ["*"],
-    allow_origin_regex=r"https?://.*",
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -262,6 +262,20 @@ async def add_security_headers(request: Request, call_next):
     # Content-Security-Policy that allows Next.js frontend, WebSocket/HTTP connections, and tunnel hosts to operate smoothly
     response.headers["Content-Security-Policy"] = "default-src 'self' * 'unsafe-inline' 'unsafe-eval'; script-src 'self' 'unsafe-inline' 'unsafe-eval' *; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: *; connect-src 'self' * ws: wss:;"
     return response
+
+
+@app.exception_handler(OperationalError)
+async def database_unavailable_handler(request: Request, exc: OperationalError):
+    import logging
+    logging.getLogger("sutra.api").error("Database unavailable", exc_info=True)
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": "Database temporarily unavailable. Please retry shortly.",
+            "code": "DATABASE_UNAVAILABLE",
+        },
+        headers={"Retry-After": "5"},
+    )
 
 
 @app.exception_handler(Exception)
@@ -410,7 +424,7 @@ def agent_info(request: Request):
         },
         "git_authentication": {
             "protocol": "Git Smart HTTP over Basic Auth",
-            "clone_url_pattern": f"{base}/git/{{owner}}/{{repo}}.git",
+            "clone_url_pattern": "https://github.com/{owner}/{repo}.git",
             "username": "<first 16 characters of permanent agent token, e.g. sutra_agent_AbCd>",
             "password": "<full AgentSession token: sutra_session_...>",
             "note": "Username is the permanent token prefix. Password is the AgentSession token. Do not swap.",
@@ -499,6 +513,7 @@ app.include_router(agent_registration_router)
 app.include_router(agent_repository_access_router)
 app.include_router(agent_protocol_router)
 app.include_router(agent_tasks_router)
+app.include_router(branch_protection_router)
 app.include_router(pull_requests_router)
 app.include_router(repository_router)
 app.include_router(repository_browser_router)
@@ -513,7 +528,6 @@ app.include_router(conflicts_router)
 app.include_router(git_router)
 app.include_router(change_policy_router)
 app.include_router(change_reviews_router)
-app.include_router(branch_protection_router)
 app.include_router(ci_router)
 app.include_router(agent_sessions_router)
 app.include_router(organizations_router)

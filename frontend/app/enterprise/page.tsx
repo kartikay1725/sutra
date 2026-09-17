@@ -4,7 +4,16 @@ import { Page, Card, Badge } from "@/components/ui";
 import { AppShell } from "@/components/shell";
 import { Shield, Activity, Users, Settings, Search, RefreshCw, Key, ShieldCheck } from "lucide-react";
 import { useState, useEffect } from "react";
-import { apiPublic } from "@/lib/api";
+import { apiAuth, formatErrorMessage } from "@/lib/api";
+import { organizationService, type Organization } from "@/lib/organizations";
+
+type GovernancePolicy = {
+  enforce_branch_protection: boolean;
+  minimum_pr_approvals: number;
+  restrict_public_repositories: boolean;
+  require_signed_commits: boolean;
+  organization_id: string;
+};
 
 export default function EnterpriseDashboard() {
   const [activeTab, setActiveTab] = useState<"audit" | "governance" | "sso">("audit");
@@ -12,23 +21,32 @@ export default function EnterpriseDashboard() {
   
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [ssoProviders, setSsoProviders] = useState<any[]>([]);
-  const [policies, setPolicies] = useState<any>(null);
+  const [policies, setPolicies] = useState<GovernancePolicy | null>(null);
+  const [organization, setOrganization] = useState<Organization | null>(null);
+  const [savingPolicies, setSavingPolicies] = useState(false);
+  const [policyMessage, setPolicyMessage] = useState<string | null>(null);
+  const [policyError, setPolicyError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const orgId = "org-1"; // Hardcoded for demo purposes
+        const organizations = await organizationService.listMyOrganizations();
+        const org = organizations[0];
+        if (!org) {
+          throw new Error("No organization is available for your account.");
+        }
+        setOrganization(org);
         const [logs, sso, pol] = await Promise.all([
-          apiPublic<any[]>(`/v1/organizations/${orgId}/audit-logs`),
-          apiPublic<any[]>(`/v1/organizations/${orgId}/sso/providers`),
-          apiPublic<any>(`/v1/organizations/${orgId}/policies`)
+          apiAuth<any[]>(`/v1/organizations/${org.id}/audit-logs`),
+          apiAuth<any[]>(`/v1/organizations/${org.id}/sso/providers`),
+          apiAuth<GovernancePolicy>(`/v1/organizations/${org.id}/policies`)
         ]);
         setAuditLogs(logs);
         setSsoProviders(sso);
         setPolicies(pol);
       } catch (error) {
-        console.error("Failed to load enterprise data", error);
+        setPolicyError(formatErrorMessage(error));
       } finally {
         setLoading(false);
       }
@@ -42,12 +60,36 @@ export default function EnterpriseDashboard() {
     return `${d.toLocaleDateString()} ${d.toLocaleTimeString()}`;
   };
 
+  const savePolicies = async () => {
+    if (!organization || !policies) return;
+    setSavingPolicies(true);
+    setPolicyMessage(null);
+    setPolicyError(null);
+    try {
+      const saved = await apiAuth<GovernancePolicy>(`/v1/organizations/${organization.id}/policies`, {
+        method: "PUT",
+        body: JSON.stringify({
+          enforce_branch_protection: policies.enforce_branch_protection,
+          minimum_pr_approvals: policies.minimum_pr_approvals,
+          restrict_public_repositories: policies.restrict_public_repositories,
+          require_signed_commits: policies.require_signed_commits,
+        }),
+      });
+      setPolicies(saved);
+      setPolicyMessage("Governance policy saved.");
+    } catch (error) {
+      setPolicyError(formatErrorMessage(error));
+    } finally {
+      setSavingPolicies(false);
+    }
+  };
+
   return (
     <AppShell isPublic>
       <Page
         eyebrow="Organization Settings"
         title="Enterprise Controls"
-        description="Manage compliance, security policies, and identity access."
+        description={organization ? `Manage compliance, security policies, and identity access for ${organization.display_name || organization.name}.` : "Manage compliance, security policies, and identity access."}
       >
       <div style={{ display: "flex", gap: "20px", marginBottom: "20px" }}>
         <button 
@@ -131,12 +173,12 @@ export default function EnterpriseDashboard() {
                   <Shield size={18} className="purple" />
                   <h3>Global Branch Protection</h3>
                 </div>
-                <p className="sub" style={{ marginBottom: "20px" }}>Force all repositories to protect their default branch and require Pull Requests.</p>
+                  <p className="sub" style={{ marginBottom: "20px" }}>Set the organization default. Repository-specific branch protection rules can still be stricter.</p>
                 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px", background: "var(--bg-subtle)", borderRadius: "6px" }}>
                   <span>Enforce Branch Protection</span>
                   <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
-                    <input type="checkbox" defaultChecked={policies.enforce_branch_protection} style={{ transform: "scale(1.2)" }} />
+                    <input type="checkbox" checked={policies.enforce_branch_protection} onChange={(event) => setPolicies({ ...policies, enforce_branch_protection: event.target.checked })} style={{ transform: "scale(1.2)" }} />
                   </label>
                 </div>
               </Card>
@@ -150,7 +192,7 @@ export default function EnterpriseDashboard() {
                 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px", background: "var(--bg-subtle)", borderRadius: "6px" }}>
                   <span>Required Approvals</span>
-                  <select className="select" defaultValue={policies.minimum_pr_approvals}>
+                  <select className="select" value={policies.minimum_pr_approvals} onChange={(event) => setPolicies({ ...policies, minimum_pr_approvals: Number(event.target.value) })}>
                     <option value="0">0 (No approvals)</option>
                     <option value="1">1 Approval</option>
                     <option value="2">2 Approvals</option>
@@ -158,6 +200,13 @@ export default function EnterpriseDashboard() {
                   </select>
                 </div>
               </Card>
+              <div style={{ gridColumn: "1 / -1" }}>
+                {policyError && <p className="statusline red" role="alert">{policyError}</p>}
+                {policyMessage && <p className="statusline green" role="status">{policyMessage}</p>}
+                <button className="btn primary" onClick={savePolicies} disabled={savingPolicies}>
+                  {savingPolicies ? "Saving..." : "Save governance policy"}
+                </button>
+              </div>
             </div>
           )}
 

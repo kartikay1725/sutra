@@ -8,6 +8,8 @@ export interface ContributionDay {
 export interface ContributionGraph {
   total_contributions: number;
   days: ContributionDay[];
+  github_synced?: boolean;
+  github_account?: string | null;
 }
 
 export interface PublicRepository {
@@ -65,10 +67,13 @@ export const profileService = {
   async getContributions(
     username: string,
   ): Promise<ContributionGraph> {
+    // Always fetch fresh — Next.js would otherwise cache this indefinitely
+    // in the App Router, causing the chart to show stale/empty data.
     return apiPublic<ContributionGraph>(
       `/v1/profiles/${encodeURIComponent(
         username,
       )}/contributions`,
+      { cache: "no-store" } as RequestInit,
     );
   },
 };

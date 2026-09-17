@@ -71,14 +71,14 @@ export function Dashboard() {
   useEffect(() => {
     let cancelled = false;
 
-    const load = async () => {
+    const load = async (forceRefresh = false) => {
       try {
-        setLoading(true);
+        if (!data) setLoading(true);
         setError(null);
 
         const [dashboard, repos] = await Promise.all([
-          dashboardService.get(),
-          repositoryService.listRepositories(),
+          dashboardService.get({ forceRefresh }),
+          repositoryService.listRepositories({ forceRefresh }),
         ]);
 
         if (cancelled) return;
@@ -88,7 +88,7 @@ export function Dashboard() {
       } catch (err: any) {
         console.error("Failed to load dashboard:", err);
 
-        if (!cancelled) {
+        if (!cancelled && !data) {
           setError(
             err?.detail ||
               err?.message ||
@@ -100,11 +100,12 @@ export function Dashboard() {
       }
     };
 
-    void load();
+    void load(false);
 
+    // Auto-refresh workspace overview every 20 minutes (1,200,000 ms)
     const refresh = window.setInterval(() => {
-      void load();
-    }, 30000);
+      void load(true);
+    }, 20 * 60 * 1000);
 
     return () => {
       cancelled = true;
@@ -127,14 +128,15 @@ export function Dashboard() {
         }
         action={
           <>
+            <Link href="/changes">
+              <Btn>Changes</Btn>
+            </Link>
             <Link href="/repositories">
               <Btn>Repositories</Btn>
             </Link>
           </>
         }
       />
-
-      <Pipeline />
 
       {error && (
         <Card
@@ -151,18 +153,66 @@ export function Dashboard() {
         </Card>
       )}
 
-      <div className="kpi-strip">
-        <Card>
-          <div className="stat">
-            <div className="eyebrow">Open changes</div>
-            <div className="num">{loading ? "—" : data?.open_changes ?? 0}</div>
-            <div className="delta">
-              {loading
-                ? "Loading…"
-                : `${data?.changes_needing_review ?? 0} need review`}
+      {/* Actionable Engineering Attention Strip */}
+      {!loading && !error && (
+        <Card style={{ marginBottom: 16 }}>
+          <div className="card-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div className="h2" style={{ fontSize: 16 }}>Attention Needed</div>
+              <div className="sub">Actionable signals requiring engineering or governance intervention</div>
             </div>
+            {((data?.blocked_changes ?? 0) > 0 || (data?.changes_needing_review ?? 0) > 0 || (data?.failed_ci_jobs ?? 0) > 0 || (data?.blocked_tasks ?? 0) > 0) ? (
+              <Badge tone="amber">Action required</Badge>
+            ) : (
+              <Badge tone="green">All clear</Badge>
+            )}
+          </div>
+          <div className="card-pad" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+            <Link href="/changes" className="btn outline" style={{ justifyContent: "space-between", display: "flex", padding: "10px 14px", textDecoration: "none" }}>
+              <span>Changes needing review</span>
+              <span className="badge" style={{ color: (data?.changes_needing_review ?? 0) > 0 ? "var(--cyan)" : "inherit" }}>
+                {data?.changes_needing_review ?? 0}
+              </span>
+            </Link>
+            <Link href="/changes" className="btn outline" style={{ justifyContent: "space-between", display: "flex", padding: "10px 14px", textDecoration: "none" }}>
+              <span>Blocked changes</span>
+              <span className="badge" style={{ color: (data?.blocked_changes ?? 0) > 0 ? "var(--red, #ef4444)" : "inherit" }}>
+                {data?.blocked_changes ?? 0}
+              </span>
+            </Link>
+            <Link href="/ci" className="btn outline" style={{ justifyContent: "space-between", display: "flex", padding: "10px 14px", textDecoration: "none" }}>
+              <span>Failing CI jobs</span>
+              <span className="badge" style={{ color: (data?.failed_ci_jobs ?? 0) > 0 ? "var(--red, #ef4444)" : "inherit" }}>
+                {data?.failed_ci_jobs ?? 0}
+              </span>
+            </Link>
+            <Link href="/tasks" className="btn outline" style={{ justifyContent: "space-between", display: "flex", padding: "10px 14px", textDecoration: "none" }}>
+              <span>Blocked / failed tasks</span>
+              <span className="badge" style={{ color: (data?.blocked_tasks ?? 0) > 0 ? "var(--amber, #f59e0b)" : "inherit" }}>
+                {data?.blocked_tasks ?? 0}
+              </span>
+            </Link>
           </div>
         </Card>
+      )}
+
+      <div className="kpi-strip">
+        <Link href="/changes" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+          <Card className="card-hover">
+            <div className="stat">
+              <div className="eyebrow" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>Open changes</span>
+                <span style={{ fontSize: 11, color: "var(--cyan)", fontWeight: 500 }}>View &rarr;</span>
+              </div>
+              <div className="num">{loading ? "—" : data?.open_changes ?? 0}</div>
+              <div className="delta">
+                {loading
+                  ? "Loading…"
+                  : `${data?.changes_needing_review ?? 0} need review`}
+              </div>
+            </div>
+          </Card>
+        </Link>
 
         <Card>
           <div className="stat">
@@ -286,19 +336,24 @@ export function Dashboard() {
       </div>
 
       <div className="grid g3" style={{ marginTop: 14 }}>
-        <Card>
-          <div className="stat">
-            <div className="eyebrow">Agent / human changes</div>
-            <div className="num">
-              {loading
-                ? "—"
-                : `${data?.agent_changes ?? 0} / ${data?.human_changes ?? 0}`}
+        <Link href="/changes?actor_type=agent" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+          <Card className="card-hover">
+            <div className="stat">
+              <div className="eyebrow" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>Agent / human changes</span>
+                <span style={{ fontSize: 11, color: "var(--cyan)", fontWeight: 500 }}>Agent changes &rarr;</span>
+              </div>
+              <div className="num">
+                {loading
+                  ? "—"
+                  : `${data?.agent_changes ?? 0} / ${data?.human_changes ?? 0}`}
+              </div>
+              <div className="sub">
+                Actual Change actors in your repositories.
+              </div>
             </div>
-            <div className="sub">
-              Actual Change actors in your repositories.
-            </div>
-          </div>
-        </Card>
+          </Card>
+        </Link>
 
         <Card>
           <div className="stat">

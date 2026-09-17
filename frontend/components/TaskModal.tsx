@@ -2,10 +2,11 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { Bot, CheckCircle2, Play, ShieldCheck, MessageSquare, XCircle, ArrowRight } from "lucide-react";
+import { Bot, CheckCircle2, Play, ShieldCheck, MessageSquare, XCircle, ArrowRight, Square } from "lucide-react";
 import { Badge } from "@/components/ui";
 import { Task, taskService } from "@/lib/tasks";
 import { Agent, agentService } from "@/lib/agents";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 // Premium card wrapper for the modal
 function PremiumCard({ children, title }: { children: React.ReactNode, title: string }) {
@@ -27,11 +28,35 @@ function PremiumCard({ children, title }: { children: React.ReactNode, title: st
   );
 }
 
-export function TaskModal({ taskId, onClose }: { taskId: string, onClose: () => void }) {
+export function TaskModal({
+  taskId,
+  onClose,
+  onTaskUpdated,
+}: {
+  taskId: string;
+  onClose: () => void;
+  onTaskUpdated?: () => void;
+}) {
   const [task, setTask] = useState<Task | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [assigning, setAssigning] = useState(false);
+  const [showTerminateModal, setShowTerminateModal] = useState(false);
+  const [terminating, setTerminating] = useState(false);
+
+  const handleTerminate = async () => {
+    if (!task) return;
+    try {
+      setTerminating(true);
+      await taskService.terminateTask(task.id);
+      setTask((prev) => (prev ? { ...prev, status: "cancelled" } : null));
+      setShowTerminateModal(false);
+      onTaskUpdated?.();
+    } catch (err: any) {
+      console.error("Failed to terminate task:", err);
+    } finally {
+      setTerminating(false);
+    }
+  };
 
   const loadData = () => {
     if (!taskId) return;
@@ -63,26 +88,6 @@ export function TaskModal({ taskId, onClose }: { taskId: string, onClose: () => 
     
     return () => clearInterval(interval);
   }, [taskId]);
-
-  const handleAssign = (agentId: string) => {
-    setAssigning(true);
-    taskService.assignTask(taskId, agentId)
-      .then(() => loadData())
-      .catch(console.error)
-      .finally(() => setAssigning(false));
-  };
-
-  const [showNoAgentsPrompt, setShowNoAgentsPrompt] = useState(false);
-
-  const handleDispatchNext = async () => {
-    if (!task) return;
-    const available = agents.find(a => a.status === 'idle' || a.is_active);
-    if (available) {
-      handleAssign(available.id);
-    } else {
-      setShowNoAgentsPrompt(true);
-    }
-  };
 
   if (loading) {
     return (
@@ -129,28 +134,6 @@ export function TaskModal({ taskId, onClose }: { taskId: string, onClose: () => 
       boxSizing: "border-box"
     }}>
       
-      {showNoAgentsPrompt && (
-        <div style={{
-          position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 200,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          backgroundColor: "rgba(0,0,0,0.85)", backdropFilter: "blur(4px)",
-          padding: 16
-        }}>
-          <div style={{ padding: "clamp(24px, 4vw, 40px)", background: "linear-gradient(135deg, #1A1A1F 0%, #121214 100%)", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", width: "min(100%, 440px)", textAlign: "center", boxShadow: "0 24px 64px rgba(0,0,0,0.8)" }}>
-            <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(255,100,100,0.1)", color: "#FF6B6B", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
-              <Bot size={32} />
-            </div>
-            <div style={{ color: "var(--fg)", fontSize: 20, fontWeight: 600, marginBottom: 12 }}>No Registered Agents</div>
-            <p style={{ color: "var(--muted)", marginBottom: 32, fontSize: 15, lineHeight: 1.5 }}>
-              You do not have any registered agents available for auto-dispatch. You can register them easily on the Agents page of your repository.
-            </p>
-            <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-              <button className="btn outline" onClick={() => setShowNoAgentsPrompt(false)}>Dismiss</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div style={{
         background: "linear-gradient(135deg, #121214 0%, #0B0B0F 100%)",
         border: "1px solid rgba(255,255,255,0.08)",
@@ -175,15 +158,33 @@ export function TaskModal({ taskId, onClose }: { taskId: string, onClose: () => 
               </p>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              {isOpen && (
-                 <button className="btn outline" onClick={handleDispatchNext} disabled={assigning} style={{ padding: "10px 16px", borderRadius: 10, fontSize: 14 }}>
-                   Auto-Dispatch
-                 </button>
-              )}
               {isCompleted && task.resulting_change_id && (
                  <Link href={`/changes/${task.resulting_change_id}`} className="btn primary" style={{ padding: "10px 16px", borderRadius: 10, fontSize: 14 }}>
                    Open change
                  </Link>
+              )}
+              {isInProgress && (
+                <button
+                  type="button"
+                  onClick={() => setShowTerminateModal(true)}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "8px 14px",
+                    borderRadius: 10,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    background: "rgba(239, 68, 68, 0.12)",
+                    border: "1px solid rgba(239, 68, 68, 0.3)",
+                    color: "#ef4444",
+                    cursor: "pointer",
+                  }}
+                  title="Terminate running task"
+                >
+                  <Square size={12} fill="currentColor" />
+                  Terminate Task
+                </button>
               )}
               <button onClick={onClose} style={{ background: "rgba(255,255,255,0.05)", border: "none", color: "var(--muted)", cursor: "pointer", width: 40, height: 40, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s" }} className="hover-highlight">
                 <XCircle size={20} />
@@ -199,26 +200,14 @@ export function TaskModal({ taskId, onClose }: { taskId: string, onClose: () => 
             {/* Agent Status */}
             <PremiumCard title="Agent Status">
               {isOpen ? (
-                <>
-                  <div style={{ color: "var(--muted)", fontSize: 14, marginBottom: 12 }}>Available Agents</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 180, overflowY: "auto", paddingRight: 8 }}>
-                    {agents.length === 0 ? <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, fontStyle: "italic" }}>No agents available right now.</div> : 
-                     agents.map(a => (
-                       <div key={a.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 12 }}>
-                         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                           <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--violet-dim)", color: "var(--violet)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                             <Bot size={16} />
-                           </div>
-                           <div style={{ fontSize: 14, fontWeight: 500 }}>{a.name}</div>
-                         </div>
-                         <button className="btn primary" style={{ padding: "6px 12px", fontSize: 12, borderRadius: 8 }} onClick={() => handleAssign(a.id)} disabled={assigning}>
-                           Assign
-                         </button>
-                       </div>
-                     ))
-                    }
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, justifyContent: "center", flex: 1 }}>
+                  <div style={{ color: "var(--muted)", fontSize: 13 }}>
+                    Agents connect to SUTRA through supported integrations.
                   </div>
-                </>
+                  <div style={{ padding: "10px 14px", background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 10, fontSize: 12, color: "var(--text-secondary)" }}>
+                    Open for autonomous claiming via MCP or Agent Protocol.
+                  </div>
+                </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 16, flex: 1, justifyContent: "center" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -227,10 +216,10 @@ export function TaskModal({ taskId, onClose }: { taskId: string, onClose: () => 
                     </div>
                     <div>
                       <div style={{ fontSize: 16, fontWeight: 600, color: "#fff" }}>
-                        {assignedAgent ? assignedAgent.name : (task.assigned_agent_id || "Unassigned")}
+                        {assignedAgent ? assignedAgent.name : (task.assigned_agent_id || "Connected Agent")}
                       </div>
                       <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>
-                        {assignedAgent ? assignedAgent.model : "AI Engineer"}
+                        {assignedAgent ? assignedAgent.model : "Autonomous Agent"}
                       </div>
                     </div>
                   </div>
@@ -238,56 +227,40 @@ export function TaskModal({ taskId, onClose }: { taskId: string, onClose: () => 
               )}
             </PremiumCard>
 
-            {/* Execution Progress */}
-            <PremiumCard title="Execution">
+            {/* Execution Lifecycle */}
+            <PremiumCard title="Execution Lifecycle">
               <div style={{ display: "flex", flexDirection: "column", flex: 1, justifyContent: "center" }}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 16 }}>
-                  <span style={{ fontSize: 48, fontWeight: 300, color: isCompleted ? "var(--green)" : isInProgress ? "var(--cyan)" : "var(--muted)", lineHeight: 1 }}>
-                    {isCompleted ? "100" : isInProgress ? "67" : "0"}
-                  </span>
-                  <span style={{ fontSize: 20, color: "var(--muted)" }}>%</span>
+                <div style={{ fontSize: 22, fontWeight: 600, color: isCompleted ? "var(--green)" : isInProgress ? "var(--cyan)" : "var(--muted)" }}>
+                  {isCompleted ? "Completed" : isInProgress ? "Active Execution" : "Pending Intake"}
                 </div>
-                
-                <div style={{ width: "100%", height: 6, background: "rgba(255,255,255,0.05)", borderRadius: 100, overflow: "hidden", marginBottom: 12 }}>
-                  <div style={{ 
-                    height: "100%", 
-                    width: isCompleted ? "100%" : isInProgress ? "67%" : "0%",
-                    background: isCompleted ? "var(--green)" : "var(--cyan)",
-                    borderRadius: 100,
-                    transition: "width 1s cubic-bezier(0.4, 0, 0.2, 1)"
-                  }} />
-                </div>
-                
-                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)" }}>
+                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginTop: 8 }}>
                   {isCompleted ? `Completed on ${task.completed_at ? new Date(task.completed_at).toLocaleDateString() : 'recently'}` 
-                   : isInProgress ? "Workspace sandbox is active" : "Pending agent assignment"}
+                   : isInProgress ? "Workspace sandbox is active under sovereign session lease" : "Awaiting agent execution"}
                 </div>
+                {task.execution_summary && (
+                  <div style={{ marginTop: 10, fontSize: 12, padding: "8px 12px", background: "rgba(0,0,0,0.25)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.05)", whiteSpace: "pre-wrap" }}>
+                    {task.execution_summary}
+                  </div>
+                )}
               </div>
             </PremiumCard>
 
             {/* Validation */}
             <PremiumCard title="Validation & CI">
-              <div style={{ display: "flex", flexDirection: "column", gap: 16, flex: 1, justifyContent: "center" }}>
-                {isCompleted || isInProgress ? (
-                  <>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: isCompleted ? "var(--green)" : "var(--amber)", fontSize: 14, fontWeight: 500 }}>
-                      <CheckCircle2 size={18} /> 
-                      {isCompleted ? '18 / 18 tests passing' : 'Running tests...'}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: isCompleted ? "var(--green)" : "var(--amber)", fontSize: 14, fontWeight: 500 }}>
-                      <ShieldCheck size={18} /> 
-                      {isCompleted ? 'Security sweep clean' : 'Scanning changes...'}
-                    </div>
-                    {isInProgress && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: "var(--cyan)", fontSize: 14, fontWeight: 500 }}>
-                        <Play size={18} /> 
-                        CI Pipeline running
-                      </div>
-                    )}
-                  </>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, flex: 1, justifyContent: "center" }}>
+                {isCompleted ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: "var(--green)", fontSize: 14, fontWeight: 500 }}>
+                    <CheckCircle2 size={18} /> 
+                    Execution completed and verified
+                  </div>
+                ) : isInProgress ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: "var(--cyan)", fontSize: 14, fontWeight: 500 }}>
+                    <Play size={18} /> 
+                    CI verification triggers on pull request creation
+                  </div>
                 ) : (
-                  <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 14, fontStyle: "italic", textAlign: "center", padding: "20px 0" }}>
-                    Waiting for execution to start
+                  <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 13 }}>
+                    Automated checks evaluate upon code submission
                   </div>
                 )}
               </div>
@@ -387,6 +360,21 @@ export function TaskModal({ taskId, onClose }: { taskId: string, onClose: () => 
         .hover-highlight:hover { background: rgba(255,255,255,0.1) !important; color: #fff !important; }
         @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
       `}} />
+
+      <ConfirmModal
+        isOpen={showTerminateModal}
+        onClose={() => setShowTerminateModal(false)}
+        onConfirm={handleTerminate}
+        title="Terminate Task"
+        description={
+          <>
+            Are you sure you want to terminate <strong>&ldquo;{task.title}&rdquo;</strong>? Active execution will be cancelled immediately and marked as cancelled.
+          </>
+        }
+        confirmText="Terminate Task"
+        confirmTone="danger"
+        loading={terminating}
+      />
     </div>
   );
 }

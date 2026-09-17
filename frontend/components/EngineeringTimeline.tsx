@@ -42,7 +42,7 @@ export function EngineeringTimeline({
   pullRequestId,
   changeId,
   initialData = null,
-  pollingIntervalMs = 8000,
+  pollingIntervalMs = 30000,
   className = "",
   style,
 }: EngineeringTimelineProps) {

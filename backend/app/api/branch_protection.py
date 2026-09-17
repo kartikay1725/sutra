@@ -10,6 +10,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.models.repository import Repository
 from app.models.branch_protection_rule import BranchProtectionRule
+from app.services.authorization_service import AuthorizationService
 from app.services.branch_protection_service import BranchProtectionService
 
 
@@ -19,6 +20,26 @@ router = APIRouter(
 
 UUID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 SAFE_BRANCH_PATTERN = r"^[a-zA-Z0-9_\-/*.]+$"
+
+
+def _resolve_repository(repository_id: str, db: Session) -> Repository:
+    repo = None
+    if re.match(UUID_PATTERN, repository_id):
+        repo = db.query(Repository).filter(
+            Repository.id == repository_id,
+            Repository.deleted_at.is_(None),
+        ).first()
+    if repo is None:
+        repo = db.query(Repository).filter(
+            (Repository.slug == repository_id.lower()) | (Repository.name == repository_id),
+            Repository.deleted_at.is_(None),
+        ).first()
+    if repo is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Repository not found",
+        )
+    return repo
 
 
 class BranchProtectionCreateRequest(BaseModel):
@@ -77,24 +98,29 @@ def list_branch_protection_rules(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if not re.match(UUID_PATTERN, repository_id):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Repository not found",
-        )
+    repository = _resolve_repository(repository_id, db)
 
-    repository = db.query(Repository).filter(
-        Repository.id == repository_id,
-        Repository.deleted_at.is_(None),
-    ).first()
-    if repository is None or repository.owner_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Repository not found",
+    svc = BranchProtectionService(db)
+    user_actor = svc._get_user_actor(current_user.id)
+    if (
+        repository.owner_id != current_user.id
+        and repository.visibility == "private"
+        and not getattr(current_user, "is_superuser", False)
+    ):
+        auth_res = AuthorizationService.check(
+            user_actor,
+            repository,
+            AuthorizationService.READ,
+            db=db,
         )
+        if not auth_res.allowed:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Repository not found",
+            )
 
     return db.query(BranchProtectionRule).filter(
-        BranchProtectionRule.repository_id == repository_id,
+        BranchProtectionRule.repository_id == repository.id,
     ).order_by(BranchProtectionRule.branch_pattern.asc()).all()
 
 
@@ -109,16 +135,12 @@ def create_branch_protection_rule(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if not re.match(UUID_PATTERN, repository_id):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Repository not found",
-        )
+    repository = _resolve_repository(repository_id, db)
 
     svc = BranchProtectionService(db)
     try:
         rule = svc.create_rule(
-            repository_id=repository_id,
+            repository_id=repository.id,
             actor_user_id=current_user.id,
             branch_pattern=payload.branch_pattern,
             enabled=payload.enabled,
@@ -162,7 +184,8 @@ def update_branch_protection_rule(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if not re.match(UUID_PATTERN, repository_id) or not re.match(UUID_PATTERN, rule_id):
+    repository = _resolve_repository(repository_id, db)
+    if not re.match(UUID_PATTERN, rule_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Repository or Rule not found",
@@ -206,7 +229,8 @@ def delete_branch_protection_rule(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if not re.match(UUID_PATTERN, repository_id) or not re.match(UUID_PATTERN, rule_id):
+    repository = _resolve_repository(repository_id, db)
+    if not re.match(UUID_PATTERN, rule_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Repository or Rule not found",

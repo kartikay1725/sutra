@@ -24,7 +24,7 @@ export const Group5AgentContract: DocSection[] = [
     repositories: "GET /v1/repositories"
 
   git:
-    clone_url: "http://localhost:8000/git/<owner>/<repo>.git"
+    clone_url: "https://github.com/<owner>/<repo>.git"
     push: "Restricted to granted capabilities. Triggers pre-receive hook."
     force_push: "REJECTED (Hard limit)"
 

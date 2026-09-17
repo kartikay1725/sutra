@@ -144,11 +144,32 @@ def _get_repository(
             Actor.id == Repository.owner_id,
         )
         .where(
-            Actor.name == owner_name,
-            Repository.slug == repo_name.lower(),
+            (Actor.name == owner_name) | (Repository.provider_owner == owner_name),
+            (Repository.slug == repo_name.lower()) | (Repository.name == repo_name),
             Repository.deleted_at.is_(None),
         )
     )
+
+    if repo is None:
+        repo = db.scalar(
+            select(Repository)
+            .join(User, User.id == Repository.owner_id)
+            .where(
+                (User.username == owner_name) | (Repository.provider_owner == owner_name),
+                (Repository.slug == repo_name.lower()) | (Repository.name == repo_name),
+                Repository.deleted_at.is_(None),
+            )
+        )
+
+    if repo is None:
+        candidates = db.scalars(
+            select(Repository).where(
+                (Repository.slug == repo_name.lower()) | (Repository.name == repo_name),
+                Repository.deleted_at.is_(None),
+            )
+        ).all()
+        if len(candidates) == 1:
+            repo = candidates[0]
 
     if repo is None:
         raise HTTPException(
@@ -480,6 +501,20 @@ def get_graph_data(
         )
         .limit(limit)
     ).all()
+
+    if not nodes:
+        try:
+            knowledge_graph_service.index_engineering_lifecycle(db, repo)
+            db.commit()
+            nodes = db.scalars(
+                select(KnowledgeNode)
+                .where(
+                    KnowledgeNode.repository_id == repo.id,
+                )
+                .limit(limit)
+            ).all()
+        except Exception:
+            pass
 
     node_ids = [node.id for node in nodes]
     edges = []

@@ -650,6 +650,29 @@ class AgentChangeService:
             or "main"
         )
 
+        # Enforce repository-configured PR policies for agents
+        repo_policies = (repository.settings or {}).get("policies", {})
+        from app.services.branch_protection_service import BranchProtectionService
+        from app.services.conflict_service import ConflictService
+        effective_rule = BranchProtectionService(self.db).get_effective_rule(
+            repository.id, base_branch
+        )
+
+        if repo_policies.get("enforce_governed_provenance"):
+            if meta.get("commit_origin") == "external_unverified":
+                raise ValueError(
+                    "Policy violation: Agent PR rejected due to unverified external commit provenance."
+                )
+
+        if repo_policies.get("require_clean_conflict") or (
+            effective_rule and effective_rule.require_clean_conflict
+        ):
+            conflict = ConflictService(self.db).analyze(change)
+            if conflict.level == ConflictService.LEVEL_CONFLICT:
+                raise ValueError(
+                    f"Policy violation: Agent PR creation blocked because Git detected a merge conflict with '{base_branch}'."
+                )
+
         pr_title = (title or task.title or change.intent or f"Task: {task.title}").strip()
 
         # Format SUTRA Agent provenance block for GitHub PR body
@@ -670,7 +693,7 @@ class AgentChangeService:
 
         # Create GitHub Pull Request if backed by GitHub
         if isinstance(self.provider, GitHubRepositoryProvider) and repository.provider_owner:
-            # Verify head branch exists on GitHub
+            # Verify head branch exists on GitHub fork/local repo
             gh_branch = self.provider.get_branch(
                 owner=repository.provider_owner,
                 name=repository.name,
@@ -681,12 +704,26 @@ class AgentChangeService:
                     f"Head branch '{head_branch}' does not exist on GitHub repository"
                 )
 
+            # Determine target upstream repo and head reference for fork PRs
+            target_owner = repository.provider_owner
+            target_repo = repository.name
+            target_head = head_branch
+
+            if getattr(repository, "connection_type", None) == "fork" and getattr(repository, "upstream_repository_id", None):
+                upstream = self.db.scalar(
+                    select(Repository).where(Repository.id == repository.upstream_repository_id)
+                )
+                if upstream and upstream.provider_owner:
+                    target_owner = upstream.provider_owner
+                    target_repo = upstream.name
+                    target_head = f"{repository.provider_owner}:{head_branch}"
+
             gh_pr = self.provider.create_pull_request(
-                owner=repository.provider_owner,
-                name=repository.name,
+                owner=target_owner,
+                name=target_repo,
                 title=pr_title,
                 body=full_body,
-                head_branch=head_branch,
+                head_branch=target_head,
                 base_branch=base_branch,
             )
             gh_pr_number = gh_pr.number

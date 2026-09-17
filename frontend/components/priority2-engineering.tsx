@@ -24,7 +24,7 @@ function tone(status: string) {
   const s = status.toLowerCase();
   if (['merged', 'approved', 'passed', 'success', 'completed', 'active'].includes(s)) return 'green';
   if (['open', 'running', 'proposed', 'review', 'in_progress', 'queued'].includes(s)) return 'aqua';
-  if (['failed', 'blocked', 'rejected', 'closed', 'cancelled'].includes(s)) return 'red';
+  if (['failed', 'blocked', 'rejected', 'closed', 'cancelled', 'revoked'].includes(s)) return 'red';
   return 'amber';
 }
 
@@ -1536,13 +1536,20 @@ jobs:
 
         {/* Failed Conditions Callout (if any) */}
         {govData?.failed && govData.failed.length > 0 && (
-          <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(255, 77, 79, 0.08)', border: '1px solid rgba(255, 77, 79, 0.25)', marginBottom: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, fontSize: 13, color: '#ff4d4f', marginBottom: 6 }}>
-              <I.AlertCircle size={15} /> Blocking Governance Conditions:
+          <div style={{
+            padding: '10px 14px',
+            borderRadius: 8,
+            background: govData.verdict === 'NEEDS_REVIEW' ? 'rgba(234, 179, 8, 0.08)' : 'rgba(255, 77, 79, 0.08)',
+            border: govData.verdict === 'NEEDS_REVIEW' ? '1px solid rgba(234, 179, 8, 0.25)' : '1px solid rgba(255, 77, 79, 0.25)',
+            marginBottom: 14,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, fontSize: 13, color: govData.verdict === 'NEEDS_REVIEW' ? 'var(--amber)' : '#ff4d4f', marginBottom: 6 }}>
+              {govData.verdict === 'NEEDS_REVIEW' ? <I.Clock3 size={15} /> : <I.AlertCircle size={15} />}
+              {govData.verdict === 'NEEDS_REVIEW' ? 'Pending Governance Conditions:' : 'Blocking Governance Conditions:'}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 22 }}>
               {govData.failed.map((f, idx) => (
-                <div key={idx} style={{ fontSize: 12, color: '#ff8fa0' }}>
+                <div key={idx} style={{ fontSize: 12, color: govData.verdict === 'NEEDS_REVIEW' ? 'var(--amber)' : '#ff8fa0' }}>
                   • {f}
                 </div>
               ))}
@@ -1695,7 +1702,7 @@ jobs:
 
               {/* If not eligible for approval, show explanation */}
               {!(pr.status === 'approved' || govData?.verdict === 'READY_FOR_MERGE') && (
-                checksData?.overall_status !== 'passed' && (
+                  checksData?.summary?.total !== 0 && checksData?.overall_status !== 'passed' && (
                   <div style={{ fontSize: 12, color: 'var(--amber)', display: 'flex', alignItems: 'center', gap: 5 }}>
                     <I.AlertCircle size={13} />
                     Approval unavailable: required CI checks have not passed or are in progress.
@@ -1713,7 +1720,7 @@ jobs:
                     const updatedGov = await governanceService.getPRGovernance(prId);
                     setGovData(updatedGov);
                   })}
-                  disabled={busy || checksData?.overall_status !== 'passed' || govData?.verdict === 'BLOCKED' || govData?.verdict === 'CI_FAILED'}
+                  disabled={busy || (checksData?.summary?.total !== 0 && checksData?.overall_status !== 'passed') || govData?.verdict === 'BLOCKED' || govData?.verdict === 'CI_FAILED'}
                   style={{ padding: '8px 16px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}
                 >
                   <I.CheckCircle2 size={15} /> Approve as Human Reviewer
@@ -1787,28 +1794,40 @@ jobs:
   </>;
 }
 
+let _cachedConnectionState: SutraConnectionState = 'not_connected';
+let _cachedAgents: Agent[] = [];
+let _cachedPendingRequests: AgentRegistration[] = [];
+
 export function RealAgents() {
   const [activeTab, setActiveTab] = useState<'active' | 'pending' | 'mcp'>('active');
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [pendingRequests, setPendingRequests] = useState<AgentRegistration[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [agents, setAgents] = useState<Agent[]>(_cachedAgents);
+  const [pendingRequests, setPendingRequests] = useState<AgentRegistration[]>(_cachedPendingRequests);
+  const [loading, setLoading] = useState(_cachedAgents.length === 0);
   const [showCreate, setShowCreate] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', description: '', provider: '', model: '' });
   const [mcpClient, setMcpClient] = useState<'cursor' | 'claude_desktop' | 'claude_code' | 'windsurf'>('cursor');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const [connectionState, setConnectionState] = useState<SutraConnectionState>('not_connected');
+  const [connectionState, setConnectionState] = useState<SutraConnectionState>(_cachedConnectionState);
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
 
+  const activeCount = useMemo(() => agents.filter(a => a.is_active && a.status === 'active').length, [agents]);
+
   const load = async () => {
-    setLoading(true);
+    if (_cachedAgents.length === 0) setLoading(true);
     try {
-      const agentList = await agentService.listAgents();
+      const [agentList, pending] = await Promise.all([
+        agentService.listAgents(),
+        agentService.listPendingRegistrations()
+      ]);
+      _cachedAgents = agentList;
+      _cachedPendingRequests = pending;
       setAgents(agentList);
-      setPendingRequests(await agentService.listPendingRegistrations());
-      if (agentList.some(a => a.is_active)) {
-        setConnectionState('connected');
-      }
+      setPendingRequests(pending);
+      const isConn = agentList.some(a => a.is_active && a.status === 'active');
+      const nextState: SutraConnectionState = isConn ? 'connected' : 'not_connected';
+      _cachedConnectionState = nextState;
+      setConnectionState(nextState);
     } catch(e) {
       console.error(e);
     } finally {
@@ -1819,20 +1838,17 @@ export function RealAgents() {
   useEffect(() => { void load(); }, []);
 
   const handleConnectClick = () => {
-    setConnectionState('connecting');
     // Check if running in an environment that exposes direct desktop IDE bridge
     const hasDirectBridge = typeof window !== 'undefined' && Boolean((window as any).vscode || (window as any).cursorBridge || (window as any).__SUTRA_MCP_BRIDGE__);
     if (hasDirectBridge) {
+      setConnectionState('connecting');
       setTimeout(() => {
         setConnectionState('connected');
       }, 500);
     } else {
-      // In standard browser environment, direct background process injection is unsupported.
-      // Fallback modal is displayed containing the two cards (Custom MCP Settings & API Integration).
-      setTimeout(() => {
-        setConnectionState('unsupported');
-        setIsConnectModalOpen(true);
-      }, 350);
+      // Direct opening without artificial delays
+      setConnectionState('unsupported');
+      setIsConnectModalOpen(true);
     }
   };
 
@@ -1997,7 +2013,7 @@ print(res.json())`;
         }}
         onClick={() => setActiveTab('active')}
       >
-        <I.Bot size={16} /> Active Agents ({agents.length})
+        <I.Bot size={16} /> Active Agents ({activeCount})
       </button>
       <button
         style={{
@@ -2116,9 +2132,15 @@ print(res.json())`;
                   </div>
                   <Badge tone={tone(a.status)} style={{ textTransform: 'capitalize' }}>{a.status}</Badge>
                   <Link className="btn" href={`/agents/${a.id}`} style={{ padding: '6px 12px', fontSize: 13 }}>Details</Link>
-                  <RealButton onClick={()=>void revoke(a.id)}>
-                    <I.XCircle size={14}/> Revoke
-                  </RealButton>
+                  {a.is_active && a.status === 'active' ? (
+                    <RealButton onClick={()=>void revoke(a.id)}>
+                      <I.XCircle size={14}/> Revoke
+                    </RealButton>
+                  ) : (
+                    <span className="badge" style={{ color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                      Revoked
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
@@ -2561,7 +2583,7 @@ export function RealAgentDetail() {
   useEffect(()=>{ agentService.listAgents().then(rows=>setAgent(rows.find(a=>a.id===params.id)||null)).catch(console.error).finally(()=>setLoading(false)); },[params.id]);
   if (loading) return <div className="card-pad"><div className="sub">Loading agent…</div></div>;
   if (!agent) return <div className="card-pad"><div className="sub">Agent not found.</div></div>;
-  return <><PageHead eyebrow="Agent" title={agent.name} sub={agent.description || 'No description.'} action={<Link className="btn" href="/agents">Back</Link>} /><div className="grid g4"><Stat label="Status" value={agent.status}/><Stat label="Provider" value={agent.provider || '—'}/><Stat label="Model" value={agent.model || '—'}/><Stat label="Token" value={agent.token_prefix}/></div><Card style={{marginTop:14}}><div className="card-head"><div className="h2">Capabilities & runtime</div></div><div className="card-pad"><div className="sub">This backend exposes registration and session APIs. Run history is not currently exposed through a user-facing agent-run history endpoint, so no fake run history is shown here.</div></div></Card></>;
+  return <><PageHead eyebrow="Agent" title={agent.name} sub={agent.description || 'Registered SUTRA agent'} action={<Link className="btn" href="/agents">Back</Link>} /><div className="grid g4"><Stat label="Status" value={agent.status}/><Stat label="Token prefix" value={agent.token_prefix}/><Stat label="Active" value={agent.is_active ? "Yes" : "No"}/><Stat label="ID" value={agent.id.slice(0, 8)}/></div></>;
 }
 
 export function RealCI() {

@@ -428,7 +428,7 @@ export function GitWorkflowGraph() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14 }}>
         {[
           { step: "1. Token Issue", cmd: "POST /v1/agents/sessions", note: "Yields scoped JWT session" },
-          { step: "2. Git Clone", cmd: "git clone http://token@host/repo.git", note: "Authenticates basic auth" },
+          { step: "2. Git Clone", cmd: "git clone https://github.com/owner/repo.git", note: "Authenticates via GitHub credentials / PAT" },
           { step: "3. Branch & Commit", cmd: "git checkout -b feature/xyz", note: "Real signed git commits" },
           { step: "4. Git Push Hook", cmd: "git push origin feature/xyz", note: "Hooks create Change evidence" },
         ].map((item) => (

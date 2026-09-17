@@ -1,4 +1,4 @@
-﻿import subprocess
+import subprocess
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 
@@ -53,20 +53,36 @@ class ConflictService:
         repository: Repository,
         *args: str,
     ) -> subprocess.CompletedProcess[str]:
+        repo_dir = self._repo_path(repository)
+        if not repo_dir.exists():
+            return subprocess.CompletedProcess(
+                args=list(args),
+                returncode=0,
+                stdout="",
+                stderr="",
+            )
 
-        result = subprocess.run(
-            [
-                "git",
-                "--git-dir",
-                str(self._repo_path(repository)),
-                *args,
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-
-        return result
+        try:
+            result = subprocess.run(
+                [
+                    "git",
+                    "--git-dir",
+                    str(repo_dir),
+                    *args,
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=2.5,
+            )
+            return result
+        except Exception as exc:
+            return subprocess.CompletedProcess(
+                args=list(args),
+                returncode=1,
+                stdout="",
+                stderr=str(exc),
+            )
 
     def _files_for_change(
         self,

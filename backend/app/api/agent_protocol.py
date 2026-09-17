@@ -221,7 +221,7 @@ def agent_handshake(request: HandshakeRequest):
                 "repository capability boundaries."
             ),
             "local_provider": {
-                "clone_url": "/git/{owner}/{repo}.git",
+                "clone_url": "https://github.com/{owner}/{repo}.git",
                 "authentication_mechanism": (
                     "SUTRA Git Smart HTTP with the credentials documented for "
                     "the configured local repository provider."

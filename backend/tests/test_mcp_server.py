@@ -269,9 +269,11 @@ async def test_mcp_streamable_initialize_and_tool_discovery(setup_mcp_environmen
                 "sutra_get_governance",
                 "sutra_create_issue",
                 "sutra_complete_task",
+                "sutra_clone_repository",
+                "sutra_create_discussion",
             }
             assert tool_names == expected_tools, f"Tool mismatch: expected {expected_tools}, got {tool_names}"
-            assert len(tools) == 14
+            assert len(tools) == 16
 
             # Verify every tool has a description and properties have descriptions
             for tool in tools:
@@ -736,7 +738,7 @@ async def test_mcp_tool_metadata_semantic_discoverability():
     # 2. Inspect tools from mcp_server
     tools = await mcp_server.list_tools()
     tool_map = {t.name: t for t in tools}
-    assert len(tool_map) == 14
+    assert len(tool_map) == 16
 
     # 3. Verify canonical vs legacy descriptions
     # sutra_push_commit

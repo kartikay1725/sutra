@@ -176,7 +176,7 @@ class PullRequestService:
         repository: Repository,
     ) -> None:
         """Verify human user owns or has access to repository."""
-        if repository.owner_id != user_id:
+        if repository.visibility == "private" and repository.owner_id != user_id:
             raise PermissionError("Repository access denied")
 
     def _record_event(
@@ -361,14 +361,62 @@ class PullRequestService:
                 f"Blocked changes cannot enter pull request: "
                 f"{policy.reason}"
             )
-                # 5. Idempotency & Race-safe PR creation using PostgreSQL UNIQUE constraint
-            existing = self.db.scalar(
-                    select(PullRequest).where(
-                        PullRequest.source_change_id == source_change_id
+
+        repo_policies = (repository.settings or {}).get("policies", {})
+        effective_rule = BranchProtectionService(self.db).get_effective_rule(
+            repository_id, target_branch.strip()
+        )
+
+        # Policy Gate: Require Task Linkage
+        if repo_policies.get("require_task_linkage"):
+            is_agent = getattr(author, "type", None) == "agent"
+            task_for_change = self.db.scalar(
+                select(Task).where(Task.resulting_change_id == source_change_id)
+            )
+            c_meta = {}
+            if change.metadata_json:
+                try:
+                    c_meta = json.loads(change.metadata_json)
+                except Exception:
+                    pass
+            task_id_in_meta = c_meta.get("task_id")
+            if not task_for_change and not task_id_in_meta:
+                if is_agent or repo_policies.get("require_task_linkage_for_all", True):
+                    raise ValueError(
+                        "Policy violation: Pull request must be linked to an active SUTRA Task."
                     )
+
+        # Policy Gate: Enforce Governed Provenance
+        if repo_policies.get("enforce_governed_provenance"):
+            c_meta = {}
+            if change.metadata_json:
+                try:
+                    c_meta = json.loads(change.metadata_json)
+                except Exception:
+                    pass
+            if c_meta.get("commit_origin") == "external_unverified":
+                raise ValueError(
+                    "Policy violation: Unverified external commits are rejected by repository policy."
                 )
-            if existing is not None:
-                    return existing
+
+        # Policy Gate: Require Clean Conflict on PR Creation
+        if repo_policies.get("require_clean_conflict") or (
+            effective_rule and effective_rule.require_clean_conflict
+        ):
+            conflict = ConflictService(self.db).analyze(change)
+            if conflict.level == ConflictService.LEVEL_CONFLICT:
+                raise ValueError(
+                    f"Policy violation: Cannot open PR because Git detected a merge conflict with '{target_branch.strip()}'."
+                )
+
+        # 5. Idempotency & Race-safe PR creation using PostgreSQL UNIQUE constraint
+        existing = self.db.scalar(
+            select(PullRequest).where(
+                PullRequest.source_change_id == source_change_id
+            )
+        )
+        if existing is not None:
+            return existing
 
         initial_status = (
             self.STATUS_DRAFT if is_draft else self.STATUS_OPEN
@@ -585,6 +633,8 @@ class PullRequestService:
             if action == "synchronize" or (head_sha and head_sha != pr.source_commit):
                 if head_sha and head_sha != old_head:
                     is_governed = meta.get("commit_origin") == "sutra_governed"
+                    was_approved = (pr.status == PullRequest.STATUS_APPROVED) or bool(meta.get("approved_head_sha"))
+
                     if is_governed and change and change.resulting_commit and change.resulting_commit != head_sha:
                         logger.warning(
                             f"External push detected on SUTRA-governed branch for PR {pr.id[:8]}, "
@@ -599,11 +649,37 @@ class PullRequestService:
                         pr.source_commit = head_sha
                         if change:
                             change.resulting_commit = head_sha
-                            approved_head = meta.get("approved_head_sha")
-                            if approved_head and approved_head != head_sha:
-                                meta["approved_head_sha"] = None
-                                if pr.status == PullRequest.STATUS_APPROVED:
-                                    pr.status = PullRequest.STATUS_OPEN
+                            meta["approved_head_sha"] = None
+                            if pr.status == PullRequest.STATUS_APPROVED:
+                                pr.status = PullRequest.STATUS_OPEN
+
+                    if was_approved:
+                        if change:
+                            stale_reviews = self.db.scalars(
+                                select(ChangeReview).where(
+                                    ChangeReview.change_id == change.id,
+                                    ChangeReview.status == "approved",
+                                )
+                            ).all()
+                            for sr in stale_reviews:
+                                sr.status = "stale"
+
+                        self._record_event(
+                            pr=pr,
+                            event_type="approval.invalidated",
+                            from_status=PullRequest.STATUS_APPROVED,
+                            to_status=PullRequest.STATUS_OPEN,
+                            actor_id=pr.author_id,
+                            reason="New commit pushed to branch; approval invalidated and fresh review required.",
+                            metadata={"old_head_sha": old_head, "new_head_sha": head_sha},
+                        )
+
+                        try:
+                            from app.services.governance_service import GovernanceService
+                            gov_svc = GovernanceService(self.db, provider=self._get_provider(repository))
+                            gov_svc.sync_governance_check_to_github(pr.id)
+                        except Exception as e:
+                            logger.warning(f"Could not sync governance check run after approval invalidation: {e}")
 
             if is_merged:
                 pr.status = PullRequest.STATUS_MERGED
@@ -735,7 +811,7 @@ class PullRequestService:
                 Repository.deleted_at.is_(None),
             )
         )
-        if repository is None or repository.owner_id != user_id:
+        if repository is None or (repository.visibility == "private" and repository.owner_id != user_id):
             # Hide private repo resource existence
             return None
 

@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, String, Text, JSON
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
 
@@ -95,6 +95,31 @@ class Repository(Base):
         JSON,
         nullable=True,
         default=dict,
+    )
+
+    connection_type: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="owned",
+        server_default="owned",
+    )
+
+    upstream_repository_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("repositories.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    upstream_url: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
+    upstream_repository = relationship(
+        "Repository",
+        remote_side="Repository.id",
+        backref="forks",
     )
 
     github_objects_synced_at: Mapped[datetime | None] = mapped_column(

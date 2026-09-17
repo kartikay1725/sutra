@@ -224,9 +224,7 @@ export default function IssuePage({
     <AppShell>
       <div
         style={{
-          padding: "20px 40px",
-          maxWidth: 1000,
-          margin: "0 auto",
+          width: "100%",
         }}
       >
         {/* Header */}

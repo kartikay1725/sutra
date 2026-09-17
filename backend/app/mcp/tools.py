@@ -15,12 +15,15 @@ from pydantic import Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.api.agent_tasks import _get_provider_for_repository
 from app.api.agents import get_agent_context
 from app.db.session import SessionLocal
 from app.mcp.auth import MCPAuthError, resolve_mcp_agent_session
 from app.models.actor import Actor
+from app.models.agent_repository_access import AgentRepositoryAccess
 from app.models.change import Change
+from app.models.discussion import Discussion
 from app.models.issue import Issue
 from app.models.pull_request import PullRequest
 from app.models.repository import Repository
@@ -32,6 +35,7 @@ from app.services.code_provenance_service import CodeProvenanceService
 from app.services.governance_service import GovernanceService
 from app.services import knowledge_graph_service
 from app.services.pull_request_service import PullRequestService
+from app.services.repository_service import RepositoryService
 from app.services.task_service import TaskService
 from mcp.server.mcpserver import Context
 
@@ -1172,3 +1176,141 @@ Answers intents like:
                 db.rollback()
                 logger.error(f"sutra_complete_task failed: {e}", exc_info=True)
                 return _format_error(f"Failed to complete task: {str(e)}")
+
+    # =========================================================================
+    # TOOL 15: sutra_clone_repository
+    # =========================================================================
+    @server.tool()
+    async def sutra_clone_repository(
+        ctx: Context,
+        url: Annotated[str, Field(description="Git repository URL or GitHub 'owner/name' shorthand to clone into SUTRA storage (e.g. 'https://github.com/octocat/Hello-World.git' or 'octocat/Hello-World').")],
+        name: Annotated[Optional[str], Field(description="Custom local repository name. If omitted, automatically derived from the URL.")] = None,
+        description: Annotated[Optional[str], Field(description="Optional repository description.")] = None,
+        visibility: Annotated[str, Field(description="Repository visibility: 'private' or 'public' (default 'private').")] = "private",
+    ) -> Dict[str, Any]:
+        """CLONE REPOSITORY INTO SUTRA: Clones any Git URL or repository into SUTRA storage and registers it for autonomous engineering.
+
+Enables an agent or user to import external repositories or open-source projects into SUTRA:
+- Clones repository into SUTRA managed bare Git storage.
+- Installs SUTRA pre-receive policy hook ensuring all subsequent pushes adhere to SUTRA governance.
+- Automatically connects fork/upstream metadata if the repository is an upstream or fork.
+- Triggers initial Knowledge Graph indexing of the codebase architecture.
+
+Answers intents like:
+- 'clone a repo' / 'clone repository'
+- 'import git repository' / 'clone this url'
+        """
+        with SessionLocal() as db:
+            try:
+                session, agent = resolve_mcp_agent_session(ctx, db)
+                owner_id = agent.owner_id
+                repo_svc = RepositoryService(db)
+                repo = repo_svc.clone_repository(
+                    owner_id=owner_id,
+                    url=url,
+                    name=name,
+                    description=description,
+                    visibility=visibility,
+                )
+
+                access = db.scalar(
+                    select(AgentRepositoryAccess).where(
+                        AgentRepositoryAccess.agent_id == agent.id,
+                        AgentRepositoryAccess.repository_id == repo.id,
+                    )
+                )
+                if not access:
+                    access = AgentRepositoryAccess(
+                        agent_id=agent.id,
+                        repository_id=repo.id,
+                        enabled=True,
+                    )
+                    db.add(access)
+                    db.commit()
+
+                owner_name = agent.owner.username if getattr(agent, "owner", None) else "sutra"
+                return {
+                    "status": "success",
+                    "repository_id": repo.id,
+                    "name": repo.name,
+                    "slug": repo.slug,
+                    "visibility": repo.visibility,
+                    "default_branch": repo.default_branch,
+                    "connection_type": repo.connection_type,
+                    "upstream_url": repo.upstream_url,
+                    "upstream_repository_id": repo.upstream_repository_id,
+                    "clone_url": (
+                        repo.upstream_url
+                        if repo.upstream_url and "github.com" in repo.upstream_url
+                        else f"https://github.com/{repo.provider_owner or owner_name}/{repo.name}.git"
+                    ),
+                    "message": f"Successfully cloned repository '{repo.name}' into SUTRA storage.",
+                }
+            except MCPAuthError as e:
+                return _format_error(e.message, {"code": e.code})
+            except Exception as e:
+                db.rollback()
+                logger.error(f"sutra_clone_repository failed: {e}", exc_info=True)
+                return _format_error(f"Failed to clone repository: {str(e)}")
+
+    # =========================================================================
+    # TOOL 16: sutra_create_discussion
+    # =========================================================================
+    @server.tool()
+    async def sutra_create_discussion(
+        ctx: Context,
+        task_id: Annotated[str, Field(description="UUID of the SUTRA Task providing context for this discussion.")],
+        title: Annotated[str, Field(description="Discussion topic title.")],
+        body: Annotated[str, Field(description="Discussion body explaining the architecture proposal, question, or design trade-off.")],
+        category: Annotated[str, Field(description="Discussion category (e.g. 'General', 'Architecture', 'Q&A', 'RFC').")] = "General",
+    ) -> Dict[str, Any]:
+        """START ARCHITECTURAL DISCUSSION: Starts a discussion topic on the repository linked to the active task with agent provenance.
+
+Enables agents to propose design alternatives, request architectural guidance, or record architectural decisions with full provenance.
+        """
+        with SessionLocal() as db:
+            try:
+                session, agent = resolve_mcp_agent_session(ctx, db)
+                task = db.scalar(select(Task).where(Task.id == task_id))
+                if not task:
+                    return _format_error(f"Task '{task_id}' not found")
+
+                author = db.scalar(select(Actor).where(Actor.id == agent.id))
+                if not author:
+                    author = Actor(
+                        id=agent.id,
+                        type="agent",
+                        name=agent.name,
+                    )
+                    db.add(author)
+                    db.flush()
+
+                now = datetime.now(timezone.utc)
+                discussion = Discussion(
+                    repository_id=task.repository_id,
+                    author_id=author.id,
+                    title=title,
+                    body=body,
+                    category=category,
+                    created_at=now,
+                    updated_at=now,
+                )
+                db.add(discussion)
+                db.commit()
+                db.refresh(discussion)
+
+                return {
+                    "status": "created",
+                    "discussion_id": discussion.id,
+                    "repository_id": task.repository_id,
+                    "task_id": task.id,
+                    "title": discussion.title,
+                    "category": discussion.category,
+                    "created_at": discussion.created_at.isoformat(),
+                }
+            except MCPAuthError as e:
+                return _format_error(e.message, {"code": e.code})
+            except Exception as e:
+                db.rollback()
+                logger.error(f"sutra_create_discussion failed: {e}", exc_info=True)
+                return _format_error(f"Failed to create discussion: {str(e)}")

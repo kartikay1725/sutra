@@ -20,7 +20,7 @@ export default function NewIssueRoute({ params }: { params: Promise<{ name: stri
 
   return (
     <AppShell>
-      <div style={{ padding: "40px 20px", maxWidth: 720, margin: "0 auto" }}>
+      <div style={{ maxWidth: 720, margin: "0 auto" }}>
         <PageHead
           eyebrow={name}
           title="Issues on GitHub"

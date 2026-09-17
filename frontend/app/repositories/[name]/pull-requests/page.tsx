@@ -2,7 +2,8 @@
 
 import { use, useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { AppShell, PageHead, Card, Btn, SutraLoading } from "@/components/shell";
+import Link from "next/link";
+import { AppShell, PageHead, Card, Btn, SkeletonPRList } from "@/components/shell";
 import { pullRequestService, PullRequest } from "@/lib/pull-requests";
 import { repositoryService } from "@/lib/repositories";
 import { authService } from "@/lib/auth";
@@ -87,19 +88,21 @@ export default function PullRequestsPage({ params }: { params: Promise<{ name: s
   const others = filteredPrs.filter(p => p.status !== "open");
 
   const PRCard = ({ pr }: { pr: PullRequest }) => (
-    <div
-      onClick={() => router.push(`/repositories/${repoName}/pull-requests/${pr.id}`)}
+    <Link
+      href={`/repositories/${encodeURIComponent(repoName)}/pull-requests/${pr.id}`}
       style={{
-        cursor: "pointer",
+        textDecoration: "none",
+        color: "inherit",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
         gap: 16,
-        padding: "12px 16px",
+        padding: "14px 18px",
         background: "var(--surface)",
         border: "1px solid var(--line)",
         borderRadius: "var(--radius-sm)",
-        transition: "background 0.12s ease, border-color 0.12s ease",
+        transition: "all 0.15s ease",
+        cursor: "pointer",
       }}
       className="list-row"
     >
@@ -109,14 +112,14 @@ export default function PullRequestsPage({ params }: { params: Promise<{ name: s
         </span>
         <div style={{ minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
               {pr.title}
             </span>
             <span style={{ fontSize: 11, fontFamily: "var(--font-mono, monospace)", color: "var(--muted)" }}>
               #{pr.id.slice(0, 7)}
             </span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 11, color: "var(--muted)", marginTop: 4, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 12, color: "var(--muted)", marginTop: 4, flexWrap: "wrap" }}>
             <span style={{ fontFamily: "var(--font-mono, monospace)" }}>
               {pr.source_commit ? pr.source_commit.slice(0, 7) : "branch"} → {pr.target_branch}
             </span>
@@ -131,7 +134,7 @@ export default function PullRequestsPage({ params }: { params: Promise<{ name: s
           {pr.status}
         </span>
       </div>
-    </div>
+    </Link>
   );
 
   return (
@@ -159,7 +162,7 @@ export default function PullRequestsPage({ params }: { params: Promise<{ name: s
         }
       />
 
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 20px" }}>
+      <div style={{ width: "100%" }}>
 
         {/* Filter Bar */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -202,7 +205,7 @@ export default function PullRequestsPage({ params }: { params: Promise<{ name: s
         </div>
 
         {loading ? (
-          <SutraLoading message="Synchronizing GitHub substrate pull requests & governance status..." quote={true} />
+          <SkeletonPRList count={5} />
         ) : filteredPrs.length === 0 ? (
           <div style={{ padding: 48, textAlign: "center", color: "var(--muted)", background: "var(--bg-subtle)", borderRadius: 8, border: "1px solid var(--line)" }}>
             <I.GitPullRequest size={32} style={{ marginBottom: 16, opacity: 0.3 }} />

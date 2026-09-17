@@ -384,8 +384,11 @@ def test_branch_protection_merge_gate_enforcement(
     assert (
         "Merge rejected by branch protection"
         in res_merge_fail.json()["detail"]
+        or "Merge rejected by SUTRA governance"
+        in res_merge_fail.json()["detail"]
     )
 
+    import json
     review = ChangeReview(
         id=str(uuid4()),
         change_id=change.id,
@@ -393,7 +396,11 @@ def test_branch_protection_merge_gate_enforcement(
         reviewer_id=user_other.id,
         status="approved",
     )
-
+    change.metadata_json = json.dumps({
+        "approved_head_sha": change.resulting_commit,
+        "reviewed_head_shas": {review.id: change.resulting_commit},
+    })
+    pr.status = "approved"
     db.add(review)
     db.commit()
 

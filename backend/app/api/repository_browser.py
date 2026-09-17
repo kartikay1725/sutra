@@ -348,6 +348,43 @@ def get_repository_tree(
     except HTTPException:
         raise
     except Exception as exc:
+        err_str = str(exc)
+        if "404" in err_str or "Not Found" in err_str:
+            if selected_ref != repository.default_branch and repository.default_branch:
+                try:
+                    if repository.provider_type == "github":
+                        provider = _github_provider(repository)
+                        files = provider.list_files(
+                            repository.provider_owner,
+                            repository.name,
+                            path,
+                            repository.default_branch,
+                        )
+                        entries = [
+                            {
+                                "name": item["name"],
+                                "path": item["path"],
+                                "type": "directory" if item["type"] == "dir" else "file",
+                                "mode": None,
+                                "sha": item.get("sha"),
+                                "size": item.get("size"),
+                            }
+                            for item in files
+                        ]
+                        entries.sort(key=lambda item: (item["type"] != "directory", str(item["name"]).lower()))
+                        return {
+                            "ref": repository.default_branch,
+                            "commit": None,
+                            "path": path,
+                            "entries": entries,
+                            "truncated": False,
+                        }
+                except Exception:
+                    pass
+            raise HTTPException(
+                status_code=404,
+                detail=f"Git ref '{selected_ref}' or path '{path}' not found",
+            ) from exc
         raise HTTPException(
             status_code=503,
             detail=f"GitHub repository browser failed: {exc}",
@@ -779,6 +816,39 @@ def list_repository_commits(
     except HTTPException:
         raise
     except Exception as exc:
+        err_str = str(exc)
+        if "404" in err_str or "Not Found" in err_str:
+            if selected_ref != repository.default_branch and repository.default_branch:
+                try:
+                    if repository.provider_type == "github":
+                        provider = _github_provider(repository)
+                        commits = provider.list_commits(
+                            repository.provider_owner,
+                            repository.name,
+                            repository.default_branch,
+                            limit,
+                        )
+                        return {
+                            "ref": repository.default_branch,
+                            "head": commits[0].sha if commits else None,
+                            "commits": [
+                                {
+                                    "sha": commit.sha,
+                                    "short_sha": commit.sha[:7],
+                                    "author_name": commit.author_name,
+                                    "author_email": commit.author_email,
+                                    "committed_at": int(commit.committed_at.timestamp()),
+                                    "subject": commit.message.split("\n", 1)[0] if commit.message else "",
+                                }
+                                for commit in commits
+                            ],
+                        }
+                except Exception:
+                    pass
+            raise HTTPException(
+                status_code=404,
+                detail=f"Branch or revision '{selected_ref}' not found",
+            ) from exc
         raise HTTPException(
             status_code=503,
             detail=f"GitHub repository browser failed: {exc}",

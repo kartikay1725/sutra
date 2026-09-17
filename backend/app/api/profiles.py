@@ -64,6 +64,8 @@ class ContributionDay(BaseModel):
 class ProfileContributions(BaseModel):
     total_contributions: int
     days: list[ContributionDay]
+    github_synced: bool = False
+    github_account: str | None = None
 
 
 def _find_actor(
@@ -346,6 +348,50 @@ def get_contributions(
 
     add_counts(pr_rows)
 
+    # Synchronize external GitHub contributions
+    from app.models.github_installation import GitHubInstallation
+    from app.services.github_contributions_service import fetch_github_contributions, clean_github_username
+
+    github_synced = False
+    github_account: str | None = None
+
+    user = db.scalar(
+        select(User).where(
+            User.id == actor.owner_id,
+        )
+    )
+
+    candidate_handles: list[str] = []
+    if user:
+        gh_inst = db.scalar(
+            select(GitHubInstallation).where(
+                GitHubInstallation.user_id == user.id,
+            )
+        )
+        if gh_inst and gh_inst.github_account_login:
+            candidate_handles.append(gh_inst.github_account_login)
+
+        if isinstance(user.social_links, dict):
+            raw_social_gh = user.social_links.get("github")
+            if raw_social_gh:
+                candidate_handles.append(raw_social_gh)
+
+    if actor.type == "user":
+        candidate_handles.append(actor.name)
+
+    for cand in candidate_handles:
+        handle = clean_github_username(cand)
+        if not handle:
+            continue
+        gh_map, ok = fetch_github_contributions(handle)
+        if ok and gh_map:
+            github_synced = True
+            github_account = handle
+            for day_key, gh_count in gh_map.items():
+                if day_key:
+                    contribution_map[day_key] = contribution_map.get(day_key, 0) + int(gh_count)
+            break
+
     # Return a complete 365-day series.
     days: list[
         ContributionDay
@@ -379,4 +425,6 @@ def get_contributions(
     return ProfileContributions(
         total_contributions=total,
         days=days,
+        github_synced=github_synced,
+        github_account=github_account,
     )

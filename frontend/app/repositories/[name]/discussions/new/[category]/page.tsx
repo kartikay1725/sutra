@@ -178,10 +178,7 @@ export default function NewDiscussionFormPage({
 
       <div
         style={{
-          maxWidth: 860,
-          margin: "0 auto",
-          padding:
-            "0 20px 40px",
+          width: "100%",
         }}
       >
         <Card>

@@ -2,11 +2,12 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { searchService, type SearchResult } from "@/lib/search";
 import { I } from "../lib/icons";
 import { apiAuth } from "../lib/api";
 import { TaskModal } from "@/components/TaskModal";
-import NewRepositoryModal from "@/components/NewRepositoryModal";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import {
   notificationService,
   type NotificationItem,
@@ -25,6 +26,9 @@ import {
   PageHead,
   Pipeline,
   Stat,
+  Skeleton,
+  SkeletonRepoOverview,
+  SkeletonRepoSettings,
 } from "./shell";
 import { authService } from "../lib/auth";
 import {
@@ -40,6 +44,7 @@ import {
   type InsightsData,
 } from "../lib/insights";
 import { clientCache, CACHE_TTL } from "../lib/cache";
+import { GitHubSyncButton } from "./GitHubSyncButton";
 
 /* -------------------------------------------------------------------------- */
 /* Existing screen implementations                                            */
@@ -245,7 +250,7 @@ export function Dashboard() {
                         repo.name,
                       )}/commits?ref=${encodeURIComponent(
                         repo.default_branch ||
-                          "main",
+                        "main",
                       )}&limit=5`,
                     );
 
@@ -296,8 +301,8 @@ export function Dashboard() {
         if (!cancelled) {
           setError(
             err?.detail ||
-              err?.message ||
-              "Failed to load workspace data",
+            err?.message ||
+            "Failed to load workspace data",
           );
         }
       } finally {
@@ -325,17 +330,16 @@ export function Dashboard() {
         sub={
           loading
             ? "Loading your engineering activity…"
-            : `${repositories.length} ${
-                repositories.length === 1
-                  ? "repository"
-                  : "repositories"
-              } available in your workspace.`
+            : `${repositories.length} ${repositories.length === 1
+              ? "repository"
+              : "repositories"
+            } available in your workspace.`
         }
         action={
           <>
             <Btn>Customize</Btn>
 
-            
+
           </>
         }
       />
@@ -503,7 +507,7 @@ export function Dashboard() {
                       <Badge
                         tone={
                           repo.visibility ===
-                          "private"
+                            "private"
                             ? "violet"
                             : "green"
                         }
@@ -579,7 +583,7 @@ export function Dashboard() {
                           repo.name ===
                           commit.repository,
                       )?.default_branch ||
-                        "main",
+                      "main",
                     )}`}
                     className="activity"
                     key={`${commit.repository}-${commit.sha}`}
@@ -796,8 +800,8 @@ export function MyWork() {
 
       setError(
         err?.detail ||
-          err?.message ||
-          "Failed to load your work",
+        err?.message ||
+        "Failed to load your work",
       );
     } finally {
       setLoading(false);
@@ -1139,40 +1143,28 @@ export function Repositories() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [githubConnected, setGithubConnected] = useState(false);
-  const [
-    isNewRepositoryModalOpen,
-    setIsNewRepositoryModalOpen,
-  ] = useState(false);
+
+  const loadRepositories = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const rows = await repositoryService.listRepositories();
+      setRepositories(rows);
+    } catch (err: any) {
+      console.error("Failed to load repositories:", err);
+      setError(
+        err?.detail ||
+        err?.message ||
+        "Failed to load repositories",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
-
-    const loadRepositories = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const rows = await repositoryService.listRepositories();
-
-        if (!cancelled) {
-          setRepositories(rows);
-        }
-      } catch (err: any) {
-        console.error("Failed to load repositories:", err);
-
-        if (!cancelled) {
-          setError(
-            err?.detail ||
-              err?.message ||
-              "Failed to load repositories",
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
 
     const loadGithubStatus = async () => {
       try {
@@ -1187,8 +1179,14 @@ export function Repositories() {
     void loadRepositories();
     void loadGithubStatus();
 
+    const handleSynced = () => {
+      void loadRepositories();
+    };
+    window.addEventListener("sutra:github-synced", handleSynced);
+
     return () => {
       cancelled = true;
+      window.removeEventListener("sutra:github-synced", handleSynced);
     };
   }, []);
 
@@ -1204,13 +1202,22 @@ export function Repositories() {
 
   return (
     <>
-      {isNewRepositoryModalOpen && (
-        <NewRepositoryModal
-          onClose={() =>
-            setIsNewRepositoryModalOpen(false)
-          }
-        />
-      )}
+      <PageHead
+        eyebrow="Workspace"
+        title="Repositories"
+        sub="Connected codebases, branch policies, and governance controls."
+        action={
+          <div className="row" style={{ gap: 8, alignItems: "center" }}>
+            <GitHubSyncButton onSynced={() => void loadRepositories()} />
+            {!githubConnected && (
+              <Btn onClick={handleConnectGitHub}>
+                <I.GitBranch size={14} />
+                Connect GitHub
+              </Btn>
+            )}
+          </div>
+        }
+      />
 
       {loading && (
         <Card>
@@ -1262,13 +1269,13 @@ export function Repositories() {
                   marginBottom: 18,
                 }}
               >
-                connect GitHub to discover existing repositories.
+                Connect GitHub to discover existing repositories or synchronize newly added repositories.
               </div>
 
               <div className="row" style={{ justifyContent: "center", gap: 10 }}>
-                
-
-                {!githubConnected && (
+                {githubConnected ? (
+                  <GitHubSyncButton onSynced={() => void loadRepositories()} />
+                ) : (
                   <Btn onClick={handleConnectGitHub}>
                     <I.GitBranch size={14} />
                     Connect GitHub
@@ -1398,9 +1405,9 @@ export function Notifications() {
         current.map((item) =>
           item.id === notification.id
             ? {
-                ...item,
-                is_read: true,
-              }
+              ...item,
+              is_read: true,
+            }
             : item,
         ),
       );
@@ -1503,12 +1510,14 @@ export function Notifications() {
 
           <Badge
             tone={
-              unreadCount > 0
-                ? "amber"
-                : "aqua"
+              loading
+                ? "gray"
+                : unreadCount > 0
+                  ? "amber"
+                  : "aqua"
             }
           >
-            {unreadCount} unread
+            {loading ? "Loading..." : `${unreadCount} unread`}
           </Badge>
         </div>
 
@@ -1655,86 +1664,107 @@ export function RepoOverview() {
   useEffect(() => {
     let cancelled = false;
 
-    const load = async () => {
+    const load = async (forceRefresh = false) => {
       try {
-        setLoading(true);
+        if (!repo) setLoading(true);
         setError(null);
 
-        const repositories =
-          await repositoryService.listRepositories();
+        const overviewKey = `overview:repo:${repoName.toLowerCase()}`;
+        const overviewData = await clientCache.fetch(
+          overviewKey,
+          async () => {
+            const user = await authService.getCurrentUser().catch(() => null);
+            const repositories =
+              await repositoryService.listRepositories({ forceRefresh });
 
-        const matched = repositories.find(
-          (item) =>
-            item.name.toLowerCase() ===
-            repoName.toLowerCase(),
-        );
+            const userMatch = user ? repositories.find(
+              (item) =>
+                item.name.toLowerCase() === repoName.toLowerCase() &&
+                (item.owner?.toLowerCase() === user.username.toLowerCase() || item.owner_id === user.id),
+            ) : null;
 
-        if (!matched) {
-          throw new Error(
-            `Repository "${repoName}" was not found`,
-          );
-        }
+            const matched = userMatch || repositories.find(
+              (item) =>
+                item.name.toLowerCase() ===
+                repoName.toLowerCase(),
+            );
 
-        const owner = matched.owner;
+            if (!matched) {
+              throw new Error(
+                `Repository "${repoName}" was not found`,
+              );
+            }
 
-        if (!owner) {
-          throw new Error(
-            "Repository owner is missing from repository metadata",
-          );
-        }
+            const owner = matched.owner;
 
-        const actualRepo =
-          await repositoryService.getRepository(
-            owner,
-            matched.name,
-          );
+            if (!owner) {
+              throw new Error(
+                "Repository owner is missing from repository metadata",
+              );
+            }
 
-        const commitKey = `commits:${owner.toLowerCase()}/${actualRepo.name.toLowerCase()}:${actualRepo.default_branch}:10`;
-        const commitResponse = await clientCache.fetch(
-          commitKey,
-          () =>
-            apiAuth<{
-              ref: string;
-              head: string;
-              commits: Array<{
-                sha: string;
-                short_sha: string;
-                author_name: string;
-                author_email: string;
-                committed_at: number;
-                subject: string;
-              }>;
-            }>(
-              `/v1/repositories/${encodeURIComponent(
+            const actualRepo =
+              await repositoryService.getRepository(
                 owner,
-              )}/${encodeURIComponent(
-                actualRepo.name,
-              )}/commits?ref=${encodeURIComponent(
-                actualRepo.default_branch,
-              )}&limit=10`,
-            ),
-          CACHE_TTL.COMMITS
+                matched.name,
+                { forceRefresh }
+              );
+
+            const commitKey = `commits:${owner.toLowerCase()}/${actualRepo.name.toLowerCase()}:${actualRepo.default_branch}:10`;
+            const commitResponse = await clientCache.fetch(
+              commitKey,
+              () =>
+                apiAuth<{
+                  ref: string;
+                  head: string;
+                  commits: Array<{
+                    sha: string;
+                    short_sha: string;
+                    author_name: string;
+                    author_email: string;
+                    committed_at: number;
+                    subject: string;
+                  }>;
+                }>(
+                  `/v1/repositories/${encodeURIComponent(
+                    owner,
+                  )}/${encodeURIComponent(
+                    actualRepo.name,
+                  )}/commits?ref=${encodeURIComponent(
+                    actualRepo.default_branch,
+                  )}&limit=10`,
+                ),
+              { ...CACHE_TTL.COMMITS, forceRefresh }
+            );
+
+            return {
+              repo: actualRepo,
+              commits: Array.isArray(commitResponse.commits)
+                ? commitResponse.commits
+                : [],
+            };
+          },
+          {
+            ...CACHE_TTL.OVERVIEW,
+            forceRefresh,
+          }
         );
 
         if (cancelled) return;
 
-        setRepo(actualRepo);
-        setCommits(
-          Array.isArray(commitResponse.commits)
-            ? commitResponse.commits
-            : [],
-        );
+        setRepo(overviewData.repo);
+        setCommits(overviewData.commits);
       } catch (err: any) {
         console.error(
           "Failed to load repository overview:",
           err,
         );
 
-        if (!cancelled) {
+        if (!cancelled && !repo) {
           setError(
             err?.detail ||
-              err?.message ||
-              "Failed to load repository",
+            err?.message ||
+            "Failed to load repository",
           );
         }
       } finally {
@@ -1745,7 +1775,17 @@ export function RepoOverview() {
     };
 
     if (repoName) {
-      void load();
+      void load(false);
+
+      // Auto-refresh repository overview every 20 minutes (1,200,000 ms)
+      const refresh = window.setInterval(() => {
+        void load(true);
+      }, 20 * 60 * 1000);
+
+      return () => {
+        cancelled = true;
+        window.clearInterval(refresh);
+      };
     }
 
     return () => {
@@ -1757,18 +1797,12 @@ export function RepoOverview() {
     return (
       <>
         <PageHead
-          eyebrow="Repository"
-          title="Loading repository…"
+          eyebrow={`Repository · ${repoName}`}
+          title={repoName || "Loading repository…"}
           sub="Fetching repository data from SUTRA."
         />
 
-        <Card>
-          <div className="card-pad">
-            <div className="sub">
-              Loading repository information…
-            </div>
-          </div>
-        </Card>
+        <SkeletonRepoOverview />
       </>
     );
   }
@@ -1809,17 +1843,11 @@ export function RepoOverview() {
           "No repository description."
         }
         action={
-          <>
-            <Btn>
-              {repo.visibility === "private"
-                ? "Private"
-                : "Public"}
-            </Btn>
-
-            <Btn primary>
-              <I.Play size={14} /> Run Agent
-            </Btn>
-          </>
+          <Badge tone={repo.visibility === "private" ? "violet" : "green"}>
+            {repo.visibility === "private"
+              ? "Private"
+              : "Public"}
+          </Badge>
         }
       />
 
@@ -1851,8 +1879,8 @@ export function RepoOverview() {
           value={
             repo.created_at
               ? new Date(
-                  repo.created_at,
-                ).toLocaleDateString()
+                repo.created_at,
+              ).toLocaleDateString()
               : "—"
           }
         />
@@ -1877,7 +1905,7 @@ export function RepoOverview() {
             <Badge
               tone={
                 repo.visibility ===
-                "private"
+                  "private"
                   ? "violet"
                   : "green"
               }
@@ -1947,8 +1975,8 @@ export function RepoOverview() {
                 <div className="title-sm">
                   {repo.updated_at
                     ? new Date(
-                        repo.updated_at,
-                      ).toLocaleString()
+                      repo.updated_at,
+                    ).toLocaleString()
                     : "—"}
                 </div>
               </div>
@@ -2010,9 +2038,9 @@ export function RepoOverview() {
                       ·{" "}
                       {commit.committed_at
                         ? new Date(
-                            commit.committed_at *
-                              1000,
-                          ).toLocaleString()
+                          commit.committed_at *
+                          1000,
+                        ).toLocaleString()
                         : "Unknown time"}
                     </div>
                   </div>
@@ -2234,8 +2262,8 @@ export function Issues() {
 
       setError(
         err?.detail ||
-          err?.message ||
-          "Failed to load issues.",
+        err?.message ||
+        "Failed to load issues.",
       );
     } finally {
       setLoading(false);
@@ -2352,14 +2380,14 @@ export function Issues() {
         current.map((item) =>
           item.id === closeIssue.id
             ? {
-                ...item,
-                status: "closed",
-                state: "closed",
-                closed_at:
-                  new Date().toISOString(),
-                updated_at:
-                  new Date().toISOString(),
-              }
+              ...item,
+              status: "closed",
+              state: "closed",
+              closed_at:
+                new Date().toISOString(),
+              updated_at:
+                new Date().toISOString(),
+            }
             : item,
         ),
       );
@@ -2370,8 +2398,8 @@ export function Issues() {
     } catch (err: any) {
       setError(
         err?.detail ||
-          err?.message ||
-          "Failed to close issue.",
+        err?.message ||
+        "Failed to close issue.",
       );
     } finally {
       setClosing(false);
@@ -2405,13 +2433,13 @@ export function Issues() {
         current.map((item) =>
           item.id === reopenIssue.id
             ? {
-                ...item,
-                status: "open",
-                state: "open",
-                closed_at: null,
-                updated_at:
-                  new Date().toISOString(),
-              }
+              ...item,
+              status: "open",
+              state: "open",
+              closed_at: null,
+              updated_at:
+                new Date().toISOString(),
+            }
             : item,
         ),
       );
@@ -2421,8 +2449,8 @@ export function Issues() {
     } catch (err: any) {
       setError(
         err?.detail ||
-          err?.message ||
-          "Failed to reopen issue.",
+        err?.message ||
+        "Failed to reopen issue.",
       );
     } finally {
       setReopening(false);
@@ -2879,10 +2907,10 @@ export function Issues() {
                 }
                 placeholder={
                   closeResolution ===
-                  "duplicate"
+                    "duplicate"
                     ? "Explain which issue this duplicates..."
                     : closeResolution ===
-                        "not_planned"
+                      "not_planned"
                       ? "Explain why this will not be planned..."
                       : "Explain how this issue was resolved..."
                 }
@@ -3051,6 +3079,9 @@ export function Issues() {
 /* -------------------------------------------------------------------------- */
 
 export function Tasks() {
+  const params = useParams<{ name?: string }>();
+  const repoName = params?.name ? decodeURIComponent(params.name) : null;
+
   type TaskRow = {
     id: string;
     title: string;
@@ -3074,6 +3105,32 @@ export function Tasks() {
   const [selectedTaskId, setSelectedTaskId] =
     useState<string | null>(null);
 
+  const [taskToTerminate, setTaskToTerminate] =
+    useState<TaskRow | null>(null);
+
+  const [terminating, setTerminating] =
+    useState(false);
+
+  const executeTerminateTask = async () => {
+    if (!taskToTerminate) return;
+    setTerminating(true);
+    try {
+      await taskService.terminateTask(taskToTerminate.id);
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskToTerminate.id
+            ? { ...t, status: "cancelled" }
+            : t,
+        ),
+      );
+      setTaskToTerminate(null);
+    } catch (err: any) {
+      console.error("Failed to terminate task:", err);
+    } finally {
+      setTerminating(false);
+    }
+  };
+
   const loadTasks = async () => {
     try {
       setLoading(true);
@@ -3084,10 +3141,15 @@ export function Tasks() {
           "/v1/me/work",
         );
 
+      const allTasks = Array.isArray(data) ? data : [];
       setTasks(
-        Array.isArray(data)
-          ? data
-          : [],
+        repoName
+          ? allTasks.filter(
+              (task) =>
+                task.repo_name?.toLowerCase() ===
+                repoName.toLowerCase(),
+            )
+          : allTasks,
       );
     } catch (err: any) {
       console.error(
@@ -3097,8 +3159,8 @@ export function Tasks() {
 
       setError(
         err?.detail ||
-          err?.message ||
-          "Failed to load tasks.",
+        err?.message ||
+        "Failed to load tasks.",
       );
     } finally {
       setLoading(false);
@@ -3118,6 +3180,18 @@ export function Tasks() {
         .trim()
         .replaceAll("-", "_")
         .replaceAll(" ", "_");
+
+    if (
+      [
+        "cancelled",
+        "canceled",
+        "terminated",
+        "aborted",
+        "failed",
+      ].includes(value)
+    ) {
+      return "cancelled";
+    }
 
     if (
       [
@@ -3189,6 +3263,11 @@ export function Tasks() {
       title: "Done",
       tone: "green" as const,
     },
+    {
+      key: "cancelled",
+      title: "Cancelled",
+      tone: "red" as const,
+    },
   ];
 
   const groupedTasks = columns.map(
@@ -3214,10 +3293,10 @@ export function Tasks() {
   );
 
   const openCount = tasks.filter(
-    (task) =>
-      normalizeStatus(
-        task.status,
-      ) !== "done",
+    (task) => {
+      const s = normalizeStatus(task.status);
+      return s === "in_progress" || s === "review" || s === "backlog";
+    },
   ).length;
 
   const completedCount = tasks.filter(
@@ -3227,12 +3306,19 @@ export function Tasks() {
       ) === "done",
   ).length;
 
+  const cancelledCount = tasks.filter(
+    (task) =>
+      normalizeStatus(
+        task.status,
+      ) === "cancelled",
+  ).length;
+
   return (
     <>
       <PageHead
-        eyebrow="Execution"
+        eyebrow={repoName ? `Repository · ${repoName}` : "Execution"}
         title="Tasks"
-        sub="Real tasks from your SUTRA workspace."
+        sub={repoName ? `Autonomous and team engineering tasks for ${repoName}.` : "Real tasks from your SUTRA workspace."}
         action={
           <Btn
             primary
@@ -3261,9 +3347,13 @@ export function Tasks() {
       {selectedTaskId && (
         <TaskModal
           taskId={selectedTaskId}
-          onClose={() =>
-            setSelectedTaskId(null)
-          }
+          onClose={() => {
+            setSelectedTaskId(null);
+            void loadTasks();
+          }}
+          onTaskUpdated={() => {
+            void loadTasks();
+          }}
         />
       )}
 
@@ -3289,7 +3379,7 @@ export function Tasks() {
       )}
 
       <div
-        className="grid g2"
+        className="grid g3"
         style={{
           marginBottom: 16,
         }}
@@ -3311,23 +3401,34 @@ export function Tasks() {
               : String(completedCount)
           }
         />
+
+        <Stat
+          label="Cancelled"
+          value={
+            loading
+              ? "—"
+              : String(cancelledCount)
+          }
+        />
       </div>
 
       {loading ? (
-        <Card>
-          <div
-            className="card-pad"
-            style={{
-              textAlign: "center",
-              paddingTop: 60,
-              paddingBottom: 60,
-            }}
-          >
-            <div className="sub">
-              Loading tasks…
-            </div>
-          </div>
-        </Card>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} style={{ padding: "16px 20px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
+                  <Skeleton width={18} height={18} borderRadius={4} />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
+                    <Skeleton width={`${45 + (i % 3) * 15}%`} height={15} borderRadius={4} />
+                    <Skeleton width={120} height={12} borderRadius={3} />
+                  </div>
+                </div>
+                <Skeleton width={75} height={22} borderRadius={11} />
+              </div>
+            </Card>
+          ))}
+        </div>
       ) : tasks.length === 0 ? (
         <Card>
           <div
@@ -3371,7 +3472,7 @@ export function Tasks() {
           style={{
             display: "grid",
             gridTemplateColumns:
-              "repeat(4,minmax(240px,1fr))",
+              "repeat(5,minmax(200px,1fr))",
             gap: 12,
             overflowX: "auto",
           }}
@@ -3406,7 +3507,7 @@ export function Tasks() {
 
                 <div className="list">
                   {column.tasks.length ===
-                  0 ? (
+                    0 ? (
                     <div
                       className="card-pad"
                     >
@@ -3460,7 +3561,7 @@ export function Tasks() {
                               "Repository"}
                           </div>
 
-                          <div className="row">
+                          <div className="row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", gap: 6 }}>
                             <Badge
                               tone={
                                 column.tone
@@ -3473,12 +3574,37 @@ export function Tasks() {
                                 )}
                             </Badge>
 
-                            <span className="meta">
-                              Updated{" "}
+                            <span className="meta" style={{ flex: 1, minWidth: 0, textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                               {new Date(
                                 task.updated_at,
                               ).toLocaleDateString()}
                             </span>
+
+                            {(normalizeStatus(task.status) === "in_progress" || normalizeStatus(task.status) === "backlog") && (
+                              <span
+                                role="button"
+                                tabIndex={0}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setTaskToTerminate(task);
+                                }}
+                                className="badge red"
+                                style={{
+                                  cursor: "pointer",
+                                  padding: "2px 6px",
+                                  fontSize: "10px",
+                                  background: "rgba(239, 68, 68, 0.12)",
+                                  border: "1px solid rgba(239, 68, 68, 0.3)",
+                                  color: "#ef4444",
+                                  fontWeight: 600,
+                                  borderRadius: 4,
+                                  flexShrink: 0,
+                                }}
+                                title="Terminate task"
+                              >
+                                Terminate
+                              </span>
+                            )}
                           </div>
                         </button>
                       ),
@@ -3490,66 +3616,25 @@ export function Tasks() {
           )}
         </div>
       )}
-    </>
-  );
-}
-/* -------------------------------------------------------------------------- */
-/* Discussions                                                                */
-/* -------------------------------------------------------------------------- */
 
-export function Discussions() {
-  return (
-    <>
-      <PageHead
-        eyebrow="sutra-core"
-        title="Discussions"
-        sub="Long-form engineering conversations with durable context."
-        action={
-          <Btn primary>
-            <I.Plus size={14} /> Start discussion
-          </Btn>
+      <ConfirmModal
+        isOpen={Boolean(taskToTerminate)}
+        onClose={() => setTaskToTerminate(null)}
+        onConfirm={executeTerminateTask}
+        title="Terminate Task"
+        description={
+          <>
+            Are you sure you want to terminate <strong>&ldquo;{taskToTerminate?.title}&rdquo;</strong>? Active execution will be cancelled immediately and marked as cancelled.
+          </>
         }
+        confirmText="Terminate Task"
+        confirmTone="danger"
+        loading={terminating}
       />
-
-      <Card>
-        <div className="list">
-          {[
-            "Designing a safe autonomy boundary",
-            "How should agent traces be persisted?",
-            "Proposal: repository-level knowledge snapshots",
-            "RFC: unified Change model",
-            "What belongs in the SUTRA marketplace?",
-          ].map((x, i) => (
-            <div
-              className="list-row"
-              key={x}
-            >
-              <I.MessageSquare
-                size={15}
-                className="muted"
-              />
-
-              <div style={{ flex: 1 }}>
-                <div className="title-sm">{x}</div>
-                <div className="meta">
-                  {42 - i * 6} replies · started by{" "}
-                  {i % 2 ? "Maya" : "Alex"} · {i + 1}d ago
-                </div>
-              </div>
-
-              <Badge>{i + 2} participants</Badge>
-
-              <I.ChevronRight
-                size={15}
-                className="muted"
-              />
-            </div>
-          ))}
-        </div>
-      </Card>
     </>
   );
 }
+
 
 /* -------------------------------------------------------------------------- */
 /* Repository Settings — fixed implementation                                 */
@@ -3674,7 +3759,14 @@ export function RepoSettings() {
     const allRepos =
       await repositoryService.listRepositories();
 
-    const directMatch = allRepos.find(
+    const userMatch = allRepos.find(
+      (candidate) =>
+        candidate.name.toLowerCase() ===
+        repoParam.toLowerCase() &&
+        (candidate.owner?.toLowerCase() === user.username.toLowerCase() || candidate.owner_id === user.id),
+    );
+
+    const directMatch = userMatch || allRepos.find(
       (candidate) =>
         candidate.name.toLowerCase() ===
         repoParam.toLowerCase(),
@@ -3717,22 +3809,22 @@ export function RepoSettings() {
       }
 
       const resolved =
-  await resolveRepository();
+        await resolveRepository();
 
-    const repository = resolved.repository;
-    const owner = resolved.owner;
+      const repository = resolved.repository;
+      const owner = resolved.owner;
 
-    // `listRepositories()` already returned the
-    // repository object. Do not perform a second
-    // owner/name lookup that can fail for repositories
-    // whose route identity differs from the current user.
-    const authoritative = repository;
+      // `listRepositories()` already returned the
+      // repository object. Do not perform a second
+      // owner/name lookup that can fail for repositories
+      // whose route identity differs from the current user.
+      const authoritative = repository;
 
-    const branchData =
-      await repositoryService.getBranches(
-        owner,
-        authoritative.name,
-      );
+      const branchData =
+        await repositoryService.getBranches(
+          owner,
+          authoritative.name,
+        );
 
       const repositoryBranches: RepositoryBranch[] =
         Array.isArray(branchData?.branches)
@@ -3776,8 +3868,8 @@ export function RepoSettings() {
 
       showToast(
         err?.detail ||
-          err?.message ||
-          "Failed to load repository settings",
+        err?.message ||
+        "Failed to load repository settings",
         false,
       );
     } finally {
@@ -3872,8 +3964,8 @@ export function RepoSettings() {
     } catch (err: any) {
       showToast(
         err?.detail ||
-          err?.message ||
-          "Failed to save repository settings",
+        err?.message ||
+        "Failed to save repository settings",
         false,
       );
     } finally {
@@ -3954,13 +4046,13 @@ export function RepoSettings() {
         setRepo((current) =>
           current
             ? {
-                ...current,
-                visibility:
-                  newVisibility,
-                is_private:
-                  newVisibility ===
-                  "private",
-              }
+              ...current,
+              visibility:
+                newVisibility,
+              is_private:
+                newVisibility ===
+                "private",
+            }
             : current,
         );
 
@@ -3999,8 +4091,8 @@ export function RepoSettings() {
     } catch (err: any) {
       showToast(
         err?.detail ||
-          err?.message ||
-          "Action failed",
+        err?.message ||
+        "Action failed",
         false,
       );
     } finally {
@@ -4035,7 +4127,7 @@ export function RepoSettings() {
       return (
         !!newOwnerInput.trim() &&
         confirmInput ===
-          "transfer ownership"
+        "transfer ownership"
       );
     }
 
@@ -4053,8 +4145,8 @@ export function RepoSettings() {
       return EMPTY_RULE(
         repo?.id || "",
         editBranch ||
-          repo?.default_branch ||
-          "main",
+        repo?.default_branch ||
+        "main",
       );
     };
 
@@ -4114,22 +4206,22 @@ export function RepoSettings() {
 
       const saved = rule.id
         ? await branchProtectionService.update(
-            repo.id,
-            rule.id,
-            payload,
-          )
+          repo.id,
+          rule.id,
+          payload,
+        )
         : await branchProtectionService.create(
-            repo.id,
-            payload,
-          );
+          repo.id,
+          payload,
+        );
 
       setRules((previous) =>
         rule.id
           ? previous.map((item) =>
-              item.id === saved.id
-                ? saved
-                : item,
-            )
+            item.id === saved.id
+              ? saved
+              : item,
+          )
           : [...previous, saved],
       );
 
@@ -4142,8 +4234,8 @@ export function RepoSettings() {
     } catch (err: any) {
       showToast(
         err?.detail ||
-          err?.message ||
-          "Failed to save branch protection rule",
+        err?.message ||
+        "Failed to save branch protection rule",
         false,
       );
     } finally {
@@ -4176,8 +4268,8 @@ export function RepoSettings() {
     } catch (err: any) {
       showToast(
         err?.detail ||
-          err?.message ||
-          "Failed to delete branch protection rule",
+        err?.message ||
+        "Failed to delete branch protection rule",
         false,
       );
     } finally {
@@ -4190,17 +4282,11 @@ export function RepoSettings() {
       <>
         <PageHead
           eyebrow="Repository settings"
-          title="Loading repository…"
+          title="Repository settings"
           sub="Fetching repository metadata, branches, and protection rules."
         />
 
-        <Card>
-          <div className="card-pad">
-            <div className="sub">
-              Loading settings…
-            </div>
-          </div>
-        </Card>
+        <SkeletonRepoSettings />
       </>
     );
   }
@@ -4218,7 +4304,7 @@ export function RepoSettings() {
                 void loadSettings();
               }}
             >
-             Retry
+              Retry
             </Btn>
           }
         />
@@ -4375,7 +4461,7 @@ export function RepoSettings() {
                 <Badge
                   tone={
                     repo.visibility ===
-                    "private"
+                      "private"
                       ? "violet"
                       : "green"
                   }
@@ -4483,182 +4569,182 @@ export function RepoSettings() {
 
           {(newRule ||
             rules.length > 0) && (
-            <div className="list">
-              {newRule && (
-                <BranchProtectionEditor
-                  key="new-rule"
-                  rule={newRule}
-                  onChange={
-                    setNewRule
-                  }
-                  onCancel={() =>
-                    setNewRule(null)
-                  }
-                  onSave={saveRule}
-                  saving={savingRule}
-                />
-              )}
+              <div className="list">
+                {newRule && (
+                  <BranchProtectionEditor
+                    key="new-rule"
+                    rule={newRule}
+                    onChange={
+                      setNewRule
+                    }
+                    onCancel={() =>
+                      setNewRule(null)
+                    }
+                    onSave={saveRule}
+                    saving={savingRule}
+                  />
+                )}
 
-              {rules.map((rule) => (
-                <div
-                  className="list-row"
-                  key={rule.id}
-                  style={{
-                    alignItems: "flex-start",
-                    flexDirection: "column",
-                  }}
-                >
-                  {editingRuleId ===
-                  rule.id ? (
-                    <BranchProtectionEditor
-                      rule={rule}
-                      onChange={(
-                        updated,
-                      ) =>
-                        setRules(
-                          (previous) =>
-                            previous.map(
-                              (
-                                item,
-                              ) =>
-                                item.id ===
-                                rule.id
-                                  ? updated
-                                  : item,
-                            ),
-                        )
-                      }
-                      onCancel={() =>
-                        setEditingRuleId(
-                          null,
-                        )
-                      }
-                      onSave={saveRule}
-                      saving={savingRule}
-                    />
-                  ) : (
-                    <>
-                      <div
-                        className="row"
-                        style={{
-                          width: "100%",
-                        }}
-                      >
-                        <div>
-                          <div className="row">
-                            <div className="title-sm">
-                              {rule.branch_pattern}
+                {rules.map((rule) => (
+                  <div
+                    className="list-row"
+                    key={rule.id}
+                    style={{
+                      alignItems: "flex-start",
+                      flexDirection: "column",
+                    }}
+                  >
+                    {editingRuleId ===
+                      rule.id ? (
+                      <BranchProtectionEditor
+                        rule={rule}
+                        onChange={(
+                          updated,
+                        ) =>
+                          setRules(
+                            (previous) =>
+                              previous.map(
+                                (
+                                  item,
+                                ) =>
+                                  item.id ===
+                                    rule.id
+                                    ? updated
+                                    : item,
+                              ),
+                          )
+                        }
+                        onCancel={() =>
+                          setEditingRuleId(
+                            null,
+                          )
+                        }
+                        onSave={saveRule}
+                        saving={savingRule}
+                      />
+                    ) : (
+                      <>
+                        <div
+                          className="row"
+                          style={{
+                            width: "100%",
+                          }}
+                        >
+                          <div>
+                            <div className="row">
+                              <div className="title-sm">
+                                {rule.branch_pattern}
+                              </div>
+
+                              <Badge
+                                tone={
+                                  rule.enabled
+                                    ? "green"
+                                    : "amber"
+                                }
+                              >
+                                {rule.enabled
+                                  ? "Enabled"
+                                  : "Disabled"}
+                              </Badge>
                             </div>
 
-                            <Badge
-                              tone={
-                                rule.enabled
-                                  ? "green"
-                                  : "amber"
+                            <div className="meta">
+                              {rule.required_approvals} approval
+                              {rule.required_approvals ===
+                                1
+                                ? ""
+                                : "s"}{" "}
+                              required
+                            </div>
+                          </div>
+
+                          <div className="actions">
+                            <Btn
+                              onClick={() =>
+                                setEditingRuleId(
+                                  rule.id,
+                                )
                               }
                             >
-                              {rule.enabled
-                                ? "Enabled"
-                                : "Disabled"}
-                            </Badge>
-                          </div>
+                              Edit
+                            </Btn>
 
-                          <div className="meta">
-                            {rule.required_approvals} approval
-                            {rule.required_approvals ===
-                            1
-                              ? ""
-                              : "s"}{" "}
-                            required
+                            <Btn
+                              onClick={() => {
+                                const confirmed = window.confirm(
+                                  `Delete branch protection rule "${rule.branch_pattern}"?`
+                                );
+
+                                if (confirmed) {
+                                  void deleteRule(rule);
+                                }
+                              }}>Delete</Btn>
                           </div>
                         </div>
 
-                        <div className="actions">
-                          <Btn
-                            onClick={() =>
-                              setEditingRuleId(
-                                rule.id,
-                              )
+                        <div
+                          className="grid g3"
+                          style={{
+                            width: "100%",
+                            marginTop: 12,
+                          }}
+                        >
+                          <ProtectionFlag
+                            enabled={
+                              rule.require_change_review
                             }
-                          >
-                            Edit
-                          </Btn>
+                            label="Change review"
+                          />
 
-                          <Btn
-                            onClick={() => {
-                            const confirmed = window.confirm(
-                              `Delete branch protection rule "${rule.branch_pattern}"?`
-                            );
-
-                            if (confirmed) {
-                              void deleteRule(rule);
+                          <ProtectionFlag
+                            enabled={
+                              rule.require_ci_passed
                             }
-                          }}>Delete</Btn>
+                            label="CI required"
+                          />
+
+                          <ProtectionFlag
+                            enabled={
+                              rule.require_clean_conflict
+                            }
+                            label="Clean conflicts"
+                          />
+
+                          <ProtectionFlag
+                            enabled={
+                              rule.require_resolved_threads
+                            }
+                            label="Resolved threads"
+                          />
+
+                          <ProtectionFlag
+                            enabled={
+                              rule.require_agent_review
+                            }
+                            label="Agent review"
+                          />
+
+                          <ProtectionFlag
+                            enabled={
+                              rule.require_no_blocking_agent_findings
+                            }
+                            label="No blocking agent findings"
+                          />
+
+                          <ProtectionFlag
+                            enabled={
+                              rule.allow_author_self_approval
+                            }
+                            label="Author self-approval"
+                          />
                         </div>
-                      </div>
-
-                      <div
-                        className="grid g3"
-                        style={{
-                          width: "100%",
-                          marginTop: 12,
-                        }}
-                      >
-                        <ProtectionFlag
-                          enabled={
-                            rule.require_change_review
-                          }
-                          label="Change review"
-                        />
-
-                        <ProtectionFlag
-                          enabled={
-                            rule.require_ci_passed
-                          }
-                          label="CI required"
-                        />
-
-                        <ProtectionFlag
-                          enabled={
-                            rule.require_clean_conflict
-                          }
-                          label="Clean conflicts"
-                        />
-
-                        <ProtectionFlag
-                          enabled={
-                            rule.require_resolved_threads
-                          }
-                          label="Resolved threads"
-                        />
-
-                        <ProtectionFlag
-                          enabled={
-                            rule.require_agent_review
-                          }
-                          label="Agent review"
-                        />
-
-                        <ProtectionFlag
-                          enabled={
-                            rule.require_no_blocking_agent_findings
-                          }
-                          label="No blocking agent findings"
-                        />
-
-                        <ProtectionFlag
-                          enabled={
-                            rule.allow_author_self_approval
-                          }
-                          label="Author self-approval"
-                        />
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
         </Card>
 
         {/* ---------------------------------------------------------------- */}
@@ -4715,10 +4801,10 @@ export function RepoSettings() {
 
                     {branch.name ===
                       repo.default_branch && (
-                      <Badge tone="green">
-                        Default
-                      </Badge>
-                    )}
+                        <Badge tone="green">
+                          Default
+                        </Badge>
+                      )}
 
                     {branch.protected && (
                       <Badge tone="violet">
@@ -4931,163 +5017,163 @@ export function RepoSettings() {
             <div className="card-pad">
               {dangerModal.action ===
                 "delete" && (
-                <>
-                  <div className="sub">
-                    This permanently deletes{" "}
-                    <b>{repo.name}</b>. Type the exact
-                    repository name to continue.
-                  </div>
+                  <>
+                    <div className="sub">
+                      This permanently deletes{" "}
+                      <b>{repo.name}</b>. Type the exact
+                      repository name to continue.
+                    </div>
 
-                  <div
-                    className="field"
-                    style={{ marginTop: 16 }}
-                  >
-                    <label
-                      className="label"
-                      htmlFor="confirm-delete"
+                    <div
+                      className="field"
+                      style={{ marginTop: 16 }}
                     >
-                      Repository name
-                    </label>
+                      <label
+                        className="label"
+                        htmlFor="confirm-delete"
+                      >
+                        Repository name
+                      </label>
 
-                    <input
-                      id="confirm-delete"
-                      className="input"
-                      value={confirmInput}
-                      onChange={(event) =>
-                        setConfirmInput(
-                          event.target.value,
-                        )
-                      }
-                      autoFocus
-                    />
-                  </div>
-                </>
-              )}
+                      <input
+                        id="confirm-delete"
+                        className="input"
+                        value={confirmInput}
+                        onChange={(event) =>
+                          setConfirmInput(
+                            event.target.value,
+                          )
+                        }
+                        autoFocus
+                      />
+                    </div>
+                  </>
+                )}
 
               {dangerModal.action ===
                 "visibility" && (
-                <>
-                  <div className="sub">
-                    Change{" "}
-                    <b>{repo.name}</b> from{" "}
-                    <b>{repo.visibility}</b> to{" "}
-                    <b>{newVisibility}</b>.
-                  </div>
+                  <>
+                    <div className="sub">
+                      Change{" "}
+                      <b>{repo.name}</b> from{" "}
+                      <b>{repo.visibility}</b> to{" "}
+                      <b>{newVisibility}</b>.
+                    </div>
 
-                  <div
-                    className="field"
-                    style={{ marginTop: 16 }}
-                  >
-                    <label
-                      className="label"
-                      htmlFor="new-visibility"
+                    <div
+                      className="field"
+                      style={{ marginTop: 16 }}
                     >
-                      New visibility
-                    </label>
+                      <label
+                        className="label"
+                        htmlFor="new-visibility"
+                      >
+                        New visibility
+                      </label>
 
-                    <select
-                      id="new-visibility"
-                      className="input"
-                      value={newVisibility}
-                      onChange={(event) =>
-                        setNewVisibility(
-                          event.target
-                            .value as
+                      <select
+                        id="new-visibility"
+                        className="input"
+                        value={newVisibility}
+                        onChange={(event) =>
+                          setNewVisibility(
+                            event.target
+                              .value as
                             | "public"
                             | "private",
-                        )
-                      }
-                    >
-                      <option value="public">
-                        Public
-                      </option>
-                      <option value="private">
-                        Private
-                      </option>
-                    </select>
-                  </div>
+                          )
+                        }
+                      >
+                        <option value="public">
+                          Public
+                        </option>
+                        <option value="private">
+                          Private
+                        </option>
+                      </select>
+                    </div>
 
-                  <div
-                    className="field"
-                    style={{ marginTop: 16 }}
-                  >
-                    <label
-                      className="label"
-                      htmlFor="confirm-visibility"
+                    <div
+                      className="field"
+                      style={{ marginTop: 16 }}
                     >
-                      Type confirmation
-                    </label>
+                      <label
+                        className="label"
+                        htmlFor="confirm-visibility"
+                      >
+                        Type confirmation
+                      </label>
 
-                    <input
-                      id="confirm-visibility"
-                      className="input"
-                      placeholder={`make ${newVisibility}`}
-                      value={confirmInput}
-                      onChange={(event) =>
-                        setConfirmInput(
-                          event.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                </>
-              )}
+                      <input
+                        id="confirm-visibility"
+                        className="input"
+                        placeholder={`make ${newVisibility}`}
+                        value={confirmInput}
+                        onChange={(event) =>
+                          setConfirmInput(
+                            event.target.value,
+                          )
+                        }
+                      />
+                    </div>
+                  </>
+                )}
 
               {dangerModal.action ===
                 "transfer" && (
-                <>
-                  <div className="sub">
-                    Transfer{" "}
-                    <b>{repo.name}</b> from{" "}
-                    <b>{repoOwner}</b> to another owner.
-                  </div>
+                  <>
+                    <div className="sub">
+                      Transfer{" "}
+                      <b>{repo.name}</b> from{" "}
+                      <b>{repoOwner}</b> to another owner.
+                    </div>
 
-                  <div
-                    className="field"
-                    style={{ marginTop: 16 }}
-                  >
-                    <label
-                      className="label"
-                      htmlFor="new-owner"
+                    <div
+                      className="field"
+                      style={{ marginTop: 16 }}
                     >
-                      New owner
-                    </label>
+                      <label
+                        className="label"
+                        htmlFor="new-owner"
+                      >
+                        New owner
+                      </label>
 
-                    <input
-                      id="new-owner"
-                      className="input"
-                      placeholder="username"
-                      value={newOwnerInput}
-                      onChange={(event) =>
-                        setNewOwnerInput(
-                          event.target.value,
-                        )
-                      }
-                    />
-                  </div>
+                      <input
+                        id="new-owner"
+                        className="input"
+                        placeholder="username"
+                        value={newOwnerInput}
+                        onChange={(event) =>
+                          setNewOwnerInput(
+                            event.target.value,
+                          )
+                        }
+                      />
+                    </div>
 
-                  <div className="field">
-                    <label
-                      className="label"
-                      htmlFor="confirm-transfer"
-                    >
-                      Type confirmation
-                    </label>
+                    <div className="field">
+                      <label
+                        className="label"
+                        htmlFor="confirm-transfer"
+                      >
+                        Type confirmation
+                      </label>
 
-                    <input
-                      id="confirm-transfer"
-                      className="input"
-                      placeholder="transfer ownership"
-                      value={confirmInput}
-                      onChange={(event) =>
-                        setConfirmInput(
-                          event.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                </>
-              )}
+                      <input
+                        id="confirm-transfer"
+                        className="input"
+                        placeholder="transfer ownership"
+                        value={confirmInput}
+                        onChange={(event) =>
+                          setConfirmInput(
+                            event.target.value,
+                          )
+                        }
+                      />
+                    </div>
+                  </>
+                )}
 
               <div
                 className="actions"
@@ -5120,10 +5206,10 @@ export function RepoSettings() {
                   {executing
                     ? "Working…"
                     : dangerModal.action ===
-                        "delete"
+                      "delete"
                       ? "Delete repository"
                       : dangerModal.action ===
-                          "visibility"
+                        "visibility"
                         ? "Change visibility"
                         : "Transfer ownership"}
                 </Btn>
@@ -5258,8 +5344,8 @@ function BranchProtectionEditor({
                   Number(event.target.value),
                 )
                   ? Number(
-                      event.target.value,
-                    )
+                    event.target.value,
+                  )
                   : 0,
             })
           }
@@ -5493,165 +5579,6 @@ function DangerActionCard({
 /* New Repository                                                             */
 /* -------------------------------------------------------------------------- */
 
-export function NewRepository() {
-  const router = useRouter();
-
-  const [name, setName] = useState("");
-  const [description, setDescription] =
-    useState("");
-  const [isPrivate, setIsPrivate] =
-    useState(true);
-  const [creating, setCreating] =
-    useState(false);
-  const [error, setError] =
-    useState<string | null>(null);
-
-  const handleCreate = async () => {
-    setError(null);
-
-    if (!name.trim()) {
-      setError(
-        "Repository name is required.",
-      );
-      return;
-    }
-
-    setCreating(true);
-
-    try {
-      const repo =
-        await repositoryService.createRepository(
-          name.trim(),
-          description.trim(),
-          isPrivate,
-        );
-
-      router.push(
-        `/repositories/${encodeURIComponent(
-          repo.name,
-        )}`,
-      );
-    } catch (err: any) {
-      setError(
-        err?.detail ||
-          err?.message ||
-          "Unable to create repository",
-      );
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  return (
-    <>
-      
-
-      <Card>
-        <div className="card-pad form">
-          <div className="field">
-            <label className="label">
-              Repository name
-            </label>
-
-            <input
-              className="input"
-              value={name}
-              onChange={(event) =>
-                setName(
-                  event.target.value,
-                )
-              }
-              placeholder="my-awesome-project"
-              disabled={creating}
-            />
-          </div>
-
-          <div className="field">
-            <label className="label">
-              Description
-            </label>
-
-            <input
-              className="input"
-              value={description}
-              onChange={(event) =>
-                setDescription(
-                  event.target.value,
-                )
-              }
-              placeholder="What are you building?"
-              disabled={creating}
-            />
-          </div>
-
-          <div
-            className="row"
-            style={{
-              margin: "18px 0",
-            }}
-          >
-            <div>
-              <div className="title-sm">
-                Private repository
-              </div>
-              <div className="meta">
-                Only authorized users can access this repository.
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="btn"
-              onClick={() =>
-                setIsPrivate(
-                  (current) =>
-                    !current,
-                )
-              }
-            >
-              <Badge
-                tone={
-                  isPrivate
-                    ? "violet"
-                    : "green"
-                }
-              >
-                {isPrivate
-                  ? "Private"
-                  : "Public"}
-              </Badge>
-            </button>
-          </div>
-
-          {error && (
-            <div
-              className="sub"
-              style={{
-                color: "#ff8fa0",
-                marginBottom: 14,
-              }}
-            >
-              {error}
-            </div>
-          )}
-
-          <Btn
-            primary
-            onClick={
-              handleCreate as any
-            }
-            disabled={creating}
-          >
-            <I.Plus size={14} />
-            {creating
-              ? "Creating…"
-              : "Create repository"}
-          </Btn>
-        </div>
-      </Card>
-    </>
-  );
-}
 
 /* -------------------------------------------------------------------------- */
 /* Changes                                                                    */
@@ -6144,7 +6071,7 @@ export function PullRequestDetail() {
                 </span>
               </div>
             ))}
-        </div>
+          </div>
         </Card>
       </div>
     </>
@@ -6162,7 +6089,7 @@ export function Agents() {
         eyebrow="Autonomy"
         title="Agent Gateway"
         sub="Registered agents, credentials, capabilities, and current runs."
-        
+
       />
 
       <div className="grid g3">
@@ -6268,10 +6195,7 @@ export function AgentDetail() {
         title="Atlas"
         sub="Implementation agent · authorized for sutra-core and agent-sdk"
         action={
-          <>
-            <Btn>Rotate token</Btn>
-            <Btn primary>Run agent</Btn>
-          </>
+          <Btn>Rotate token</Btn>
         }
       />
 
@@ -6987,7 +6911,7 @@ export function Environments() {
                   style={{
                     width:
                       e[0] ===
-                      "Production"
+                        "Production"
                         ? "100%"
                         : "78%",
                   }}
@@ -7241,7 +7165,7 @@ export function Insights() {
             setLoading(true);
             insightsService.getGlobalInsights()
               .then(setData)
-              .catch(() => {})
+              .catch(() => { })
               .finally(() => setLoading(false));
           }}>
             <I.RefreshCw size={13} style={{ marginRight: 6 }} />
@@ -7766,422 +7690,278 @@ export function Marketplace() {
   );
 }
 
-export function Settings() {
-  const [githubStatus, setGithubStatus] = React.useState<{
-    connected: boolean;
-    account: string | null;
-    repo_count: number;
-    last_synced_at?: string | null;
-    sync_status?: string | null;
-  } | null>(null);
-  const [githubLoading, setGithubLoading] = React.useState(true);
-  const [githubBusy, setGithubBusy] = React.useState(false);
-  const [githubError, setGithubError] = React.useState<string | null>(null);
-  const [syncNotice, setSyncNotice] = React.useState<string | null>(null);
-  const [isDebounced, setIsDebounced] = React.useState<boolean>(false);
+export function SearchResults() {
+  const searchParams = useSearchParams();
+  const initialQ = searchParams?.get("q") || "";
+  const [query, setQuery] = useState(initialQ);
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [loading, setLoading] = useState(Boolean(initialQ));
+  const [error, setError] = useState<string | null>(null);
 
-  // Dynamically import integrations to avoid circular deps in large screens.tsx
-  const loadGithubStatus = async () => {
+  const executeSearch = async (term: string) => {
+    if (!term || !term.trim()) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
     try {
-      setGithubLoading(true);
-      setGithubError(null);
-      const { integrationService } = await import("../lib/integrations");
-      const status = await integrationService.getGitHubStatus();
-      setGithubStatus(status);
+      setLoading(true);
+      setError(null);
+      const data = await searchService.search(term.trim());
+      setResults(data);
     } catch (err: any) {
-      setGithubError(err?.message || "Failed to load GitHub status");
+      setError(err?.message || "Failed to execute search.");
     } finally {
-      setGithubLoading(false);
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    void loadGithubStatus();
-  }, []);
-
-  const handleConnectGitHub = async () => {
-    setGithubBusy(true);
-    setGithubError(null);
-    try {
-      const { integrationService } = await import("../lib/integrations");
-      const { redirect_url } = await integrationService.getGitHubConnectUrl();
-      window.location.href = redirect_url;
-    } catch (err: any) {
-      setGithubError(err?.message || "Failed to initiate GitHub connection");
-      setGithubBusy(false);
+    if (initialQ) {
+      setQuery(initialQ);
+      void executeSearch(initialQ);
     }
+  }, [initialQ]);
+
+  // Debounced live typing search
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
+    const handler = setTimeout(() => {
+      void executeSearch(trimmed);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [query]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void executeSearch(query);
   };
 
-  const handleDisconnectGitHub = async () => {
-    if (!confirm("Disconnect GitHub? Your synced repositories will remain but become read-only until reconnected.")) return;
-    setGithubBusy(true);
-    setGithubError(null);
-    try {
-      const { integrationService } = await import("../lib/integrations");
-      await integrationService.disconnectGitHub();
-      await loadGithubStatus();
-    } catch (err: any) {
-      setGithubError(err?.message || "Failed to disconnect GitHub");
-    } finally {
-      setGithubBusy(false);
-    }
-  };
-
-  const handleSyncGitHub = async (force: boolean = false) => {
-    setGithubBusy(true);
-    setGithubError(null);
-    setSyncNotice(null);
-    try {
-      const { integrationService } = await import("../lib/integrations");
-      const result = await integrationService.syncGitHub(force);
-      if (result.status === "debounced") {
-        setIsDebounced(true);
-        const mins = Math.max(1, Math.ceil((result.cooldown_remaining_seconds || 300) / 60));
-        setSyncNotice(`Sync was recently completed. Automatic sync cooldown active (~${mins}m remaining).`);
-      } else if (result.status === "queued") {
-        setIsDebounced(false);
-        setSyncNotice("Repository sync queued in the background. Repositories and engineering objects will update shortly.");
-      } else {
-        setIsDebounced(false);
-      }
-      await loadGithubStatus();
-    } catch (err: any) {
-      setGithubError("GitHub synchronization service is temporarily busy. Please try again shortly.");
-    } finally {
-      setGithubBusy(false);
-    }
-  };
+  const repoResults = results.filter(r => r.type === "repository");
+  const taskResults = results.filter(r => r.type === "task");
+  const prResults = results.filter(r => r.type === "pull_request");
+  const issueResults = results.filter(r => r.type === "issue");
+  const changeResults = results.filter(r => r.type === "change");
+  const actorResults = results.filter(r => r.type === "user" || r.type === "organization");
 
   return (
     <>
       <PageHead
-        eyebrow="Account"
-        title="Settings"
-        sub="Personal preferences, credentials, tokens, and integrations."
-      />
-
-      <div className="grid g2">
-        <Card>
-          <div className="card-head">
-            <div className="h2">
-              Profile
-            </div>
-          </div>
-
-          <div className="card-pad form">
-            <div className="field">
-              <label className="label">
-                Display name
-              </label>
-              <input
-                className="input"
-                value="Alex Sharma"
-                readOnly
-              />
-            </div>
-
-            <div className="field">
-              <label className="label">
-                Email
-              </label>
-              <input
-                className="input"
-                value="alex@sutra.dev"
-                readOnly
-              />
-            </div>
-
-            <div className="field">
-              <label className="label">
-                Password
-              </label>
-              <input
-                className="input"
-                value="••••••••••••"
-                readOnly
-              />
-            </div>
-
-            <Btn primary>
-              Save changes
-            </Btn>
-          </div>
-        </Card>
-
-        {/* GitHub Integration Card */}
-        <Card>
-          <div className="card-head">
-            <div className="h2">
-              GitHub
-            </div>
-            {githubStatus?.connected ? (
-              githubStatus.sync_status === "in_progress" ? (
-                <Badge tone="violet">Sync in progress</Badge>
-              ) : githubStatus.sync_status === "partial_failure" ? (
-                <Badge tone="amber">Partial sync failure</Badge>
-              ) : (
-                <Badge tone="green">Connected</Badge>
-              )
-            ) : (
-              <Badge tone="violet">Not connected</Badge>
-            )}
-          </div>
-
-          <div className="card-pad">
-            {githubLoading ? (
-              <div className="sub">Checking GitHub status…</div>
-            ) : githubStatus?.connected ? (
-              <>
-                <div className="sub" style={{ marginBottom: 4 }}>
-                  Connected as <strong>{githubStatus.account}</strong>
-                  {" · "}{githubStatus.repo_count} repositories synced
-                </div>
-                {githubStatus.last_synced_at && (
-                  <div className="sub" style={{ marginBottom: 12, fontSize: "0.82em", opacity: 0.75 }}>
-                    Last synchronized: {new Date(githubStatus.last_synced_at).toLocaleString()}
-                  </div>
-                )}
-                <div className="row" style={{ gap: 8, marginTop: 10 }}>
-                  <button
-                    className="btn"
-                    onClick={() => handleSyncGitHub(false)}
-                    disabled={githubBusy || githubStatus?.sync_status === "in_progress"}
-                    type="button"
-                  >
-                    {githubBusy || githubStatus?.sync_status === "in_progress" ? "Syncing…" : "Sync repositories"}
-                  </button>
-                  {isDebounced && (
-                    <button
-                      className="btn"
-                      onClick={() => handleSyncGitHub(true)}
-                      disabled={githubBusy}
-                      type="button"
-                      title="Bypass cooldown and synchronize immediately"
-                    >
-                      Force sync
-                    </button>
-                  )}
-                  <button
-                    className="btn"
-                    onClick={handleDisconnectGitHub}
-                    disabled={githubBusy}
-                    type="button"
-                    style={{ color: "#ff8fa0" }}
-                  >
-                    Disconnect
-                  </button>
-                </div>
-                {syncNotice && (
-                  <div className="sub" style={{ color: "#70c0e8", marginTop: 10 }}>
-                    {syncNotice}
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="sub" style={{ marginBottom: 12 }}>
-                  Connect your GitHub account to discover and manage repositories
-                  through the SUTRA GitHub App. GitHub remains the source of
-                  truth for repository contents and history.
-                </div>
-                <button
-                  className="btn primary"
-                  onClick={handleConnectGitHub}
-                  disabled={githubBusy}
-                  type="button"
-                >
-                  <I.GitBranch size={14} />
-                  {githubBusy ? "Redirecting…" : "Connect GitHub"}
-                </button>
-              </>
-            )}
-            {githubError && (
-              <div className="sub" style={{ color: "#ff8fa0", marginTop: 8 }}>
-                {githubError}
-              </div>
-            )}
-          </div>
-        </Card>
-      </div>
-    </>
-  );
-}
-
-
-export function SearchResults() {
-  return (
-    <>
-      <PageHead
-        eyebrow="Universal search"
+        eyebrow="Universal Search"
         title="Search"
-        sub="Search repositories, code, tasks, discussions, and people."
+        sub="Search repositories, tasks, pull requests, issues, changes, and actors across sovereign SUTRA control plane."
       />
 
-      <div
-        className="searchbox"
-        style={{
-          width: "100%",
-          height: 44,
-          marginBottom: 14,
-        }}
-      >
-        <I.Search size={16} />
-        <span>
-          trace streaming
-        </span>
-      </div>
+      <form onSubmit={handleSubmit} style={{ marginBottom: 20 }}>
+        <div
+          className="searchbox"
+          style={{
+            width: "100%",
+            height: 44,
+            display: "flex",
+            alignItems: "center",
+            padding: "0 14px",
+            background: "var(--card)",
+            border: "1px solid var(--line)",
+            borderRadius: 8,
+            gap: 10,
+          }}
+        >
+          <I.Search size={16} className="muted" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search repositories, tasks, PRs, issues, changes... (e.g. 'sutra', '#18', 'sync')"
+            style={{
+              flex: 1,
+              background: "transparent",
+              border: "none",
+              color: "var(--fg)",
+              fontSize: 14,
+              outline: "none",
+            }}
+          />
+          <Btn primary sm type="submit" disabled={loading}>
+            {loading ? "Searching..." : "Search"}
+          </Btn>
+        </div>
+      </form>
 
-      <div className="grid g2">
-        <Card>
-          <div className="card-head">
-            <div className="h2">
-              Repositories
-            </div>
-            <Badge>3 results</Badge>
-          </div>
-
-          <div className="list">
-            {[
-              "sutra-core",
-              "agent-sdk",
-              "trace-stream-demo",
-            ].map((x) => (
-              <div
-                className="list-row"
-                key={x}
-              >
-                <I.Box
-                  size={15}
-                  className="muted"
-                />
-
-                <div>
-                  <div className="title-sm">
-                    {x}
-                  </div>
-                  <div className="meta">
-                    Repository · updated today
-                  </div>
-                </div>
-              </div>
-            ))}
+      {error && (
+        <Card style={{ marginBottom: 16 }}>
+          <div className="card-pad" style={{ color: "#f87171" }}>
+            {error}
           </div>
         </Card>
+      )}
 
+      {loading ? (
         <Card>
-          <div className="card-head">
-            <div className="h2">
-              Code
-            </div>
-            <Badge>8 results</Badge>
-          </div>
-
-          <div className="list">
-            {[
-              "Trace.stream",
-              "AgentTraceEvent",
-              "stream.ts",
-              "useTraceStream",
-            ].map((x) => (
-              <div
-                className="list-row"
-                key={x}
-              >
-                <I.Code2
-                  size={15}
-                  className="muted"
-                />
-
-                <div>
-                  <div className="title-sm">
-                    {x}
-                  </div>
-                  <div className="meta">
-                    sutra-core · src/events
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="card-pad" style={{ textAlign: "center", padding: "48px 20px" }}>
+            <div className="sub">Searching engineering control plane...</div>
           </div>
         </Card>
-
+      ) : results.length === 0 && query.trim() ? (
         <Card>
-          <div className="card-head">
-            <div className="h2">
-              Changes
-            </div>
-            <Badge>2 results</Badge>
-          </div>
-
-          <div className="list">
-            <div className="list-row">
-              <I.GitBranch size={15} />
-
-              <div>
-                <div className="title-sm">
-                  #482 Add trace event streaming
-                </div>
-                <div className="meta">
-                  Atlas · main
-                </div>
-              </div>
-            </div>
-
-            <div className="list-row">
-              <I.GitBranch size={15} />
-
-              <div>
-                <div className="title-sm">
-                  #471 Improve trace viewer
-                </div>
-                <div className="meta">
-                  Alex · main
-                </div>
-              </div>
+          <div className="card-pad" style={{ textAlign: "center", padding: "48px 20px" }}>
+            <I.Search size={32} className="muted" style={{ marginBottom: 12, opacity: 0.4 }} />
+            <div className="title-sm" style={{ fontWeight: 600 }}>No results found</div>
+            <div className="sub" style={{ marginTop: 4 }}>
+              No matches found for &quot;{query}&quot;. Try a repository name, issue #, PR title, or task keyword.
             </div>
           </div>
         </Card>
-
+      ) : results.length === 0 ? (
         <Card>
-          <div className="card-head">
-            <div className="h2">
-              People
+          <div className="card-pad" style={{ textAlign: "center", padding: "48px 20px" }}>
+            <I.Compass size={32} className="muted" style={{ marginBottom: 12, opacity: 0.4 }} />
+            <div className="title-sm" style={{ fontWeight: 600 }}>Universal SUTRA Search</div>
+            <div className="sub" style={{ marginTop: 4 }}>
+              Search across your local and GitHub repositories, tasks, pull requests, issues, changes, and human/agent actors.
             </div>
-            <Badge>2 results</Badge>
-          </div>
-
-          <div className="list">
-            {[
-              "Alex Sharma",
-              "Jordan Mehta",
-            ].map((x) => (
-              <div
-                className="list-row"
-                key={x}
-              >
-                <div
-                  className="avatar"
-                  style={{
-                    width: 28,
-                    height: 28,
-                  }}
-                >
-                  AS
-                </div>
-
-                <div>
-                  <div className="title-sm">
-                    {x}
-                  </div>
-                  <div className="meta">
-                    Developer · SUTRA Labs
-                  </div>
-                </div>
-              </div>
-            ))}
           </div>
         </Card>
-      </div>
+      ) : (
+        <div className="grid g2">
+          {repoResults.length > 0 && (
+            <Card>
+              <div className="card-head">
+                <div className="h2">Repositories</div>
+                <Badge tone="green">{repoResults.length} {repoResults.length === 1 ? "result" : "results"}</Badge>
+              </div>
+              <div className="list">
+                {repoResults.map(repo => (
+                  <Link key={repo.url} href={repo.url} className="list-row" style={{ textDecoration: "none", color: "inherit" }}>
+                    <I.Box size={16} className="muted" style={{ flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="title-sm" style={{ fontWeight: 600 }}>{repo.name}</div>
+                      <div className="meta" style={{ marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {repo.description || "Repository"}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {taskResults.length > 0 && (
+            <Card>
+              <div className="card-head">
+                <div className="h2">Tasks</div>
+                <Badge tone="aqua">{taskResults.length} {taskResults.length === 1 ? "result" : "results"}</Badge>
+              </div>
+              <div className="list">
+                {taskResults.map(task => (
+                  <Link key={task.url} href={task.url} className="list-row" style={{ textDecoration: "none", color: "inherit" }}>
+                    <I.ListTodo size={16} className="cyan" style={{ flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="title-sm" style={{ fontWeight: 600 }}>{task.name}</div>
+                      <div className="meta" style={{ marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {task.description || "Task"}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {prResults.length > 0 && (
+            <Card>
+              <div className="card-head">
+                <div className="h2">Pull Requests</div>
+                <Badge tone="violet">{prResults.length} {prResults.length === 1 ? "result" : "results"}</Badge>
+              </div>
+              <div className="list">
+                {prResults.map(pr => (
+                  <Link key={pr.url} href={pr.url} className="list-row" style={{ textDecoration: "none", color: "inherit" }}>
+                    <I.GitPullRequest size={16} className="muted" style={{ flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="title-sm" style={{ fontWeight: 600 }}>{pr.name}</div>
+                      <div className="meta" style={{ marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {pr.description || "Pull Request"}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {issueResults.length > 0 && (
+            <Card>
+              <div className="card-head">
+                <div className="h2">Issues</div>
+                <Badge tone="amber">{issueResults.length} {issueResults.length === 1 ? "result" : "results"}</Badge>
+              </div>
+              <div className="list">
+                {issueResults.map(issue => (
+                  <Link key={issue.url} href={issue.url} className="list-row" style={{ textDecoration: "none", color: "inherit" }}>
+                    <I.CircleDot size={16} className="amber" style={{ flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="title-sm" style={{ fontWeight: 600 }}>{issue.name}</div>
+                      <div className="meta" style={{ marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {issue.description || "Issue"}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {changeResults.length > 0 && (
+            <Card>
+              <div className="card-head">
+                <div className="h2">Changes</div>
+                <Badge tone="blue">{changeResults.length} {changeResults.length === 1 ? "result" : "results"}</Badge>
+              </div>
+              <div className="list">
+                {changeResults.map(change => (
+                  <Link key={change.url} href={change.url} className="list-row" style={{ textDecoration: "none", color: "inherit" }}>
+                    <I.GitCommit size={16} className="muted" style={{ flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="title-sm" style={{ fontWeight: 600 }}>{change.name}</div>
+                      <div className="meta" style={{ marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {change.description || "Change"}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {actorResults.length > 0 && (
+            <Card>
+              <div className="card-head">
+                <div className="h2">Users & Organizations</div>
+                <Badge tone="gray">{actorResults.length} {actorResults.length === 1 ? "result" : "results"}</Badge>
+              </div>
+              <div className="list">
+                {actorResults.map(actor => (
+                  <Link key={actor.url} href={actor.url} className="list-row" style={{ textDecoration: "none", color: "inherit" }}>
+                    <div className="avatar" style={{ width: 28, height: 28, flexShrink: 0 }}>
+                      {actor.name.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="title-sm" style={{ fontWeight: 600 }}>{actor.name}</div>
+                      <div className="meta" style={{ marginTop: 2 }}>{actor.type}</div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
     </>
   );
 }

@@ -7,6 +7,8 @@ from uuid import uuid4
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
+
 from app.models.actor import Actor
 from app.models.agent import Agent
 from app.models.agent_session import AgentSession
@@ -212,6 +214,8 @@ class GovernanceService:
 
         effective_branch_rule = self.branch_service.get_effective_rule(repo.id, pr.target_branch)
         require_ci_rule = getattr(effective_branch_rule, "require_ci_passed", False) if effective_branch_rule else False
+        repo_policies = (repo.settings or {}).get("policies", {})
+        ci_required = require_ci_rule or repo_policies.get("require_ci_passed", False)
 
         ci_status = "none"
         if ci_failed > 0:
@@ -219,8 +223,12 @@ class GovernanceService:
             failing_check_names = [c["name"] for c in checks_data.get("checks", []) if c.get("sutra_state") in ("failed", "failure")]
             failed.append(f"Required CI check(s) failed: {', '.join(failing_check_names) if failing_check_names else 'Check failure'}.")
         elif ci_running > 0 or ci_pending > 0:
-            ci_status = "running"
-            failed.append("Automated CI checks are still running or pending.")
+            if ci_required:
+                ci_status = "running"
+                failed.append("Automated CI checks are still running or pending.")
+            else:
+                ci_status = "passed"
+                passed.append("Automated CI checks in progress; not configured as a blocking policy gate.")
         elif ci_total == 0:
             ci_status = "no_ci_file"
             passed.append("No CI workflow file found in codebase. Automated checks waived; PR merge is not blocked.")
@@ -273,6 +281,57 @@ class GovernanceService:
                 if org_policy:
                     required_approvals = org_policy.minimum_pr_approvals
 
+        # Check repository-configured PR policies
+        repo_policies = (repo.settings or {}).get("policies", {})
+        if repo_policies.get("min_approvals"):
+            try:
+                min_appr = int(repo_policies["min_approvals"])
+                if min_appr > required_approvals:
+                    required_approvals = min_appr
+            except (ValueError, TypeError):
+                pass
+
+        if repo_policies.get("require_task_linkage"):
+            if not task_id:
+                policy_passed = False
+                failed.append("Repository policy requires pull request to be linked to an active SUTRA Task.")
+            else:
+                passed.append(f"Repository policy satisfied: Linked to SUTRA Task #{task_id[:8]}.")
+
+        if repo_policies.get("enforce_governed_provenance"):
+            if not provenance_verified:
+                policy_passed = False
+                failed.append("Repository policy requires verified SUTRA author/agent provenance.")
+            else:
+                passed.append("Repository policy satisfied: SUTRA provenance verified.")
+
+        if repo_policies.get("require_ci_passed") and not (effective_branch_rule and getattr(effective_branch_rule, "require_ci_passed", False)):
+            if ci_status != "passed":
+                policy_passed = False
+                failed.append("Repository policy requires all automated CI checks to pass.")
+            else:
+                passed.append("Repository policy satisfied: Automated CI checks passed.")
+
+        if repo_policies.get("require_agent_review") and not (effective_branch_rule and effective_branch_rule.require_agent_review):
+            agent_svc = AgentReviewService(self.db)
+            summary = agent_svc.get_agent_review_summary(pr.id, pr.author_id, is_agent=False)
+            if summary.get("total_findings", 0) == 0 and summary.get("participating_agents_count", 0) == 0:
+                policy_passed = False
+                failed.append("Repository policy requires automated AI agent review.")
+            else:
+                passed.append("Repository policy satisfied: AI agent review participated.")
+
+        if repo_policies.get("require_no_blocking_findings") and not (effective_branch_rule and effective_branch_rule.require_no_blocking_agent_findings):
+            agent_svc = AgentReviewService(self.db)
+            summary = agent_svc.get_agent_review_summary(pr.id, pr.author_id, is_agent=False)
+            crit = summary.get("severity_distribution", {}).get("critical", 0)
+            high = summary.get("severity_distribution", {}).get("high", 0)
+            if crit > 0 or high > 0:
+                policy_passed = False
+                failed.append(f"Repository policy failed: {crit + high} unresolved critical/high agent findings.")
+            else:
+                passed.append("Repository policy satisfied: Zero blocking agent findings.")
+
         if policy_passed and not branch_failed_gates:
             passed.append("Change risk, conflict, and repository policies satisfied.")
 
@@ -306,13 +365,18 @@ class GovernanceService:
         approved_head_sha = change_meta.get("approved_head_sha")
 
         for r in reviews:
+            review_head = reviewed_head_shas.get(r.id, approved_head_sha)
             if r.reviewer_id in author_ids:
                 self_approval_prevented = True
                 warnings.append("Self-approval by author/agent is strictly prohibited and was excluded from approval count.")
-            elif head_sha and r.id in reviewed_head_shas and reviewed_head_shas[r.id] != head_sha:
+            elif head_sha and review_head and review_head != head_sha:
                 warnings.append(
-                    f"Review by {r.reviewer_id[:8]} was approved for earlier commit {reviewed_head_shas[r.id][:8]} "
+                    f"Review by {r.reviewer_id[:8]} was approved for earlier commit {review_head[:8]} "
                     f"and does not authorize current HEAD {head_sha[:8]}. Fresh review required."
+                )
+            elif head_sha and not review_head:
+                warnings.append(
+                    f"Review by {r.reviewer_id[:8]} lacks commit binding for current HEAD {head_sha[:8]}. Fresh review required."
                 )
             else:
                 valid_reviews.append(r)
@@ -325,8 +389,12 @@ class GovernanceService:
             warnings.append(
                 f"Previous approval was for commit {approved_head_sha[:8]}; new commit {head_sha[:8]} requires fresh review."
             )
-            if pr.status == PullRequest.STATUS_APPROVED:
-                review_satisfied = False
+            review_satisfied = False
+        elif head_sha and not approved_head_sha and pr.status == PullRequest.STATUS_APPROVED:
+            warnings.append(
+                f"PR approval is not bound to current HEAD commit {head_sha[:8]}. Fresh review required."
+            )
+            review_satisfied = False
 
         if review_satisfied:
             passed.append(f"Required reviews satisfied ({actual_approvals}/{required_approvals} approvals).")
@@ -420,6 +488,7 @@ class GovernanceService:
                 "branch_rule_matched": effective_branch_rule is not None,
                 "branch_pattern": effective_branch_rule.branch_pattern if effective_branch_rule else None,
                 "failed_gates": branch_failed_gates,
+                "repo_policies": repo_policies,
             },
             "review": {
                 "satisfied": review_satisfied,
@@ -498,3 +567,89 @@ class GovernanceService:
         self.db.add(event)
         self.db.flush()
         return event
+
+    def _get_default_github_provider(self) -> Optional[RepositoryProvider]:
+        if getattr(settings, "github_app_id", None) and getattr(settings, "github_private_key_pem", None):
+            try:
+                from app.providers.github.auth import GitHubAppAuthService
+                from app.providers.github.repository import GitHubRepositoryProvider
+
+                auth_svc = GitHubAppAuthService(
+                    app_id=settings.github_app_id,
+                    private_key_pem=settings.github_private_key_pem,
+                    base_url=settings.github_api_base_url,
+                )
+                return GitHubRepositoryProvider(auth_service=auth_svc, base_url=settings.github_api_base_url)
+            except Exception as e:
+                logger.warning(f"Failed to instantiate default GitHub provider: {e}")
+        return None
+
+    def sync_governance_check_to_github(
+        self,
+        pull_request_id: str,
+        evaluation_result: Optional[Dict[str, Any]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Synchronizes authoritative SUTRA Governance status as a GitHub check run
+        named 'SUTRA Governance' on the PR HEAD commit.
+        """
+        pr = self.db.scalar(select(PullRequest).where(PullRequest.id == pull_request_id))
+        if not pr:
+            return None
+
+        repo = self.db.scalar(
+            select(Repository).where(
+                Repository.id == pr.repository_id,
+                Repository.deleted_at.is_(None),
+            )
+        )
+        if not repo or repo.provider_type != "github" or not repo.provider_owner:
+            return None
+
+        head_sha = pr.source_commit
+        if not head_sha:
+            change = self.db.scalar(select(Change).where(Change.id == pr.source_change_id))
+            head_sha = change.resulting_commit if change else None
+
+        if not head_sha:
+            return None
+
+        eval_res = evaluation_result or self.evaluate_pull_request(pr.id, record_audit=False)
+        verdict = eval_res.get("verdict")
+        failed_reasons = eval_res.get("failed", [])
+
+        if verdict == GovernanceVerdict.READY_FOR_MERGE:
+            status_val = "completed"
+            conclusion_val = "success"
+            title = "SUTRA Governance: PASS"
+            summary = "All governance policies, provenance verification, required reviews, and CI gates passed."
+        elif verdict in (GovernanceVerdict.BLOCKED, GovernanceVerdict.CI_FAILED, GovernanceVerdict.POLICY_FAILED):
+            status_val = "completed"
+            conclusion_val = "failure"
+            title = f"SUTRA Governance: {verdict}"
+            summary = "; ".join(failed_reasons) if failed_reasons else f"Governance policy check failed ({verdict})."
+        else:
+            status_val = "in_progress"
+            conclusion_val = None
+            title = f"SUTRA Governance: {verdict}"
+            summary = "Governance check in progress. Awaiting required independent human review or pending automated CI."
+
+        provider = self.provider or self._get_default_github_provider()
+        if not provider or not hasattr(provider, "create_check_run"):
+            return None
+
+        try:
+            return provider.create_check_run(
+                owner=repo.provider_owner,
+                name=repo.name,
+                check_name="SUTRA Governance",
+                head_sha=head_sha,
+                status=status_val,
+                conclusion=conclusion_val,
+                title=title,
+                summary=summary,
+                details_url=f"{settings.sutra_base_url}/repositories/{repo.slug}/pulls/{pr.id}",
+            )
+        except Exception as e:
+            logger.warning(f"Could not synchronize SUTRA Governance check run to GitHub: {e}")
+            return None

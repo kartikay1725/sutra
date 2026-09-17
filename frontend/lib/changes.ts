@@ -119,8 +119,21 @@ export interface ChangeFile {
 }
 
 export const changeService = {
-  async getAllChanges(): Promise<Change[]> {
-    return apiAuth<Change[]>("/v1/changes");
+  async getAllChanges(options?: {
+    actor_type?: string;
+    status?: string;
+    risk_level?: string;
+    search?: string;
+    agent_id?: string;
+  }): Promise<Change[]> {
+    const params = new URLSearchParams();
+    if (options?.actor_type && options.actor_type !== "all") params.set("actor_type", options.actor_type);
+    if (options?.status && options.status !== "all") params.set("status", options.status);
+    if (options?.risk_level && options.risk_level !== "all") params.set("risk_level", options.risk_level);
+    if (options?.search?.trim()) params.set("search", options.search.trim());
+    if (options?.agent_id) params.set("agent_id", options.agent_id);
+    const qs = params.toString();
+    return apiAuth<Change[]>(qs ? `/v1/changes?${qs}` : "/v1/changes");
   },
 
   async listChanges(

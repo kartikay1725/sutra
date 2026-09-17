@@ -62,6 +62,10 @@ export const agentService = {
     return apiAuth<Agent[]>(`/v1/agents`);
   },
 
+  async getAgent(agentId: string): Promise<Agent> {
+    return apiAuth<Agent>(`/v1/agents/${encodeURIComponent(agentId)}`);
+  },
+
   async createAgent(payload: CreateAgentPayload): Promise<AgentCreated> {
     return apiAuth<AgentCreated>(`/v1/agents`, {
       method: "POST",

@@ -3,8 +3,10 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Bot, CheckCircle2, GitBranch, Play, ShieldCheck, MessageSquare, Plus, Check, GitPullRequest, ArrowRight, Sparkles } from "lucide-react";
-import { Page, Card, Badge, SutraLoading } from "@/components/ui";
+import { Bot, CheckCircle2, GitBranch, Play, ShieldCheck, Plus, Check, GitPullRequest, ArrowRight, Sparkles } from "lucide-react";
+import { Page, Card, Badge, Skeleton } from "@/components/ui";
+import { AppShell } from "@/components/shell";
+import { formatErrorMessage } from "@/lib/api";
 import { Task, taskService } from "@/lib/tasks";
 import { Agent, agentService } from "@/lib/agents";
 import { ciService, type PRChecksResponse } from "@/lib/ci";
@@ -20,11 +22,12 @@ export default function TaskPage() {
   const [checks, setChecks] = useState<PRChecksResponse | null>(null);
   const [gov, setGov] = useState<GovernanceEvaluation | null>(null);
   const [loading, setLoading] = useState(true);
-  const [assigning, setAssigning] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadData = () => {
     if (!id) return;
     setLoading(true);
+    setLoadError(null);
     Promise.all([
       taskService.getTask(id),
       agentService.listAgents().catch(() => []) // gracefully handle if agents fail
@@ -37,65 +40,64 @@ export default function TaskPage() {
         governanceService.getPRGovernance(t.resulting_pull_request_id).then(setGov).catch(() => {});
       }
     })
-    .catch(console.error)
+    .catch((error) => {
+      console.error(error);
+      setLoadError(formatErrorMessage(error));
+    })
     .finally(() => setLoading(false));
   };
 
   useEffect(() => {
     loadData();
-    
-    // Poll every 5 seconds if not finished
+
+    if (task && (task.status === "completed" || task.status === "done" || task.status === "cancelled")) {
+      return;
+    }
+
+    // Active tasks need live updates, but terminal tasks should be quiet.
     const interval = setInterval(() => {
       if (!id) return;
-      Promise.all([
-        taskService.getTask(id),
-        agentService.listAgents().catch(() => [])
-      ]).then(([t, a]) => {
-        setTask(t);
-        setAgents(a);
-        if (t?.resulting_pull_request_id) {
-          ciService.getPRChecks(t.resulting_pull_request_id).then(setChecks).catch(() => {});
-          governanceService.getPRGovernance(t.resulting_pull_request_id).then(setGov).catch(() => {});
-        }
-      }).catch(console.error);
-    }, 5000);
+      void loadData();
+    }, 15000);
     
     return () => clearInterval(interval);
-  }, [id]);
-
-  const handleAssign = (agentId: string) => {
-    setAssigning(true);
-    taskService.assignTask(id, agentId)
-      .then(() => loadData())
-      .catch(console.error)
-      .finally(() => setAssigning(false));
-  };
-
-  const handleDispatchNext = async () => {
-    if (!task) return;
-    const available = agents.find(a => a.status === 'idle' || a.is_active);
-    if (available) {
-      handleAssign(available.id);
-    } else {
-      alert("No available agents to dispatch");
-    }
-  };
+  }, [id, task?.status]);
 
   if (loading) {
     return (
-      <Page eyebrow={"Task #" + id.slice(0, 8)} title="Task Execution Details" description="Loading sovereign session & governance status...">
-        <Card>
-          <SutraLoading message="Resolving task intent, agent telemetry & CI governance..." quote={true} />
-        </Card>
-      </Page>
+      <AppShell>
+        <Page eyebrow={"Task #" + id.slice(0, 8)} title="Task Execution Details" description="Loading sovereign session & governance status...">
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <Card style={{ padding: "24px 28px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
+                  <Skeleton width={260} height={22} borderRadius={4} />
+                  <Skeleton width={380} height={14} borderRadius={4} />
+                </div>
+                <Skeleton width={80} height={24} borderRadius={12} />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginTop: 20 }}>
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} style={{ padding: 12, borderRadius: 8, background: "var(--bg-subtle)" }}>
+                    <Skeleton width={60} height={11} borderRadius={3} style={{ marginBottom: 6 }} />
+                    <Skeleton width={90} height={16} borderRadius={4} />
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+        </Page>
+      </AppShell>
     );
   }
 
   if (!task) {
     return (
-      <Page eyebrow={"Task #" + id.slice(0, 8)} title="Not Found" description="">
-        <p className="muted" style={{ padding: 20 }}>Task could not be found.</p>
-      </Page>
+      <AppShell>
+        <Page eyebrow={"Task #" + id.slice(0, 8)} title={loadError ? "Unable to load task" : "Not Found"} description="">
+          <p className="muted" style={{ padding: 20 }}>{loadError || "Task could not be found."}</p>
+        </Page>
+      </AppShell>
     );
   }
 
@@ -106,9 +108,10 @@ export default function TaskPage() {
   const assignedAgent = agents.find(a => a.id === task.assigned_agent_id);
 
   return (
-    <Page 
-      eyebrow={
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+    <AppShell>
+      <Page 
+        eyebrow={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span>{"Task #" + id.slice(0, 8)}</span>
           {task.source === "agent" ? (
             <span className="badge indigo" style={{ fontSize: "11px", padding: "2px 8px", display: "inline-flex", alignItems: "center", gap: 4 }}>
@@ -125,12 +128,6 @@ export default function TaskPage() {
       description={task.description || "No description provided."} 
       actions={
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {isOpen && (
-             <button className="btn outline" onClick={handleDispatchNext} disabled={assigning}>
-               Auto-Dispatch
-             </button>
-          )}
-          {isInProgress && <button className="btn">Reassign</button>}
           {task.resulting_change_id && (
              <Link href={`/changes/${task.resulting_change_id}`} className="btn outline" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                <GitBranch size={14} /> Open Change
@@ -151,8 +148,69 @@ export default function TaskPage() {
         </div>
       }
     >
+      {/* Authoritative Single Primary Lifecycle State Banner */}
+      {(() => {
+        let primaryState = "READY";
+        let primaryTone: "green" | "aqua" | "amber" | "red" | "violet" | "gray" = "gray";
+        let primaryDesc = "Task is open and awaiting connected agent execution.";
+
+        if (isCompleted) {
+          primaryState = "COMPLETED";
+          primaryTone = "green";
+          primaryDesc = "Task implementation completed and verified.";
+        } else if (task.status === "cancelled" || task.status === "failed") {
+          primaryState = "FAILED";
+          primaryTone = "red";
+          primaryDesc = "Task execution was cancelled or failed.";
+        } else if (checks && checks.overall_status === "failed") {
+          primaryState = "BLOCKED";
+          primaryTone = "red";
+          primaryDesc = "Automated CI verification checks are failing.";
+        } else if (gov && (gov.verdict === "BLOCKED" || gov.policy?.passed === false)) {
+          primaryState = "BLOCKED";
+          primaryTone = "red";
+          primaryDesc = "Blocked by sovereign engineering governance policy.";
+        } else if (gov?.review?.satisfied) {
+          primaryState = "READY";
+          primaryTone = "green";
+          primaryDesc = "Required human reviews satisfied — ready for governed merge.";
+        } else if (gov?.ready_for_approval || gov?.verdict === "READY_FOR_APPROVAL" || gov?.verdict === "NEEDS_REVIEW") {
+          primaryState = "WAITING FOR APPROVAL";
+          primaryTone = "amber";
+          primaryDesc = "Awaiting required sovereign human reviewer approval.";
+        } else if (task.resulting_pull_request_id) {
+          primaryState = "WAITING FOR REVIEW";
+          primaryTone = "violet";
+          primaryDesc = "Pull request open — undergoing review and automated validation.";
+        } else if (isInProgress || task.claimed_by_session_id) {
+          primaryState = "RUNNING";
+          primaryTone = "aqua";
+          primaryDesc = "Connected agent actively executing task under active session lease.";
+        }
+
+        return (
+          <div className="task-status-banner">
+            <div className="task-status-main">
+              <span className={`task-status-dot is-${primaryTone}`} />
+              <div>
+                <div className="task-status-kicker">Primary Lifecycle State</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+                  <strong style={{ fontSize: 16, letterSpacing: "0.02em" }}>{primaryState}</strong>
+                  <Badge tone={primaryTone}>{primaryState}</Badge>
+                </div>
+                <div className="sub" style={{ marginTop: 4, fontSize: 12 }}>{primaryDesc}</div>
+              </div>
+            </div>
+            <div className="task-status-meta">
+              <span><span className="task-status-label">Next Actor</span>{isCompleted ? "None (Complete)" : primaryState === "WAITING FOR APPROVAL" ? "Human Reviewer" : isInProgress ? "Connected Agent" : "Agent Integration"}</span>
+              <span><span className="task-status-label">Task ID</span><code>{id.slice(0, 8)}</code></span>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* SUTRA Pipeline Stepper */}
-      <Card style={{ marginBottom: 20 }}>
+      <Card className="task-pipeline" style={{ marginBottom: 20 }}>
         <div style={{ padding: "16px 20px", overflowX: "auto" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 720, fontSize: 13 }}>
             {[
@@ -188,7 +246,7 @@ export default function TaskPage() {
 
       {/* Agent Execution & Validation Record Card */}
       {(task.source === "agent" || task.execution_summary || task.validation_summary) && (
-        <Card style={{ marginBottom: 20, border: "1px solid rgba(129, 140, 248, 0.25)", background: "var(--bg-subtle)" }}>
+        <Card className="task-record" style={{ marginBottom: 20, border: "1px solid rgba(129, 140, 248, 0.25)", background: "var(--bg-subtle)" }}>
           <div style={{ padding: "18px 20px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, borderBottom: "1px solid var(--line)", paddingBottom: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -244,12 +302,13 @@ export default function TaskPage() {
         taskId={id}
         pullRequestId={task.resulting_pull_request_id || undefined}
         changeId={task.resulting_change_id || undefined}
+        className="task-lifecycle"
         style={{ marginBottom: 20 }}
       />
 
       {/* Resulting Pull Request Banner if exists */}
       {task.resulting_pull_request_id && (
-        <Card style={{ marginBottom: 20, border: "1px solid rgba(0, 240, 255, 0.25)", background: "var(--bg-subtle)" }}>
+        <Card className="task-pr-banner" style={{ marginBottom: 20, border: "1px solid rgba(0, 240, 255, 0.25)", background: "var(--bg-subtle)" }}>
           <div style={{ padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(0, 240, 255, 0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -306,23 +365,17 @@ export default function TaskPage() {
         </Card>
       )}
 
-      <div className="grid grid3">
+      <div className="grid grid3 task-stats">
         {/* Agent Card */}
-        <Card>
+        <Card className="task-stat-card">
           <div className="statlabel">Agent Status</div>
           {isOpen ? (
             <div style={{ marginTop: 12 }}>
-              <div className="sub" style={{ marginBottom: 12 }}>Available Agents</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {agents.length === 0 ? <div className="muted">No agents available</div> : 
-                 agents.map(a => (
-                   <div key={a.id} className="list-row" style={{ padding: "8px", border: "1px solid var(--line)", borderRadius: 6 }}>
-                     <Bot size={15} />
-                     <div style={{ flex: 1, fontSize: 13 }}>{a.name}</div>
-                     <button className="btn outline" style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => handleAssign(a.id)} disabled={assigning}>Assign</button>
-                   </div>
-                 ))
-                }
+              <div className="sub" style={{ marginBottom: 8, fontSize: 13, color: "var(--muted)" }}>
+                Agents connect to SUTRA through supported integrations.
+              </div>
+              <div style={{ padding: "10px 12px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12, color: "var(--text-secondary)" }}>
+                Open for autonomous claiming via MCP or Agent Protocol.
               </div>
             </div>
           ) : (
@@ -330,18 +383,20 @@ export default function TaskPage() {
               <div className="agentcard" style={{marginTop:12}}>
                 <div className="agenticon"><Bot size={18}/></div>
                 <div>
-                  <strong>{assignedAgent ? assignedAgent.name : (task.assigned_agent_id || "Unassigned")}</strong>
-                  <div className="sub">{assignedAgent ? assignedAgent.model : "Agent"}</div>
+                  <strong>{assignedAgent ? assignedAgent.name : (task.assigned_agent_id || "Connected Agent")}</strong>
+                  <div className="sub">{assignedAgent ? assignedAgent.model : "Autonomous Agent"}</div>
                 </div>
-                {isCompleted ? <Badge tone="gray">finished</Badge> : <Badge tone="green">working</Badge>}
+                {isCompleted ? <Badge tone="gray">finished</Badge> : <Badge tone="green">active</Badge>}
               </div>
               <div className="section">
                 <div className="sub">Assignment status</div>
                 <div style={{marginTop:6}}>
-                  <strong className={isCompleted ? "muted" : "cyan"}>{isCompleted ? "Completed" : "Active"}</strong>
-                  <span className="muted" style={{marginLeft: 6}}>
-                    {isCompleted && task.completed_at ? new Date(task.completed_at).toLocaleString() : ""}
-                  </span>
+                  <strong className={isCompleted ? "muted" : "cyan"}>{isCompleted ? "Completed" : "Active Lease"}</strong>
+                  {task.lease_expires_at && !isCompleted && (
+                    <span className="muted" style={{marginLeft: 6, fontSize: 11}}>
+                      · Lease active
+                    </span>
+                  )}
                 </div>
               </div>
             </>
@@ -349,30 +404,37 @@ export default function TaskPage() {
         </Card>
 
         {/* Execution Card */}
-        <Card>
-          <div className="statlabel">Execution</div>
-          <div className="statvalue">{isCompleted ? "100%" : isInProgress ? "67%" : "0%"}</div>
-          <div className="progress" style={{marginTop:12}}>
-            <i style={{width: isCompleted ? "100%" : isInProgress ? "67%" : "0%"}}/>
-          </div>
-          <div className="sub" style={{ marginTop: 8 }}>
-            {isCompleted ? `Completed at ${task.completed_at ? new Date(task.completed_at).toLocaleString() : 'recently'}` 
-             : isInProgress ? "Workspace sandbox · Active" : "Pending assignment"}
+        <Card className="task-stat-card">
+          <div className="statlabel">Execution Lifecycle</div>
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 18, fontWeight: 600, color: isCompleted ? "var(--green)" : isInProgress ? "var(--cyan)" : "var(--muted)" }}>
+              {isCompleted ? "Complete" : isInProgress ? "Active Execution" : "Pending Intake"}
+            </div>
+            <div className="sub" style={{ marginTop: 8, fontSize: 12 }}>
+              {task.completed_at ? `Completed ${new Date(task.completed_at).toLocaleString()}`
+               : task.started_at ? `Started ${new Date(task.started_at).toLocaleString()}`
+               : `Created ${new Date(task.created_at).toLocaleString()}`}
+            </div>
+            {task.execution_summary && (
+              <div style={{ marginTop: 10, fontSize: 12, padding: "8px 10px", background: "rgba(0,0,0,0.2)", borderRadius: 6, border: "1px solid var(--line)", whiteSpace: "pre-wrap" }}>
+                {task.execution_summary}
+              </div>
+            )}
           </div>
         </Card>
 
         {/* Validation Card */}
-        <Card>
-          <div className="statlabel">Validation</div>
+        <Card className="task-stat-card">
+          <div className="statlabel">Validation & CI</div>
           <div style={{marginTop:10}}>
             {checks ? (
               checks.summary.total === 0 ? (
                 <>
                   <div className="statusline green" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <CheckCircle2 size={14} /> No CI file · Not blocked
+                    <CheckCircle2 size={14} /> No CI workflow required
                   </div>
                   <div style={{ marginTop: 6, fontSize: 11, color: 'var(--muted)' }}>
-                    No CI workflow file found in codebase. Automated checks waived; PR merge is not blocked.
+                    No CI workflow configured in repository. Governance evaluation is not blocked.
                   </div>
                 </>
               ) : (
@@ -399,22 +461,24 @@ export default function TaskPage() {
                   )}
                 </>
               )
-            ) : isCompleted || isInProgress ? (
-              <>
-                <div className={`statusline ${isCompleted ? 'green' : 'amber'}`}><CheckCircle2 size={14}/> {isCompleted ? '18 / 18 tests passing' : 'Running tests...'}</div>
-                <div className={`statusline ${isCompleted ? 'green' : 'amber'}`} style={{marginTop:8}}><ShieldCheck size={14}/> {isCompleted ? 'Security clean' : 'Scanning...'}</div>
-                {isInProgress && <div className="statusline cyan" style={{marginTop:8}}><Play size={14}/> CI running</div>}
-              </>
+            ) : isCompleted ? (
+              <div className="statusline green" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <CheckCircle2 size={14} /> Execution verified
+              </div>
+            ) : isInProgress ? (
+              <div className="statusline cyan" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Play size={14} /> CI checks evaluating upon PR creation
+              </div>
             ) : (
-              <div className="muted" style={{ fontSize: 13 }}>Waiting for execution to start.</div>
+              <div className="muted" style={{ fontSize: 13 }}>Validation triggers on PR creation.</div>
             )}
           </div>
         </Card>
       </div>
 
       {(isInProgress || isCompleted) && (
-        <div className="grid grid2 section">
-          <Card>
+        <div className="section task-output">
+          <Card className="task-timeline-card">
             <div className="sectionhead">
               <h2>Agent execution timeline</h2>
               {isInProgress ? <Badge tone="cyan">In Progress</Badge> : <Badge>Archived</Badge>}
@@ -438,35 +502,9 @@ export default function TaskPage() {
               )}
             </div>
           </Card>
-          
-          <Card>
-            <div className="sectionhead">
-              <h2>Agent output</h2>
-              <MessageSquare size={15} className="muted"/>
-            </div>
-            <div className="terminal">
-              {isOpen ? (
-                <div><span className="muted">Waiting for agent to begin...</span></div>
-              ) : (
-                <>
-                  <div><span className="cyan">System</span> &nbsp; Agent session initialized in repository</div>
-                  {task.execution_summary && (
-                    <div style={{ marginTop: 6 }}><span className="cyan">Summary</span> &nbsp; {task.execution_summary}</div>
-                  )}
-                  {task.validation_summary && (
-                    <div style={{ marginTop: 4 }}><span className="green">Verified</span> &nbsp; {task.validation_summary}</div>
-                  )}
-                  {isCompleted ? (
-                    <div style={{ marginTop: 6 }}><span className="green">Success</span> &nbsp; Changes pushed and task completed.</div>
-                  ) : (
-                    <div><span className="cyan">Agent</span> &nbsp; Working on implementation...</div>
-                  )}
-                </>
-              )}
-            </div>
-          </Card>
         </div>
       )}
     </Page>
-  );
+  </AppShell>
+);
 }

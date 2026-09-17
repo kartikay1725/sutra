@@ -152,6 +152,9 @@ class DashboardResponse(BaseModel):
     repository_count: int
     open_changes: int
     changes_needing_review: int
+    blocked_changes: int = 0
+    blocked_tasks: int = 0
+    failed_ci_jobs: int = 0
     agent_changes: int
     human_changes: int
     median_lead_time_minutes: int | None
@@ -174,6 +177,7 @@ def get_dashboard(
 
     open_changes = 0
     changes_needing_review = 0
+    blocked_changes = 0
     agent_changes = 0
     human_changes = 0
 
@@ -189,10 +193,21 @@ def get_dashboard(
                 open_changes += 1
             if change.status == "proposed":
                 changes_needing_review += 1
+            if change.status == "blocked":
+                blocked_changes += 1
             if actor.type == "agent":
                 agent_changes += 1
             elif actor.type == "human":
                 human_changes += 1
+
+    blocked_tasks = 0
+    if repo_ids:
+        blocked_tasks = db.scalar(
+            select(func.count(Task.id)).where(
+                Task.repository_id.in_(repo_ids),
+                Task.status.in_(["blocked", "failed"]),
+            )
+        ) or 0
 
     active_agent_sessions = 0
     total_agents = db.scalar(
@@ -227,6 +242,9 @@ def get_dashboard(
         repository_count=len(repo_ids),
         open_changes=open_changes,
         changes_needing_review=changes_needing_review,
+        blocked_changes=blocked_changes,
+        blocked_tasks=blocked_tasks,
+        failed_ci_jobs=ci.failed,
         agent_changes=agent_changes,
         human_changes=human_changes,
         median_lead_time_minutes=stats.median_lead_time_minutes,
@@ -235,7 +253,7 @@ def get_dashboard(
         security=security,
         deployments=deployments,
         activity=dashboard_activity,
-)
+    )
 
 
 def _owned_repository_ids(
