@@ -116,3 +116,28 @@ class PullRequest(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+
+    @property
+    def source_branch(self) -> str | None:
+        """Alias for head/source branch of the pull request."""
+        return getattr(self, "_source_branch", None) or getattr(self, "_head_branch", None)
+
+    @source_branch.setter
+    def source_branch(self, val: str | None) -> None:
+        self._source_branch = val
+
+    @property
+    def head_branch(self) -> str | None:
+        return self.source_branch
+
+    @head_branch.setter
+    def head_branch(self, val: str | None) -> None:
+        self.source_branch = val
+
+    @property
+    def github_pr_number(self) -> int | None:
+        return getattr(self, "_github_pr_number", None)
+
+    @github_pr_number.setter
+    def github_pr_number(self, val: int | None) -> None:
+        self._github_pr_number = val

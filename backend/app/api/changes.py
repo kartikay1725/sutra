@@ -137,27 +137,52 @@ class ChangeFileResponse(BaseModel):
     patch: str | None = None
 
 
-def _to_change_response(change: Change, actor: Actor | None, db: Session) -> ChangeResponse:
+def _to_change_response(
+    change: Change,
+    actor: Actor | None,
+    db: Session,
+    repo_map: dict | None = None,
+    pr_map: dict | None = None,
+    files_map: dict | None = None,
+    task_map: dict | None = None,
+    agent_map: dict | None = None,
+    sync_files: bool = False,
+    resolve_provenance: bool = True,
+) -> ChangeResponse:
     import json
     from app.models.pull_request import PullRequest
     from app.models.task import Task
     from app.models.agent import Agent
     from app.services.code_provenance_service import CodeProvenanceService
 
-    files = db.scalars(
-        select(ChangeFile).where(ChangeFile.change_id == change.id)
-    ).all()
-    pr = db.scalar(
-        select(PullRequest).where(PullRequest.source_change_id == change.id)
-    )
-    repo = db.scalar(
-        select(Repository).where(Repository.id == change.repository_id)
-    )
+    if files_map is not None:
+        files = files_map.get(change.id, [])
+    else:
+        files = db.scalars(
+            select(ChangeFile).where(ChangeFile.change_id == change.id)
+        ).all()
+
+    if pr_map is not None:
+        pr = pr_map.get(change.id)
+    else:
+        pr = db.scalar(
+            select(PullRequest).where(PullRequest.source_change_id == change.id)
+        )
+
+    if repo_map is not None:
+        repo = repo_map.get(change.repository_id)
+    else:
+        repo = db.scalar(
+            select(Repository).where(Repository.id == change.repository_id)
+        )
 
     # If change has commits but no ChangeFiles stored yet, synchronize from provider
-    if not files and repo and change.base_commit and change.resulting_commit:
+    if sync_files and not files and repo and change.base_commit and change.resulting_commit:
         from app.services.pull_request_service import PullRequestService
-        files = PullRequestService(db).sync_change_files_from_provider(repo, change)
+        try:
+            files = PullRequestService(db).sync_change_files_from_provider(repo, change)
+        except Exception:
+            files = []
 
     meta = {}
     if change.metadata_json:
@@ -168,19 +193,25 @@ def _to_change_response(change: Change, actor: Actor | None, db: Session) -> Cha
 
     # Resolve task linkage
     task = None
-    if meta.get("task_id"):
-        task = db.scalar(select(Task).where(Task.id == meta["task_id"]))
-    if not task:
-        task = db.scalar(
-            select(Task).where(
-                Task.repository_id == change.repository_id,
-                Task.resulting_change_id == change.id,
+    if task_map is not None:
+        if meta.get("task_id"):
+            task = task_map.get(meta["task_id"])
+        if not task:
+            task = task_map.get(change.id)
+    else:
+        if meta.get("task_id"):
+            task = db.scalar(select(Task).where(Task.id == meta["task_id"]))
+        if not task:
+            task = db.scalar(
+                select(Task).where(
+                    Task.repository_id == change.repository_id,
+                    Task.resulting_change_id == change.id,
+                )
             )
-        )
-    if not task:
-        task = db.scalar(
-            select(Task).where(Task.resulting_change_id == change.id)
-        )
+        if not task:
+            task = db.scalar(
+                select(Task).where(Task.resulting_change_id == change.id)
+            )
 
     # Actor details
     if not actor:
@@ -202,18 +233,27 @@ def _to_change_response(change: Change, actor: Actor | None, db: Session) -> Cha
             agent_session_id = task.claimed_by_session_id
 
     if agent_id and not agent_name:
-        agent_obj = db.scalar(select(Agent).where(Agent.id == agent_id))
-        if agent_obj:
-            agent_name = agent_obj.name
+        if agent_map is not None and agent_id in agent_map:
+            agent_name = agent_map[agent_id].name
+        else:
+            agent_obj = db.scalar(select(Agent).where(Agent.id == agent_id))
+            if agent_obj:
+                agent_name = agent_obj.name
 
     if actor_type == "agent" and not agent_name:
         agent_name = actor_name
 
     # Branch details
-    branch = meta.get("branch") or (pr.source_branch if pr else None)
+    branch = (
+        meta.get("branch")
+        or meta.get("head_branch")
+        or (getattr(pr, "source_branch", None) if pr else None)
+        or (getattr(pr, "head_branch", None) if pr else None)
+        or (getattr(task, "target_branch", None) if task else None)
+    )
     base_branch = (
         meta.get("base_branch")
-        or (pr.target_branch if pr else None)
+        or (getattr(pr, "target_branch", None) if pr else None)
         or (getattr(repo, "default_branch", None) if repo else "main")
     )
 
@@ -224,20 +264,32 @@ def _to_change_response(change: Change, actor: Actor | None, db: Session) -> Cha
     # Commits with authoritative SUTRA/GitHub provenance
     commits: list[CommitDetailResponse] = []
     if change.resulting_commit:
-        prov = CodeProvenanceService(db).resolve_commit(
-            repository_id=change.repository_id,
-            commit_sha=change.resulting_commit,
-        )
-        provenance_resp = CommitProvenanceResponse(
-            source=prov.get("source", "sutra"),
-            tracked=prov.get("tracked", True),
-            identity_type=prov.get("identity_type", "unknown"),
-            actor_id=prov.get("actor_id"),
-            actor_name=prov.get("actor_name"),
-            agent=prov.get("agent"),
-            session=prov.get("session"),
-            task=prov.get("task"),
-        )
+        if resolve_provenance:
+            prov = CodeProvenanceService(db).resolve_commit(
+                repository_id=change.repository_id,
+                commit_sha=change.resulting_commit,
+            )
+            provenance_resp = CommitProvenanceResponse(
+                source=prov.get("source", "sutra"),
+                tracked=prov.get("tracked", True),
+                identity_type=prov.get("identity_type", "unknown"),
+                actor_id=prov.get("actor_id"),
+                actor_name=prov.get("actor_name"),
+                agent=prov.get("agent"),
+                session=prov.get("session"),
+                task=prov.get("task"),
+            )
+        else:
+            provenance_resp = CommitProvenanceResponse(
+                source="sutra",
+                tracked=True,
+                identity_type=actor_type,
+                actor_id=actor_id,
+                actor_name=actor_name,
+                agent={"id": agent_id, "name": agent_name} if agent_id else None,
+                session={"id": agent_session_id} if agent_session_id else None,
+                task={"id": task.id, "title": getattr(task, "title", None)} if task else None,
+            )
         commits.append(
             CommitDetailResponse(
                 sha=change.resulting_commit,
@@ -299,6 +351,8 @@ def list_changes(
     risk_level: str | None = None,
     agent_id: str | None = None,
     search: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -379,11 +433,85 @@ def list_changes(
             Change.metadata_json.ilike(term)
         )
 
-    results = db.execute(stmt.order_by(Change.updated_at.desc())).all()
+    results = db.execute(stmt.order_by(Change.updated_at.desc()).limit(limit).offset(offset)).all()
+    if not results:
+        return []
+
+    import json
+    from app.models.pull_request import PullRequest
+    from app.models.task import Task
+    from app.models.agent import Agent
+    from sqlalchemy import or_
+
+    change_ids = [c.id for c, _ in results]
+    repo_ids = list({c.repository_id for c, _ in results if c.repository_id})
+
+    # 1. Batch repositories
+    repos = db.scalars(select(Repository).where(Repository.id.in_(repo_ids))).all() if repo_ids else []
+    repo_map = {r.id: r for r in repos}
+
+    # 2. Batch pull requests
+    prs = db.scalars(select(PullRequest).where(PullRequest.source_change_id.in_(change_ids))).all() if change_ids else []
+    pr_map = {pr.source_change_id: pr for pr in prs}
+
+    # 3. Batch change files
+    cfiles = db.scalars(select(ChangeFile).where(ChangeFile.change_id.in_(change_ids))).all() if change_ids else []
+    files_map: dict[str, list[ChangeFile]] = {}
+    for cf in cfiles:
+        files_map.setdefault(cf.change_id, []).append(cf)
+
+    # 4. Batch tasks
+    meta_task_ids = []
+    for c, _ in results:
+        if c.metadata_json:
+            try:
+                m = json.loads(c.metadata_json)
+                if m.get("task_id"):
+                    meta_task_ids.append(m["task_id"])
+            except Exception:
+                pass
+
+    task_clauses = [Task.resulting_change_id.in_(change_ids)]
+    if meta_task_ids:
+        task_clauses.append(Task.id.in_(meta_task_ids))
+
+    tasks = db.scalars(select(Task).where(or_(*task_clauses))).all() if change_ids else []
+    task_map: dict[str, Task] = {}
+    for t in tasks:
+        task_map[t.id] = t
+        if t.resulting_change_id:
+            task_map[t.resulting_change_id] = t
+
+    # 5. Batch agents
+    agent_ids = list({t.assigned_agent_id for t in tasks if t.assigned_agent_id})
+    for c, _ in results:
+        if c.metadata_json:
+            try:
+                m = json.loads(c.metadata_json)
+                if m.get("agent_id"):
+                    agent_ids.append(m["agent_id"])
+            except Exception:
+                pass
+
+    agents = db.scalars(select(Agent).where(Agent.id.in_(agent_ids))).all() if agent_ids else []
+    agent_map = {a.id: a for a in agents}
 
     responses = []
     for change, actor in results:
-        responses.append(_to_change_response(change, actor, db))
+        responses.append(
+            _to_change_response(
+                change,
+                actor,
+                db,
+                repo_map=repo_map,
+                pr_map=pr_map,
+                files_map=files_map,
+                task_map=task_map,
+                agent_map=agent_map,
+                sync_files=False,
+                resolve_provenance=False,
+            )
+        )
     return responses
 
 

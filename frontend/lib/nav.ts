@@ -5,15 +5,17 @@ export const globalNav = [
     label: "Workspace",
     items: [
       ["/home", "Overview", I.LayoutDashboard],
-      ["/tasks", "Tasks", I.ListTodo],
       ["/my-work", "My Work", I.CheckSquare],
+      ["/tasks", "Tasks", I.ListTodo],
     ],
   },
   {
     label: "Engineering",
     items: [
       ["/repositories", "Repositories", I.Box],
-      ["/agents", "Agents", I.Bot],
+      ["/changes", "Changes", I.GitBranch],
+      ["/agents", "Agents", I.Cpu],
+      ["/audit-log", "Audit Log", I.ScrollText],
     ],
   },
 ] as const;
@@ -34,14 +36,14 @@ export const repoNav = [
       ["/changes", "Changes", I.GitBranch],
       ["/pull-requests", "Pull Requests", I.GitPullRequest],
       ["/ci", "CI / CD", I.Workflow],
-      ["/agents", "Agents", I.Bot],
+      ["/agents", "Agents", I.Cpu],
     ],
   },
   {
-    label: "Intelligence",
+    label: "Investigation",
     items: [
       ["/knowledge-graph", "Knowledge Graph", I.Network],
-      ["/assistant", "AI Assistant", I.Sparkles],
+      ["/assistant", "Assistant", I.Terminal],
     ],
   },
   {

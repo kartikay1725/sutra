@@ -3,12 +3,15 @@ import { apiAuth } from "./api";
 export interface Task {
   id: string;
   repository_id: string;
+  repository_name?: string;
   title: string;
   description: string;
   status: string; // 'todo', 'in_progress', 'done'
   assignee_id: string;
   assigned_agent_id?: string;
+  assigned_agent_name?: string;
   active_session_id?: string;
+  target_branch?: string;
   issue_id?: string;
   resulting_change_id?: string;
   resulting_pull_request_id?: string;
@@ -62,9 +65,10 @@ export const taskService = {
     });
   },
 
-  async terminateTask(taskId: string): Promise<Task> {
+  async terminateTask(taskId: string, reason?: string): Promise<Task> {
     return apiAuth<Task>(`/v1/tasks/${taskId}/cancel`, {
-      method: "POST"
+      method: "POST",
+      body: reason ? JSON.stringify({ reason }) : undefined,
     });
   }
 };

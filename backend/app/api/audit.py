@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -28,16 +28,37 @@ router = APIRouter(prefix="/v1/organizations", tags=["audit"])
 activity_router = APIRouter(prefix="/v1", tags=["activity"])
 
 
+class ActivityActor(BaseModel):
+    id: str
+    name: str
+    type: str = "human"
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class AuditLogEntry(BaseModel):
     id: str
     timestamp: datetime
-    actor_id: str | None
-    actor_name: str
+    actor_id: str | None = None
+    actor_name: str = "Unknown actor"
+    actor: ActivityActor = Field(default_factory=lambda: ActivityActor(id="", name="Unknown actor", type="human"))
     action: str
+    category: str = "general"
     resource_type: str
     resource_name: str
+    resource_id: str = ""
+    repository: str | None = None
     ip_address: str | None = None
-    metadata_json: dict
+    metadata_json: dict = Field(default_factory=dict)
+    metadata: dict = Field(default_factory=dict)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ActivityResponse(BaseModel):
+    total: int
+    items: list[AuditLogEntry]
+    repository: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -73,13 +94,6 @@ def _parse_metadata(raw: str | None) -> dict:
         return {}
 
 
-def _actor_names(db: Session, actor_ids: set[str]) -> dict[str, str]:
-    if not actor_ids:
-        return {}
-    rows = db.query(Actor.id, Actor.name).filter(Actor.id.in_(actor_ids)).all()
-    return {row[0]: row[1] for row in rows}
-
-
 def _build_entries_for_repo_ids(db: Session, repo_ids: list[str], limit: int) -> list[AuditLogEntry]:
     if not repo_ids:
         return []
@@ -98,20 +112,25 @@ def _build_entries_for_repo_ids(db: Session, repo_ids: list[str], limit: int) ->
     ):
         if event.actor_id:
             actor_ids.add(event.actor_id)
+        meta = {
+            "from_status": event.from_status,
+            "to_status": event.to_status,
+            "reason": event.reason,
+            **_parse_metadata(event.metadata_json),
+        }
         entries.append(AuditLogEntry(
             id=f"change-event:{event.id}",
             timestamp=event.created_at,
             actor_id=event.actor_id,
             actor_name="Unknown actor",
             action=event.event_type,
+            category="change",
             resource_type="change",
+            resource_id=change.id,
             resource_name=f"{repo.name}:{change.id[:8]}",
-            metadata_json={
-                "from_status": event.from_status,
-                "to_status": event.to_status,
-                "reason": event.reason,
-                **_parse_metadata(event.metadata_json),
-            },
+            repository=repo.name,
+            metadata_json=meta,
+            metadata=meta,
         ))
 
     # 2. Task Events
@@ -125,21 +144,26 @@ def _build_entries_for_repo_ids(db: Session, repo_ids: list[str], limit: int) ->
     ):
         if event.actor_id:
             actor_ids.add(event.actor_id)
+        meta = {
+            "task_id": task.id,
+            "from_status": event.from_status,
+            "to_status": event.to_status,
+            "reason": event.reason,
+            **_parse_metadata(event.metadata_json),
+        }
         entries.append(AuditLogEntry(
             id=f"task-event:{event.id}",
             timestamp=event.created_at,
             actor_id=event.actor_id,
             actor_name="Unknown actor",
             action=event.event_type,
+            category="task",
             resource_type="task",
+            resource_id=task.id,
             resource_name=f"{repo.name}:{task.title[:30]}",
-            metadata_json={
-                "task_id": task.id,
-                "from_status": event.from_status,
-                "to_status": event.to_status,
-                "reason": event.reason,
-                **_parse_metadata(event.metadata_json),
-            },
+            repository=repo.name,
+            metadata_json=meta,
+            metadata=meta,
         ))
 
     # 3. Discussions
@@ -151,15 +175,20 @@ def _build_entries_for_repo_ids(db: Session, repo_ids: list[str], limit: int) ->
         .limit(limit).all()
     ):
         actor_ids.add(d.author_id)
+        meta = {"discussion_id": d.id, "category": d.category}
         entries.append(AuditLogEntry(
             id=f"discussion:{d.id}",
             timestamp=d.created_at,
             actor_id=d.author_id,
             actor_name="Unknown actor",
             action="discussion.created",
+            category="discussion",
             resource_type="discussion",
+            resource_id=d.id,
             resource_name=f"{repo.name}:{d.title[:30]}",
-            metadata_json={"discussion_id": d.id, "category": d.category},
+            repository=repo.name,
+            metadata_json=meta,
+            metadata=meta,
         ))
 
     # 4. Git Push Events
@@ -171,15 +200,20 @@ def _build_entries_for_repo_ids(db: Session, repo_ids: list[str], limit: int) ->
         .limit(limit).all()
     ):
         actor_ids.add(event.actor_id)
+        meta = {"status": event.status, "attempts": event.attempts}
         entries.append(AuditLogEntry(
             id=f"git-push:{event.id}",
             timestamp=event.created_at,
             actor_id=event.actor_id,
             actor_name="Unknown actor",
             action="git.push",
+            category="git",
             resource_type="repository",
+            resource_id=repo.id,
             resource_name=repo.name,
-            metadata_json={"status": event.status, "attempts": event.attempts},
+            repository=repo.name,
+            metadata_json=meta,
+            metadata=meta,
         ))
 
     # 5. Pull Requests
@@ -191,24 +225,34 @@ def _build_entries_for_repo_ids(db: Session, repo_ids: list[str], limit: int) ->
         .limit(limit).all()
     ):
         actor_ids.add(pr.author_id)
+        meta = {
+            "pull_request_id": pr.id,
+            "source_change_id": pr.source_change_id,
+            "target_branch": pr.target_branch,
+        }
         entries.append(AuditLogEntry(
             id=f"pull-request:{pr.id}",
             timestamp=pr.updated_at,
             actor_id=pr.author_id,
             actor_name="Unknown actor",
             action=f"pull_request.{pr.status}",
+            category="pull_request",
             resource_type="pull_request",
+            resource_id=pr.id,
             resource_name=f"{repo.name}:{pr.title or pr.id[:8]}",
-            metadata_json={
-                "pull_request_id": pr.id,
-                "source_change_id": pr.source_change_id,
-                "target_branch": pr.target_branch,
-            },
+            repository=repo.name,
+            metadata_json=meta,
+            metadata=meta,
         ))
 
-    names = _actor_names(db, actor_ids)
+    actor_rows = db.query(Actor).filter(Actor.id.in_(actor_ids)).all() if actor_ids else []
+    actors_map = {a.id: a for a in actor_rows}
     for entry in entries:
-        entry.actor_name = names.get(entry.actor_id or "", "Unknown actor")
+        act = actors_map.get(entry.actor_id or "")
+        name = act.name if act else "Unknown actor"
+        atype = act.type if act else "human"
+        entry.actor_name = name
+        entry.actor = ActivityActor(id=entry.actor_id or "", name=name, type=atype)
 
     def _ts(dt: datetime) -> datetime:
         if dt.tzinfo is None:
@@ -235,30 +279,31 @@ def get_audit_logs(
     return _build_entries(db, org, limit)
 
 
-@activity_router.get("/activity", response_model=List[AuditLogEntry])
-@activity_router.get("/audit-logs", response_model=List[AuditLogEntry])
+@activity_router.get("/activity", response_model=ActivityResponse)
+@activity_router.get("/audit-logs", response_model=ActivityResponse)
 def get_user_activity(
     limit: int = Query(50, ge=1, le=100),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> ActivityResponse:
     repo_ids = [
         r[0]
         for r in db.query(Repository.id)
         .filter((Repository.owner_id == current_user.id) | (Repository.visibility == "public"))
         .all()
     ]
-    return _build_entries_for_repo_ids(db, repo_ids, limit)
+    items = _build_entries_for_repo_ids(db, repo_ids, limit)
+    return ActivityResponse(total=len(items), items=items)
 
 
-@activity_router.get("/repositories/{owner_name}/{repo_name}/activity", response_model=List[AuditLogEntry])
+@activity_router.get("/repositories/{owner_name}/{repo_name}/activity", response_model=ActivityResponse)
 def get_repository_activity(
     owner_name: str,
     repo_name: str,
     limit: int = Query(50, ge=1, le=100),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> ActivityResponse:
     repo = db.scalar(
         select(Repository)
         .join(Actor, Actor.id == Repository.owner_id)
@@ -273,5 +318,7 @@ def get_repository_activity(
     if repo.visibility == "private" and repo.owner_id != current_user.id:
         raise HTTPException(status_code=404, detail="Repository not found")
 
-    return _build_entries_for_repo_ids(db, [repo.id], limit)
+    items = _build_entries_for_repo_ids(db, [repo.id], limit)
+    return ActivityResponse(total=len(items), items=items, repository=repo.name)
+
 

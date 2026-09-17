@@ -70,8 +70,16 @@ def get_current_user(
         if expires_at < datetime.now(timezone.utc):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
 
-        user_session.last_seen_at = datetime.now(timezone.utc)
-        db.flush()
+        now = datetime.now(timezone.utc)
+        last_seen = user_session.last_seen_at
+        if last_seen is not None and last_seen.tzinfo is None:
+            last_seen = last_seen.replace(tzinfo=timezone.utc)
+        if last_seen is None or (now - last_seen).total_seconds() > 60:
+            try:
+                user_session.last_seen_at = now
+                db.flush()
+            except Exception:
+                db.rollback()
 
     return user
 
@@ -100,8 +108,16 @@ def get_current_user_optional(
                 expires_at = expires_at.replace(tzinfo=timezone.utc)
             if user_session.status != "active" or expires_at < datetime.now(timezone.utc):
                 return None
-            user_session.last_seen_at = datetime.now(timezone.utc)
-            db.flush()
+            now = datetime.now(timezone.utc)
+            last_seen = user_session.last_seen_at
+            if last_seen is not None and last_seen.tzinfo is None:
+                last_seen = last_seen.replace(tzinfo=timezone.utc)
+            if last_seen is None or (now - last_seen).total_seconds() > 60:
+                try:
+                    user_session.last_seen_at = now
+                    db.flush()
+                except Exception:
+                    db.rollback()
         return user
     except Exception:
         return None

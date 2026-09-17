@@ -369,6 +369,14 @@ class ClientCacheManager {
     }
   }
 
+  public async getOrFetch<T>(
+    key: string,
+    fetcher: () => Promise<T>,
+    options: CachedFetchOptions = {}
+  ): Promise<T> {
+    return this.fetch<T>(key, fetcher, options);
+  }
+
   public getMetadata(key: string): CacheMetadata {
     const entry = this.get(key);
     if (!entry) {
@@ -383,6 +391,7 @@ class ClientCacheManager {
 }
 
 export const clientCache = new ClientCacheManager();
+export const sutraCache = clientCache;
 
 /**
  * Standard TTL Presets (milliseconds)
