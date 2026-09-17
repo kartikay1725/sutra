@@ -7,7 +7,6 @@ import {
   Sparkles,
   ShieldCheck,
   CheckCircle2,
-  ArrowRight,
   HelpCircle,
   Cpu,
   GitBranch,
@@ -21,8 +20,6 @@ import {
   Layers,
   FileCode,
   UserCheck,
-  Zap,
-  Info,
   ChevronRight,
   Play,
   RotateCcw
@@ -213,7 +210,7 @@ export default function BetaExplainerPage() {
       desc: "You don't need to write complex terminal commands. You simply declare a task like: 'Add rate limiting to the password reset endpoint' or 'Fix mobile layout on the settings card'. SUTRA records this as an immutable, tracked engineering task.",
       actor: "Human Engineer",
       actorType: "human",
-      badgeTone: "#3B82F6",
+      badgeTone: "#F97316",
       icon: Terminal
     },
     {
@@ -224,7 +221,7 @@ export default function BetaExplainerPage() {
       desc: "Instead of blindly editing code, the agent inspects SUTRA's Living Knowledge Graph. It checks every file, dependency, and database schema connected to the request. This guarantees that fixing one thing doesn't break three other modules.",
       actor: "SUTRA Knowledge Engine",
       actorType: "ai",
-      badgeTone: "#8B5CF6",
+      badgeTone: "#F97316",
       icon: Layers
     },
     {
@@ -235,7 +232,7 @@ export default function BetaExplainerPage() {
       desc: "The AI agent is granted short-lived, scoped credentials. It writes and refactors code entirely inside an isolated feature branch. It possesses zero permissions to commit or push directly to production branches.",
       actor: "Autonomous AI Agent",
       actorType: "ai",
-      badgeTone: "#06B6D4",
+      badgeTone: "#F97316",
       icon: FileCode
     },
     {
@@ -257,7 +254,7 @@ export default function BetaExplainerPage() {
       desc: "SUTRA presents a clean Pull Request summary with test results, diffs, and security findings. Crucially: agents are hard-blocked from approving or merging code! Only an authorized human engineer can click 'Approve & Merge'.",
       actor: "Human Reviewer",
       actorType: "human",
-      badgeTone: "#F59E0B",
+      badgeTone: "#F97316",
       icon: UserCheck
     }
   ];
@@ -266,8 +263,8 @@ export default function BetaExplainerPage() {
     <div
       style={{
         minHeight: "100vh",
-        backgroundColor: "#090C10",
-        color: "#F2F5F8",
+        backgroundColor: "#0B0B0B",
+        color: "#F5F5F5",
         fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         display: "flex",
         flexDirection: "column",
@@ -277,8 +274,8 @@ export default function BetaExplainerPage() {
       {/* 1. TOP HEADER (UNLINKED, STANDALONE) */}
       <header
         style={{
-          borderBottom: "1px solid #1E2633",
-          background: "#090C10",
+          borderBottom: "1px solid #242424",
+          background: "#0B0B0B",
           position: "sticky",
           top: 0,
           zIndex: 40,
@@ -297,41 +294,49 @@ export default function BetaExplainerPage() {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div
+            <Link
+              href="/"
               style={{
-                width: 30,
-                height: 30,
-                borderRadius: 8,
-                overflow: "hidden",
-                background: "#000",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                border: "1px solid #212836",
+                gap: 10,
+                textDecoration: "none",
               }}
             >
-              <img src="/icon.png" alt="SUTRA Logo" style={{ width: 22, height: 22, objectFit: "contain" }} />
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: "0.04em", color: "#FFFFFF" }}>
-                SUTRA
-              </span>
-              <span
+              <div
                 style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                  padding: "3px 8px",
-                  borderRadius: 12,
-                  background: "rgba(59, 130, 246, 0.15)",
-                  color: "#60A5FA",
-                  border: "1px solid rgba(59, 130, 246, 0.3)",
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  overflow: "hidden",
+                  background: "#151515",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  border: "1px solid #242424",
                 }}
               >
-                Beta Explainer
+                <img src="/icon.png" alt="SUTRA Logo" style={{ width: 22, height: 22, objectFit: "contain" }} />
+              </div>
+              <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: "0.04em", color: "#F5F5F5" }}>
+                SUTRA
               </span>
-            </div>
+            </Link>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                padding: "3px 8px",
+                borderRadius: 12,
+                background: "rgba(249, 115, 22, 0.12)",
+                color: "#F97316",
+                border: "1px solid rgba(249, 115, 22, 0.28)",
+              }}
+            >
+              Beta Explainer
+            </span>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -341,11 +346,11 @@ export default function BetaExplainerPage() {
                 alignItems: "center",
                 gap: 8,
                 fontSize: 12,
-                color: "#707A88",
-                background: "#121720",
+                color: "#737373",
+                background: "#151515",
                 padding: "6px 12px",
                 borderRadius: 20,
-                border: "1px solid #1E2633",
+                border: "1px solid #242424",
               }}
             >
               <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#10B981", display: "inline-block" }} />
@@ -359,9 +364,9 @@ export default function BetaExplainerPage() {
                 display: "flex",
                 alignItems: "center",
                 gap: 7,
-                background: "linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(139, 92, 246, 0.2))",
-                border: "1px solid rgba(96, 165, 250, 0.4)",
-                color: "#93C5FD",
+                background: "#151515",
+                border: "1px solid #242424",
+                color: "#F5F5F5",
                 fontSize: 12,
                 fontWeight: 600,
                 padding: "6px 14px",
@@ -371,7 +376,7 @@ export default function BetaExplainerPage() {
               }}
               title="Copy contact email"
             >
-              <Mail size={13} />
+              <Mail size={13} style={{ color: "#F97316" }} />
               {copiedEmail ? "Copied sutra@sudarshanai.com!" : "Contact: sutra@sudarshanai.com"}
             </button>
           </div>
@@ -395,11 +400,13 @@ export default function BetaExplainerPage() {
             gap: 8,
             padding: "6px 16px",
             borderRadius: 24,
-            background: "rgba(59, 130, 246, 0.1)",
-            border: "1px solid rgba(59, 130, 246, 0.25)",
-            color: "#60A5FA",
-            fontSize: 13,
-            fontWeight: 600,
+            background: "rgba(249, 115, 22, 0.1)",
+            border: "1px solid rgba(249, 115, 22, 0.28)",
+            color: "#F97316",
+            fontSize: 12,
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
             marginBottom: 20,
           }}
         >
@@ -414,15 +421,13 @@ export default function BetaExplainerPage() {
             letterSpacing: "-0.03em",
             lineHeight: 1.15,
             marginBottom: 20,
-            color: "#F8FAFC",
+            color: "#F5F5F5",
           }}
         >
           How SUTRA Works, <br />
           <span
             style={{
-              background: "linear-gradient(90deg, #60A5FA 0%, #A78BFA 50%, #34D399 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
+              color: "#F97316",
             }}
           >
             Without the Technical Jargon.
@@ -433,13 +438,13 @@ export default function BetaExplainerPage() {
           style={{
             fontSize: "clamp(16px, 2vw, 19px)",
             lineHeight: 1.6,
-            color: "#94A3B8",
+            color: "#A3A3A3",
             maxWidth: 780,
             margin: "0 auto 36px",
           }}
         >
           Everyone wants AI to write software faster. But letting AI touch your real code without guards is a recipe for disaster.
-          <strong> SUTRA is the ultimate air traffic controller</strong>: it gives AI agents a safe sandbox, tests every change, and keeps you firmly in the driver’s seat.
+          <strong style={{ color: "#F5F5F5" }}> SUTRA is the ultimate air traffic controller</strong>: it gives AI agents a safe sandbox, tests every change, and keeps you firmly in the driver’s seat.
         </p>
 
         {/* 4 Pillars Pill Bar */}
@@ -455,44 +460,44 @@ export default function BetaExplainerPage() {
           <div
             style={{
               padding: "16px 20px",
-              background: "#0F141C",
-              border: "1px solid #1E2633",
+              background: "#151515",
+              border: "1px solid #242424",
               borderRadius: 14,
               display: "flex",
               alignItems: "flex-start",
               gap: 12,
             }}
           >
-            <div style={{ color: "#3B82F6", marginTop: 2 }}><Lock size={18} /></div>
+            <div style={{ color: "#F97316", marginTop: 2 }}><Lock size={18} /></div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#F1F5F9" }}>Zero Direct Access</div>
-              <div style={{ fontSize: 12, color: "#64748B", marginTop: 3 }}>Agents never touch your live main branch.</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Zero Direct Access</div>
+              <div style={{ fontSize: 12, color: "#737373", marginTop: 3 }}>Agents never touch your live main branch.</div>
             </div>
           </div>
 
           <div
             style={{
               padding: "16px 20px",
-              background: "#0F141C",
-              border: "1px solid #1E2633",
+              background: "#151515",
+              border: "1px solid #242424",
               borderRadius: 14,
               display: "flex",
               alignItems: "flex-start",
               gap: 12,
             }}
           >
-            <div style={{ color: "#8B5CF6", marginTop: 2 }}><Layers size={18} /></div>
+            <div style={{ color: "#F97316", marginTop: 2 }}><Layers size={18} /></div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#F1F5F9" }}>Architecture Maps</div>
-              <div style={{ fontSize: 12, color: "#64748B", marginTop: 3 }}>Knowledge graph stops blind guessing.</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Architecture Maps</div>
+              <div style={{ fontSize: 12, color: "#737373", marginTop: 3 }}>Knowledge graph stops blind guessing.</div>
             </div>
           </div>
 
           <div
             style={{
               padding: "16px 20px",
-              background: "#0F141C",
-              border: "1px solid #1E2633",
+              background: "#151515",
+              border: "1px solid #242424",
               borderRadius: 14,
               display: "flex",
               alignItems: "flex-start",
@@ -501,26 +506,26 @@ export default function BetaExplainerPage() {
           >
             <div style={{ color: "#10B981", marginTop: 2 }}><ShieldCheck size={18} /></div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#F1F5F9" }}>Cryptographic Evidence</div>
-              <div style={{ fontSize: 12, color: "#64748B", marginTop: 3 }}>Every line is audited & stamped.</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Cryptographic Evidence</div>
+              <div style={{ fontSize: 12, color: "#737373", marginTop: 3 }}>Every line is audited & stamped.</div>
             </div>
           </div>
 
           <div
             style={{
               padding: "16px 20px",
-              background: "#0F141C",
-              border: "1px solid #1E2633",
+              background: "#151515",
+              border: "1px solid #242424",
               borderRadius: 14,
               display: "flex",
               alignItems: "flex-start",
               gap: 12,
             }}
           >
-            <div style={{ color: "#F59E0B", marginTop: 2 }}><UserCheck size={18} /></div>
+            <div style={{ color: "#F97316", marginTop: 2 }}><UserCheck size={18} /></div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#F1F5F9" }}>Human Has Final Say</div>
-              <div style={{ fontSize: 12, color: "#64748B", marginTop: 3 }}>Agents are forbidden from self-merging.</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Human Has Final Say</div>
+              <div style={{ fontSize: 12, color: "#737373", marginTop: 3 }}>Agents are forbidden from self-merging.</div>
             </div>
           </div>
         </div>
@@ -537,8 +542,8 @@ export default function BetaExplainerPage() {
       >
         <div
           style={{
-            background: "linear-gradient(180deg, #111722 0%, #0D121A 100%)",
-            border: "1px solid #232D3F",
+            background: "#151515",
+            border: "1px solid #242424",
             borderRadius: 20,
             overflow: "hidden",
             boxShadow: "0 20px 40px -15px rgba(0, 0, 0, 0.7)",
@@ -548,8 +553,8 @@ export default function BetaExplainerPage() {
           <div
             style={{
               padding: "18px 24px",
-              borderBottom: "1px solid #1E2633",
-              background: "rgba(18, 24, 34, 0.9)",
+              borderBottom: "1px solid #242424",
+              background: "#181818",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
@@ -563,25 +568,25 @@ export default function BetaExplainerPage() {
                   width: 36,
                   height: 36,
                   borderRadius: 10,
-                  background: "linear-gradient(135deg, #2563EB, #7C3AED)",
+                  background: "rgba(249, 115, 22, 0.15)",
+                  border: "1px solid rgba(249, 115, 22, 0.3)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  color: "#FFFFFF",
-                  boxShadow: "0 0 16px rgba(59, 130, 246, 0.4)",
+                  color: "#F97316",
                 }}
               >
                 <Bot size={20} />
               </div>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "#F8FAFC", display: "flex", alignItems: "center", gap: 8 }}>
-                  SUTRA Smooth AI Assistant
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#F5F5F5", display: "flex", alignItems: "center", gap: 8 }}>
+                  SUTRA AI Assistant
                   <span
                     style={{
                       fontSize: 10,
                       fontWeight: 700,
                       background: "rgba(16, 185, 129, 0.15)",
-                      color: "#34D399",
+                      color: "#10B981",
                       padding: "2px 8px",
                       borderRadius: 10,
                       border: "1px solid rgba(16, 185, 129, 0.3)",
@@ -590,7 +595,7 @@ export default function BetaExplainerPage() {
                     READY
                   </span>
                 </div>
-                <div style={{ fontSize: 12, color: "#707A88" }}>
+                <div style={{ fontSize: 12, color: "#737373" }}>
                   Ask questions in plain English or select a topic below
                 </div>
               </div>
@@ -600,9 +605,9 @@ export default function BetaExplainerPage() {
               <button
                 onClick={handleCopyAnswer}
                 style={{
-                  background: "#171F2C",
-                  border: "1px solid #232D3F",
-                  color: "#A8B1BD",
+                  background: "#1C1C1C",
+                  border: "1px solid #242424",
+                  color: "#A3A3A3",
                   padding: "6px 12px",
                   borderRadius: 8,
                   fontSize: 12,
@@ -624,8 +629,8 @@ export default function BetaExplainerPage() {
           <div
             style={{
               padding: "16px 24px",
-              background: "#0D121A",
-              borderBottom: "1px solid #1A212E",
+              background: "#111111",
+              borderBottom: "1px solid #242424",
               display: "flex",
               gap: 10,
               flexWrap: "wrap",
@@ -638,9 +643,9 @@ export default function BetaExplainerPage() {
                   key={item.id}
                   onClick={() => setActiveQuestion(item.id)}
                   style={{
-                    background: isSelected ? "rgba(59, 130, 246, 0.2)" : "#131A26",
-                    border: isSelected ? "1px solid #3B82F6" : "1px solid #1E2738",
-                    color: isSelected ? "#93C5FD" : "#94A3B8",
+                    background: isSelected ? "rgba(249, 115, 22, 0.15)" : "#151515",
+                    border: isSelected ? "1px solid #F97316" : "1px solid #242424",
+                    color: isSelected ? "#F97316" : "#A3A3A3",
                     padding: "7px 14px",
                     borderRadius: 20,
                     fontSize: 12,
@@ -668,7 +673,7 @@ export default function BetaExplainerPage() {
             <div
               style={{
                 fontSize: 12,
-                color: "#60A5FA",
+                color: "#F97316",
                 fontWeight: 700,
                 textTransform: "uppercase",
                 letterSpacing: "0.06em",
@@ -683,7 +688,7 @@ export default function BetaExplainerPage() {
                 <span
                   style={{
                     marginLeft: 6,
-                    color: "#34D399",
+                    color: "#10B981",
                     fontSize: 11,
                     fontWeight: 600,
                     display: "inline-flex",
@@ -700,10 +705,10 @@ export default function BetaExplainerPage() {
               style={{
                 fontSize: 15,
                 lineHeight: 1.75,
-                color: "#E2E8F0",
+                color: "#F5F5F5",
                 whiteSpace: "pre-line",
-                background: "rgba(10, 14, 20, 0.6)",
-                border: "1px solid #1A2230",
+                background: "#0B0B0B",
+                border: "1px solid #242424",
                 borderRadius: 14,
                 padding: "24px",
                 position: "relative",
@@ -716,7 +721,7 @@ export default function BetaExplainerPage() {
                     display: "inline-block",
                     width: 8,
                     height: 16,
-                    background: "#3B82F6",
+                    background: "#F97316",
                     marginLeft: 4,
                     verticalAlign: "middle",
                     animation: "pulse 1s infinite",
@@ -731,8 +736,8 @@ export default function BetaExplainerPage() {
             onSubmit={handleCustomSubmit}
             style={{
               padding: "16px 24px 20px",
-              borderTop: "1px solid #1E2633",
-              background: "#0F141C",
+              borderTop: "1px solid #242424",
+              background: "#151515",
               display: "flex",
               gap: 12,
               alignItems: "center",
@@ -745,9 +750,9 @@ export default function BetaExplainerPage() {
               onChange={(e) => setCustomInput(e.target.value)}
               style={{
                 flex: 1,
-                background: "#161D29",
-                border: "1px solid #232D3F",
-                color: "#F1F5F9",
+                background: "#0B0B0B",
+                border: "1px solid #242424",
+                color: "#F5F5F5",
                 borderRadius: 10,
                 padding: "12px 16px",
                 fontSize: 14,
@@ -757,7 +762,7 @@ export default function BetaExplainerPage() {
             <button
               type="submit"
               style={{
-                background: "linear-gradient(135deg, #2563EB, #3B82F6)",
+                background: "#F97316",
                 border: "none",
                 color: "#FFFFFF",
                 borderRadius: 10,
@@ -793,16 +798,16 @@ export default function BetaExplainerPage() {
               fontWeight: 700,
               textTransform: "uppercase",
               letterSpacing: "0.08em",
-              color: "#3B82F6",
+              color: "#F97316",
               marginBottom: 8,
             }}
           >
             Step-by-Step Walkthrough
           </div>
-          <h2 style={{ fontSize: 28, fontWeight: 800, color: "#F8FAFC" }}>
+          <h2 style={{ fontSize: 28, fontWeight: 800, color: "#F5F5F5" }}>
             The 5-Step Journey: How Code Moves Safely
           </h2>
-          <p style={{ color: "#94A3B8", fontSize: 15, maxWidth: 640, margin: "8px auto 0" }}>
+          <p style={{ color: "#A3A3A3", fontSize: 15, maxWidth: 640, margin: "8px auto 0" }}>
             Every single line of software developed with SUTRA follows this unbreakable loop.
           </p>
         </div>
@@ -824,8 +829,8 @@ export default function BetaExplainerPage() {
                 key={s.step}
                 onClick={() => setActiveStep(idx)}
                 style={{
-                  background: isCurrent ? "#17202E" : "#0D121A",
-                  border: isCurrent ? `1px solid ${s.badgeTone}` : "1px solid #1A2230",
+                  background: isCurrent ? "#1C1C1C" : "#151515",
+                  border: isCurrent ? `1px solid ${s.badgeTone}` : "1px solid #242424",
                   borderRadius: 12,
                   padding: "12px 14px",
                   textAlign: "left",
@@ -837,7 +842,7 @@ export default function BetaExplainerPage() {
                 <div style={{ fontSize: 11, fontWeight: 800, color: s.badgeTone, marginBottom: 4 }}>
                   STEP {s.step}
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: isCurrent ? "#FFFFFF" : "#94A3B8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: isCurrent ? "#FFFFFF" : "#A3A3A3", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {s.title}
                 </div>
               </button>
@@ -852,8 +857,8 @@ export default function BetaExplainerPage() {
           return (
             <div
               style={{
-                background: "#0F141C",
-                border: "1px solid #1E2738",
+                background: "#151515",
+                border: "1px solid #242424",
                 borderRadius: 18,
                 padding: "36px 32px",
                 display: "grid",
@@ -866,7 +871,7 @@ export default function BetaExplainerPage() {
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                   <span
                     style={{
-                      background: s.badgeTone + "22",
+                      background: "rgba(249, 115, 22, 0.12)",
                       color: s.badgeTone,
                       border: `1px solid ${s.badgeTone}44`,
                       fontSize: 11,
@@ -877,28 +882,28 @@ export default function BetaExplainerPage() {
                   >
                     STEP {s.step} &bull; {s.actor.toUpperCase()}
                   </span>
-                  <span style={{ fontSize: 13, color: "#64748B" }}>
+                  <span style={{ fontSize: 13, color: "#737373" }}>
                     {s.sub}
                   </span>
                 </div>
 
-                <h3 style={{ fontSize: 24, fontWeight: 800, color: "#F8FAFC", marginBottom: 14 }}>
+                <h3 style={{ fontSize: 24, fontWeight: 800, color: "#F5F5F5", marginBottom: 14 }}>
                   {s.title}
                 </h3>
 
-                <p style={{ fontSize: 15, lineHeight: 1.7, color: "#94A3B8", marginBottom: 20 }}>
+                <p style={{ fontSize: 15, lineHeight: 1.7, color: "#A3A3A3", marginBottom: 20 }}>
                   {s.desc}
                 </p>
 
                 {/* Everyday Analogy Box */}
                 <div
                   style={{
-                    background: "rgba(23, 31, 44, 0.7)",
+                    background: "#1C1C1C",
                     borderLeft: `4px solid ${s.badgeTone}`,
                     padding: "12px 18px",
                     borderRadius: "0 10px 10px 0",
                     fontSize: 13,
-                    color: "#CBD5E1",
+                    color: "#F5F5F5",
                   }}
                 >
                   <strong style={{ color: s.badgeTone }}>Everyday Analogy:</strong> {s.analogy}
@@ -910,8 +915,8 @@ export default function BetaExplainerPage() {
                   width: 96,
                   height: 96,
                   borderRadius: 24,
-                  background: s.badgeTone + "18",
-                  border: `1px solid ${s.badgeTone}33`,
+                  background: "rgba(249, 115, 22, 0.1)",
+                  border: `1px solid rgba(249, 115, 22, 0.25)`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -937,21 +942,21 @@ export default function BetaExplainerPage() {
       >
         <div
           style={{
-            background: "#0C1017",
-            border: "1px solid #1C2433",
+            background: "#151515",
+            border: "1px solid #242424",
             borderRadius: 20,
             padding: "36px",
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16, marginBottom: 24 }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#10B981", marginBottom: 6 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#F97316", marginBottom: 6 }}>
                 Interactive Simulation
               </div>
-              <h3 style={{ fontSize: 22, fontWeight: 800, color: "#F8FAFC", margin: 0 }}>
+              <h3 style={{ fontSize: 22, fontWeight: 800, color: "#F5F5F5", margin: 0 }}>
                 Watch an AI Agent Execute a Safe Task
               </h3>
-              <p style={{ color: "#64748B", fontSize: 13, marginTop: 4 }}>
+              <p style={{ color: "#737373", fontSize: 13, marginTop: 4 }}>
                 Experience how SUTRA manages a simulated bug fix without endangering production.
               </p>
             </div>
@@ -961,7 +966,7 @@ export default function BetaExplainerPage() {
                 <button
                   onClick={runSimulation}
                   style={{
-                    background: "#2563EB",
+                    background: "#F97316",
                     border: "none",
                     color: "#FFFFFF",
                     padding: "10px 20px",
@@ -980,9 +985,9 @@ export default function BetaExplainerPage() {
                 <button
                   onClick={resetSimulation}
                   style={{
-                    background: "#17202E",
-                    border: "1px solid #232D3F",
-                    color: "#A8B1BD",
+                    background: "#1C1C1C",
+                    border: "1px solid #242424",
+                    color: "#A3A3A3",
                     padding: "10px 16px",
                     borderRadius: 10,
                     fontWeight: 600,
@@ -1006,8 +1011,8 @@ export default function BetaExplainerPage() {
               style={{
                 padding: "14px 18px",
                 borderRadius: 10,
-                background: simStep >= 1 ? "rgba(37, 99, 235, 0.1)" : "#111622",
-                border: simStep >= 1 ? "1px solid rgba(37, 99, 235, 0.3)" : "1px solid #1A2230",
+                background: simStep >= 1 ? "rgba(249, 115, 22, 0.08)" : "#181818",
+                border: simStep >= 1 ? "1px solid rgba(249, 115, 22, 0.28)" : "1px solid #242424",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
@@ -1015,19 +1020,19 @@ export default function BetaExplainerPage() {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span style={{ color: simStep >= 1 ? "#60A5FA" : "#475569" }}>
+                <span style={{ color: simStep >= 1 ? "#F97316" : "#737373" }}>
                   {simStep > 1 ? <CheckCircle2 size={18} style={{ color: "#10B981" }} /> : <Bot size={18} />}
                 </span>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: simStep >= 1 ? "#FFFFFF" : "#64748B" }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: simStep >= 1 ? "#FFFFFF" : "#737373" }}>
                     1. Task Ingestion: &quot;Fix token race condition during user logout&quot;
                   </div>
-                  <div style={{ fontSize: 11, color: "#64748B" }}>
+                  <div style={{ fontSize: 11, color: "#737373" }}>
                     Task ID: <code>task-49b2-auth-fix</code> assigned to sandboxed agent.
                   </div>
                 </div>
               </div>
-              <span style={{ fontSize: 11, color: simStep >= 1 ? "#60A5FA" : "#475569", fontWeight: 700 }}>
+              <span style={{ fontSize: 11, color: simStep >= 1 ? "#F97316" : "#737373", fontWeight: 700 }}>
                 {simStep > 1 ? "COMPLETED" : simStep === 1 ? "INGESTING..." : "PENDING"}
               </span>
             </div>
@@ -1037,8 +1042,8 @@ export default function BetaExplainerPage() {
               style={{
                 padding: "14px 18px",
                 borderRadius: 10,
-                background: simStep >= 2 ? "rgba(139, 92, 246, 0.1)" : "#111622",
-                border: simStep >= 2 ? "1px solid rgba(139, 92, 246, 0.3)" : "1px solid #1A2230",
+                background: simStep >= 2 ? "rgba(249, 115, 22, 0.08)" : "#181818",
+                border: simStep >= 2 ? "1px solid rgba(249, 115, 22, 0.28)" : "1px solid #242424",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
@@ -1046,19 +1051,19 @@ export default function BetaExplainerPage() {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span style={{ color: simStep >= 2 ? "#A78BFA" : "#475569" }}>
+                <span style={{ color: simStep >= 2 ? "#F97316" : "#737373" }}>
                   {simStep > 2 ? <CheckCircle2 size={18} style={{ color: "#10B981" }} /> : <Layers size={18} />}
                 </span>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: simStep >= 2 ? "#FFFFFF" : "#64748B" }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: simStep >= 2 ? "#FFFFFF" : "#737373" }}>
                     2. Knowledge Graph Consultation
                   </div>
-                  <div style={{ fontSize: 11, color: "#64748B" }}>
+                  <div style={{ fontSize: 11, color: "#737373" }}>
                     Scanned 42 repo files; determined safe atomic rotation in <code>auth/service.py</code>.
                   </div>
                 </div>
               </div>
-              <span style={{ fontSize: 11, color: simStep >= 2 ? "#A78BFA" : "#475569", fontWeight: 700 }}>
+              <span style={{ fontSize: 11, color: simStep >= 2 ? "#F97316" : "#737373", fontWeight: 700 }}>
                 {simStep > 2 ? "MAPPED" : simStep === 2 ? "SCANNING GRAPH..." : "WAITING"}
               </span>
             </div>
@@ -1068,8 +1073,8 @@ export default function BetaExplainerPage() {
               style={{
                 padding: "14px 18px",
                 borderRadius: 10,
-                background: simStep >= 3 ? "rgba(6, 182, 212, 0.1)" : "#111622",
-                border: simStep >= 3 ? "1px solid rgba(6, 182, 212, 0.3)" : "1px solid #1A2230",
+                background: simStep >= 3 ? "rgba(249, 115, 22, 0.08)" : "#181818",
+                border: simStep >= 3 ? "1px solid rgba(249, 115, 22, 0.28)" : "1px solid #242424",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
@@ -1077,19 +1082,19 @@ export default function BetaExplainerPage() {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span style={{ color: simStep >= 3 ? "#38BDF8" : "#475569" }}>
+                <span style={{ color: simStep >= 3 ? "#F97316" : "#737373" }}>
                   {simStep > 3 ? <CheckCircle2 size={18} style={{ color: "#10B981" }} /> : <GitBranch size={18} />}
                 </span>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: simStep >= 3 ? "#FFFFFF" : "#64748B" }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: simStep >= 3 ? "#FFFFFF" : "#737373" }}>
                     3. Sandbox Branch Isolation
                   </div>
-                  <div style={{ fontSize: 11, color: "#64748B" }}>
+                  <div style={{ fontSize: 11, color: "#737373" }}>
                     Code committed to <code>sutra/feat-token-race</code> with cryptographic provenance sign-off.
                   </div>
                 </div>
               </div>
-              <span style={{ fontSize: 11, color: simStep >= 3 ? "#38BDF8" : "#475569", fontWeight: 700 }}>
+              <span style={{ fontSize: 11, color: simStep >= 3 ? "#F97316" : "#737373", fontWeight: 700 }}>
                 {simStep > 3 ? "COMMITTED" : simStep === 3 ? "WRITING CODE..." : "WAITING"}
               </span>
             </div>
@@ -1099,8 +1104,8 @@ export default function BetaExplainerPage() {
               style={{
                 padding: "14px 18px",
                 borderRadius: 10,
-                background: simStep >= 4 ? "rgba(16, 185, 129, 0.1)" : "#111622",
-                border: simStep >= 4 ? "1px solid rgba(16, 185, 129, 0.3)" : "1px solid #1A2230",
+                background: simStep >= 4 ? "rgba(16, 185, 129, 0.1)" : "#181818",
+                border: simStep >= 4 ? "1px solid rgba(16, 185, 129, 0.3)" : "1px solid #242424",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
@@ -1108,19 +1113,19 @@ export default function BetaExplainerPage() {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span style={{ color: simStep >= 4 ? "#34D399" : "#475569" }}>
+                <span style={{ color: simStep >= 4 ? "#10B981" : "#737373" }}>
                   {simStep > 4 ? <CheckCircle2 size={18} style={{ color: "#10B981" }} /> : <ShieldCheck size={18} />}
                 </span>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: simStep >= 4 ? "#FFFFFF" : "#64748B" }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: simStep >= 4 ? "#FFFFFF" : "#737373" }}>
                     4. CI Quality Gate & Vulnerability Audit
                   </div>
-                  <div style={{ fontSize: 11, color: "#64748B" }}>
+                  <div style={{ fontSize: 11, color: "#737373" }}>
                     18 unit tests passed; 0 security leaks detected; PR #104 opened automatically.
                   </div>
                 </div>
               </div>
-              <span style={{ fontSize: 11, color: simStep >= 4 ? "#34D399" : "#475569", fontWeight: 700 }}>
+              <span style={{ fontSize: 11, color: simStep >= 4 ? "#10B981" : "#737373", fontWeight: 700 }}>
                 {simStep > 4 ? "PASSED" : simStep === 4 ? "RUNNING TESTS..." : "WAITING"}
               </span>
             </div>
@@ -1130,8 +1135,8 @@ export default function BetaExplainerPage() {
               style={{
                 padding: "18px",
                 borderRadius: 12,
-                background: simStep === 5 ? (simApproved ? "rgba(16, 185, 129, 0.15)" : "rgba(245, 158, 11, 0.12)") : "#111622",
-                border: simStep === 5 ? (simApproved ? "1px solid #10B981" : "1px solid #F59E0B") : "1px solid #1A2230",
+                background: simStep === 5 ? (simApproved ? "rgba(16, 185, 129, 0.15)" : "rgba(249, 115, 22, 0.12)") : "#181818",
+                border: simStep === 5 ? (simApproved ? "1px solid #10B981" : "1px solid #F97316") : "1px solid #242424",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
@@ -1141,10 +1146,10 @@ export default function BetaExplainerPage() {
               }}
             >
               <div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: simStep === 5 ? (simApproved ? "#34D399" : "#FBBF24") : "#64748B" }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: simStep === 5 ? (simApproved ? "#10B981" : "#F97316") : "#737373" }}>
                   5. Human Approval Stage
                 </div>
-                <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 2 }}>
+                <div style={{ fontSize: 12, color: "#A3A3A3", marginTop: 2 }}>
                   {simApproved
                     ? "🎉 You approved the PR! Changes safely merged to the repository main branch."
                     : simStep === 5
@@ -1173,7 +1178,7 @@ export default function BetaExplainerPage() {
               )}
 
               {simApproved && (
-                <div style={{ color: "#34D399", fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ color: "#10B981", fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
                   <CheckCircle2 size={16} /> MERGED SUCCESSFULLY
                 </div>
               )}
@@ -1192,10 +1197,10 @@ export default function BetaExplainerPage() {
         }}
       >
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <h2 style={{ fontSize: 24, fontWeight: 800, color: "#F8FAFC" }}>
+          <h2 style={{ fontSize: 24, fontWeight: 800, color: "#F5F5F5" }}>
             The Layman Glossary
           </h2>
-          <p style={{ color: "#94A3B8", fontSize: 14, marginTop: 4 }}>
+          <p style={{ color: "#A3A3A3", fontSize: 14, marginTop: 4 }}>
             Plain explanations for confusing buzzwords in the AI coding ecosystem.
           </p>
         </div>
@@ -1207,29 +1212,29 @@ export default function BetaExplainerPage() {
             gap: 16,
           }}
         >
-          <div style={{ padding: 22, background: "#0F141C", border: "1px solid #1E2738", borderRadius: 14 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#60A5FA", marginBottom: 6 }}>
+          <div style={{ padding: 22, background: "#151515", border: "1px solid #242424", borderRadius: 14 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#F97316", marginBottom: 6 }}>
               What is a &quot;Control Plane&quot;?
             </div>
-            <p style={{ fontSize: 13, lineHeight: 1.6, color: "#94A3B8", margin: 0 }}>
+            <p style={{ fontSize: 13, lineHeight: 1.6, color: "#A3A3A3", margin: 0 }}>
               Think of the air traffic control tower at an airport. It doesn’t fly the airplanes, but it controls the runways, issues clearance, monitors collisions, and ensures planes land safely. SUTRA is the control tower for your AI agents.
             </p>
           </div>
 
-          <div style={{ padding: 22, background: "#0F141C", border: "1px solid #1E2738", borderRadius: 14 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#A78BFA", marginBottom: 6 }}>
+          <div style={{ padding: 22, background: "#151515", border: "1px solid #242424", borderRadius: 14 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#F97316", marginBottom: 6 }}>
               What is &quot;Cryptographic Provenance&quot;?
             </div>
-            <p style={{ fontSize: 13, lineHeight: 1.6, color: "#94A3B8", margin: 0 }}>
+            <p style={{ fontSize: 13, lineHeight: 1.6, color: "#A3A3A3", margin: 0 }}>
               An unforgeable digital seal on every change. If an audit is conducted three years from now, you can mathematically prove whether a line of code was written by an AI agent or a human, which task prompted it, and who approved it.
             </p>
           </div>
 
-          <div style={{ padding: 22, background: "#0F141C", border: "1px solid #1E2738", borderRadius: 14 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#34D399", marginBottom: 6 }}>
+          <div style={{ padding: 22, background: "#151515", border: "1px solid #242424", borderRadius: 14 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#10B981", marginBottom: 6 }}>
               What is &quot;Branch Protection&quot;?
             </div>
-            <p style={{ fontSize: 13, lineHeight: 1.6, color: "#94A3B8", margin: 0 }}>
+            <p style={{ fontSize: 13, lineHeight: 1.6, color: "#A3A3A3", margin: 0 }}>
               A digital padlock placed on your main repository branch. No bot or unauthorized user can force code in without passing all test suites and obtaining signed approval from a human teammate.
             </p>
           </div>
@@ -1247,8 +1252,8 @@ export default function BetaExplainerPage() {
       >
         <div
           style={{
-            background: "linear-gradient(135deg, rgba(37, 99, 235, 0.15) 0%, rgba(124, 58, 237, 0.15) 100%)",
-            border: "1px solid rgba(96, 165, 250, 0.3)",
+            background: "#151515",
+            border: "1px solid #242424",
             borderRadius: 20,
             padding: "40px 32px",
             textAlign: "center",
@@ -1259,21 +1264,22 @@ export default function BetaExplainerPage() {
               width: 48,
               height: 48,
               borderRadius: 14,
-              background: "rgba(59, 130, 246, 0.2)",
+              background: "rgba(249, 115, 22, 0.12)",
+              border: "1px solid rgba(249, 115, 22, 0.28)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "#60A5FA",
+              color: "#F97316",
               margin: "0 auto 16px",
             }}
           >
             <Mail size={24} />
           </div>
 
-          <h3 style={{ fontSize: 26, fontWeight: 800, color: "#F8FAFC", marginBottom: 12 }}>
+          <h3 style={{ fontSize: 26, fontWeight: 800, color: "#F5F5F5", marginBottom: 12 }}>
             Have Feedback or Need Private Beta Access?
           </h3>
-          <p style={{ color: "#94A3B8", fontSize: 15, maxWidth: 600, margin: "0 auto 24px", lineHeight: 1.6 }}>
+          <p style={{ color: "#A3A3A3", fontSize: 15, maxWidth: 600, margin: "0 auto 24px", lineHeight: 1.6 }}>
             We are actively onboarding engineering teams and autonomous agent builders. Contact our core team directly to schedule a walkthrough or request an enterprise beta key.
           </p>
 
@@ -1282,23 +1288,23 @@ export default function BetaExplainerPage() {
               display: "inline-flex",
               alignItems: "center",
               gap: 12,
-              background: "#090C10",
-              border: "1px solid #232D3F",
+              background: "#0B0B0B",
+              border: "1px solid #242424",
               borderRadius: 12,
               padding: "10px 18px",
-              marginBottom: 16,
+              marginBottom: 20,
               flexWrap: "wrap",
               justifyContent: "center",
             }}
           >
-            <span style={{ fontSize: 14, color: "#CBD5E1", fontFamily: "monospace" }}>
+            <span style={{ fontSize: 14, color: "#F5F5F5", fontFamily: "monospace" }}>
               sutra@sudarshanai.com
             </span>
             <button
               onClick={handleCopyEmail}
               style={{
-                background: copiedEmail ? "#10B981" : "#1E2738",
-                border: "none",
+                background: copiedEmail ? "#10B981" : "#1C1C1C",
+                border: "1px solid #242424",
                 color: "#FFFFFF",
                 padding: "6px 12px",
                 borderRadius: 6,
@@ -1321,14 +1327,14 @@ export default function BetaExplainerPage() {
               href="mailto:sutra@sudarshanai.com?subject=SUTRA%20Beta%20Inquiry"
               style={{
                 display: "inline-block",
-                background: "linear-gradient(135deg, #2563EB, #4F46E5)",
+                background: "#F97316",
                 color: "#FFFFFF",
                 textDecoration: "none",
                 fontWeight: 700,
                 fontSize: 14,
                 padding: "12px 28px",
                 borderRadius: 10,
-                boxShadow: "0 10px 20px -5px rgba(37, 99, 235, 0.4)",
+                boxShadow: "0 4px 16px rgba(249, 115, 22, 0.25)",
               }}
             >
               Open Email Client &rarr;
@@ -1340,8 +1346,8 @@ export default function BetaExplainerPage() {
       {/* 8. DEDICATED PAGE FOOTER */}
       <footer
         style={{
-          borderTop: "1px solid #1E2633",
-          background: "#07090D",
+          borderTop: "1px solid #242424",
+          background: "#0B0B0B",
           padding: "40px 24px 32px",
           marginTop: "auto",
         }}
@@ -1356,7 +1362,7 @@ export default function BetaExplainerPage() {
             flexWrap: "wrap",
             gap: 16,
             fontSize: 12,
-            color: "#64748B",
+            color: "#737373",
           }}
         >
           <div>
@@ -1367,7 +1373,7 @@ export default function BetaExplainerPage() {
               Contact us at{" "}
               <a
                 href="mailto:sutra@sudarshanai.com"
-                style={{ color: "#60A5FA", textDecoration: "none", fontWeight: 600 }}
+                style={{ color: "#3B82F6", textDecoration: "none", fontWeight: 600 }}
               >
                 sutra@sudarshanai.com
               </a>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   ShieldCheck,
@@ -17,13 +17,21 @@ import {
   Workflow,
   Eye,
   CheckCheck,
-  BookOpen
+  BookOpen,
+  LayoutDashboard
 } from "lucide-react";
 import { trackEvent } from "./analytics";
+import { authService } from "@/lib/auth";
 
 export function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [isAuthed, setIsAuthed] = useState<boolean>(false);
+
+  useEffect(() => {
+    setIsAuthed(authService.isAuthenticated());
+  }, []);
+
 
   const structuredData = {
     "@context": "https://schema.org",
@@ -295,33 +303,56 @@ export function LandingPage() {
 
           {/* Right CTA */}
           <div style={{ display: "none", alignItems: "center", gap: 14 }} className="desktop-nav">
-            <Link
-              href="/login"
-              onClick={() => trackEvent("click_login", "navigation", "nav_sign_in")}
-              style={{
-                fontSize: 13,
-                fontWeight: 600,
-                color: "#F2F5F8",
-                textDecoration: "none",
-                padding: "8px 14px",
-              }}
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/register"
-              className="btn primary"
-              onClick={() => trackEvent("click_cta", "navigation", "nav_join_private_beta")}
-              style={{
-                padding: "8px 20px",
-                borderRadius: 999,
-                fontSize: 13,
-                fontWeight: 600,
-                textDecoration: "none",
-              }}
-            >
-              Join the Beta
-            </Link>
+            {isAuthed ? (
+              <Link
+                href="/home"
+                className="btn primary"
+                onClick={() => trackEvent("click_cta", "navigation", "nav_open_dashboard")}
+                style={{
+                  padding: "8px 20px",
+                  borderRadius: 999,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <LayoutDashboard size={14} />
+                Open Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  onClick={() => trackEvent("click_login", "navigation", "nav_sign_in")}
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "#F2F5F8",
+                    textDecoration: "none",
+                    padding: "8px 14px",
+                  }}
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/register"
+                  className="btn primary"
+                  onClick={() => trackEvent("click_cta", "navigation", "nav_join_private_beta")}
+                  style={{
+                    padding: "8px 20px",
+                    borderRadius: 999,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    textDecoration: "none",
+                  }}
+                >
+                  Join the Beta
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Toggle Button */}
@@ -387,26 +418,48 @@ export function LandingPage() {
               Documentation & Guides
             </Link>
             <div style={{ height: 1, background: "#242424", margin: "6px 0" }} />
-            <Link
-              href="/login"
-              onClick={() => setMobileMenuOpen(false)}
-              style={{ fontSize: 14, color: "#C4C4C4", textDecoration: "none" }}
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/register"
-              className="btn primary"
-              onClick={() => setMobileMenuOpen(false)}
-              style={{
-                textAlign: "center",
-                justifyContent: "center",
-                textDecoration: "none",
-                marginTop: 4,
-              }}
-            >
-              Join the Beta
-            </Link>
+            {isAuthed ? (
+              <Link
+                href="/home"
+                className="btn primary"
+                onClick={() => setMobileMenuOpen(false)}
+                style={{
+                  textAlign: "center",
+                  justifyContent: "center",
+                  textDecoration: "none",
+                  marginTop: 4,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <LayoutDashboard size={15} />
+                Open Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  style={{ fontSize: 14, color: "#C4C4C4", textDecoration: "none" }}
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/register"
+                  className="btn primary"
+                  onClick={() => setMobileMenuOpen(false)}
+                  style={{
+                    textAlign: "center",
+                    justifyContent: "center",
+                    textDecoration: "none",
+                    marginTop: 4,
+                  }}
+                >
+                  Join the Beta
+                </Link>
+              </>
+            )}
           </div>
         )}
       </header>
