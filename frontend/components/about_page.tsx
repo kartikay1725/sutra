@@ -87,21 +87,6 @@ export function AboutPage() {
             <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: "0.04em", color: "#F5F5F5" }}>
               SUTRA
             </span>
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                background: "rgba(249, 115, 22, 0.12)",
-                border: "1px solid rgba(249, 115, 22, 0.28)",
-                color: "#F97316",
-                padding: "2px 7px",
-                borderRadius: 999,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-              }}
-            >
-              Beta
-            </span>
           </Link>
 
           {/* Desktop Nav Links */}
@@ -168,7 +153,7 @@ export function AboutPage() {
                 textDecoration: "none",
               }}
             >
-              Join the Beta
+              Get Started
             </Link>
           </div>
 
@@ -253,7 +238,7 @@ export function AboutPage() {
                 marginTop: 4,
               }}
             >
-              Join the Beta
+              Get Started
             </Link>
           </div>
         )}
@@ -531,7 +516,7 @@ export function AboutPage() {
         </p>
       </section>
 
-      {/* ABOUT — Beta */}
+      {/* ABOUT — GET STARTED */}
       <section
         style={{
           maxWidth: 860,
@@ -552,7 +537,7 @@ export function AboutPage() {
             marginBottom: 14,
           }}
         >
-          Beta
+          Start Building Safely
         </h2>
         <p
           style={{
@@ -563,7 +548,7 @@ export function AboutPage() {
             margin: "0 auto 28px",
           }}
         >
-          We are currently testing SUTRA with a limited group of users and real engineering workflows.
+          SUTRA provides the control plane engineering teams trust to run autonomous software engineering workflows.
         </p>
         <Link
           href="/register"
@@ -579,7 +564,7 @@ export function AboutPage() {
             gap: 8,
           }}
         >
-          Join the Beta
+          Get Started
           <ArrowRight size={16} />
         </Link>
       </section>
@@ -635,7 +620,7 @@ export function AboutPage() {
               Sign In
             </Link>
             <Link href="/register" style={{ color: "#3B82F6", textDecoration: "none", fontWeight: 600 }}>
-              Join the Beta
+              Get Started
             </Link>
             <a href="mailto:sutra@sudarshanai.com" style={{ color: "#A3A3A3", textDecoration: "none" }}>
               Contact Us

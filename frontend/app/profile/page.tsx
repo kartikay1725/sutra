@@ -245,7 +245,7 @@ export default function ProfilePage() {
               lineHeight: 1.55,
             }}
           >
-            You are currently browsing as a guest. Please sign in or join the beta to view, manage, and configure your SUTRA profile settings.
+            You are currently browsing as a guest. Please sign in or create an account to view, manage, and configure your SUTRA profile settings.
           </p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
             <Link
@@ -266,7 +266,7 @@ export default function ProfilePage() {
               Sign In
             </Link>
             <Link
-              href="/beta"
+              href="/register"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -280,7 +280,7 @@ export default function ProfilePage() {
                 textDecoration: "none",
               }}
             >
-              Join Beta
+              Get Started
             </Link>
           </div>
         </div>

@@ -208,7 +208,7 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
               <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-bright, #f5f5f5)" }}>Sign in</span>
             </Link>
             <Link
-              href="/beta"
+              href="/register"
               className="profile-mini"
               style={{
                 justifyContent: "center",
@@ -219,7 +219,7 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
                 textDecoration: "none",
               }}
             >
-              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent, #f97316)" }}>Join Beta</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent, #f97316)" }}>Get Started</span>
             </Link>
           </div>
         )}
@@ -471,7 +471,7 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
                 Sign in
               </Link>
               <Link
-                href="/beta"
+                href="/register"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -487,7 +487,7 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
                   transition: "all 120ms ease",
                 }}
               >
-                Join Beta
+                Get Started
               </Link>
             </div>
           )}

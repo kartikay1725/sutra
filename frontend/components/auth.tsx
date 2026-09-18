@@ -474,7 +474,7 @@ export function Signup() {
               />
             </div>
             <Btn primary style={{ width: "100%" }} type="submit" disabled={loading}>
-              {loading ? "Creating account..." : "Join Beta"}
+              {loading ? "Creating account..." : "Create Account"}
             </Btn>
           </form>
         ) : (

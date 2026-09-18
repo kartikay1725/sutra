@@ -245,21 +245,6 @@ export function LandingPage() {
             <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: "0.04em", color: "#F5F5F5" }}>
               SUTRA
             </span>
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                background: "rgba(249, 115, 22, 0.12)",
-                border: "1px solid rgba(249, 115, 22, 0.28)",
-                color: "#F97316",
-                padding: "2px 7px",
-                borderRadius: 999,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-              }}
-            >
-              Beta
-            </span>
           </Link>
 
           {/* Desktop Nav Links */}
@@ -340,7 +325,7 @@ export function LandingPage() {
                 <Link
                   href="/register"
                   className="btn primary"
-                  onClick={() => trackEvent("click_cta", "navigation", "nav_join_private_beta")}
+                  onClick={() => trackEvent("click_cta", "navigation", "nav_get_started")}
                   style={{
                     padding: "8px 20px",
                     borderRadius: 999,
@@ -349,7 +334,7 @@ export function LandingPage() {
                     textDecoration: "none",
                   }}
                 >
-                  Join the Beta
+                  Get Started
                 </Link>
               </>
             )}
@@ -456,7 +441,7 @@ export function LandingPage() {
                     marginTop: 4,
                   }}
                 >
-                  Join the Beta
+                  Get Started
                 </Link>
               </>
             )}
@@ -493,7 +478,7 @@ export function LandingPage() {
               marginBottom: 24,
             }}
           >
-            AI-NATIVE ENGINEERING CONTROL PLANE · SUDARSHAN HARNESS
+            AN ENVIRONMENT THAT ACTUALLY MAKES YOUR CODE SAFE FOR AGENTS
           </div>
 
           <h1
@@ -519,7 +504,7 @@ export function LandingPage() {
               margin: "0 auto 36px",
             }}
           >
-            SUTRA is an AI-native engineering control plane by Sudarshan Harness for governed autonomous software engineering — combining scoped agent identity, real Git lifecycles, and mandatory human review.
+            SUTRA is the safety harness for AI coding assistants. It gives autonomous agents isolated workspaces with real Git history, tests every change automatically, and ensures nothing ever merges to your codebase without your final review.
           </p>
 
           <div
@@ -535,7 +520,7 @@ export function LandingPage() {
             <Link
               href="/register"
               style={{ textDecoration: "none" }}
-              onClick={() => trackEvent("click_cta", "marketing", "hero_join_private_beta")}
+              onClick={() => trackEvent("click_cta", "marketing", "hero_get_started")}
             >
               <button
                 className="btn primary"
@@ -554,7 +539,7 @@ export function LandingPage() {
                   cursor: "pointer",
                 }}
               >
-                Join the Beta
+                Get Started
                 <ArrowRight size={16} />
               </button>
             </Link>
@@ -696,6 +681,226 @@ export function LandingPage() {
           </div>
         </section>
       </div>
+
+      {/* GITHUB VS SUTRA: WHAT GITHUB DOES & WHAT SUTRA DOES */}
+      <section
+        style={{
+          maxWidth: 1160,
+          margin: "0 auto",
+          padding: "50px 24px 70px",
+        }}
+      >
+        <div style={{ textAlign: "center", marginBottom: 36 }}>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.14em",
+              color: "#F97316",
+              marginBottom: 10,
+            }}
+          >
+            CLEAR DIVISION OF RESPONSIBILITY
+          </div>
+          <h2
+            style={{
+              fontSize: "clamp(24px, 3.8vw, 36px)",
+              fontWeight: 800,
+              letterSpacing: "-0.02em",
+              color: "#F5F5F5",
+              margin: "0 0 12px",
+            }}
+          >
+            What GitHub Does vs. What SUTRA Does
+          </h2>
+          <p
+            style={{
+              fontSize: "16px",
+              lineHeight: 1.6,
+              color: "#A3A3A3",
+              maxWidth: 680,
+              margin: "0 auto",
+            }}
+          >
+            GitHub is where your code lives and collaborates. SUTRA is the protective control plane that governs how AI agents interact with that code safely.
+          </p>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+            gap: 24,
+            alignItems: "stretch",
+          }}
+        >
+          {/* COLUMN 1: WHAT GITHUB DOES */}
+          <div
+            style={{
+              background: "#151515",
+              border: "1px solid #242424",
+              borderRadius: 16,
+              padding: "32px 28px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 20,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 12, borderBottom: "1px solid #242424", paddingBottom: 18 }}>
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 10,
+                  background: "rgba(255, 255, 255, 0.05)",
+                  border: "1px solid #2A2A2A",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#F5F5F5",
+                }}
+              >
+                <GitBranch size={20} />
+              </div>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "#F5F5F5" }}>What GitHub Does</div>
+                <div style={{ fontSize: 12, color: "#737373" }}>The Source Code &amp; Team Collaboration Hub</div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 16, flex: 1 }}>
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <div style={{ color: "#737373", marginTop: 2 }}><CheckCircle2 size={16} /></div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Stores Git Repositories</div>
+                  <div style={{ fontSize: 13, color: "#A3A3A3", marginTop: 2 }}>Hosts your main branches, commit history, releases, and repository tree.</div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <div style={{ color: "#737373", marginTop: 2 }}><CheckCircle2 size={16} /></div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Hosts Pull Requests &amp; Issues</div>
+                  <div style={{ fontSize: 13, color: "#A3A3A3", marginTop: 2 }}>Provides issue boards, discussion threads, and team code review comments.</div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <div style={{ color: "#737373", marginTop: 2 }}><CheckCircle2 size={16} /></div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Runs GitHub Actions &amp; Webhooks</div>
+                  <div style={{ fontSize: 13, color: "#A3A3A3", marginTop: 2 }}>Triggers basic CI runners, deployment webhooks, and status checks on push.</div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <div style={{ color: "#737373", marginTop: 2 }}><CheckCircle2 size={16} /></div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Manages Human Permissions</div>
+                  <div style={{ fontSize: 13, color: "#A3A3A3", marginTop: 2 }}>Controls team read/write access and organization memberships.</div>
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: "#0B0B0B",
+                border: "1px solid #242424",
+                borderRadius: 10,
+                padding: "12px 16px",
+                fontSize: 12,
+                color: "#737373",
+              }}
+            >
+              <strong style={{ color: "#A3A3A3" }}>Limitation:</strong> GitHub treats AI agents like generic users with static tokens. It cannot bound agent execution, inspect task intent, or prevent silent rogue changes.
+            </div>
+          </div>
+
+          {/* COLUMN 2: WHAT SUTRA DOES */}
+          <div
+            style={{
+              background: "#151515",
+              border: "1px solid rgba(249, 115, 22, 0.4)",
+              borderRadius: 16,
+              padding: "32px 28px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 20,
+              boxShadow: "0 8px 32px rgba(249, 115, 22, 0.08)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 12, borderBottom: "1px solid #242424", paddingBottom: 18 }}>
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 10,
+                  background: "rgba(249, 115, 22, 0.12)",
+                  border: "1px solid rgba(249, 115, 22, 0.3)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#F97316",
+                }}
+              >
+                <ShieldCheck size={20} />
+              </div>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "#F5F5F5" }}>What SUTRA Does</div>
+                <div style={{ fontSize: 12, color: "#F97316", fontWeight: 600 }}>The Safe Autonomous Engineering Control Plane</div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 16, flex: 1 }}>
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <div style={{ color: "#F97316", marginTop: 2 }}><CheckCircle2 size={16} /></div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Zero Direct Access to Main Branches</div>
+                  <div style={{ fontSize: 13, color: "#A3A3A3", marginTop: 2 }}>Agents are constrained to ephemeral, isolated workspaces with short-lived credentials.</div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <div style={{ color: "#F97316", marginTop: 2 }}><CheckCircle2 size={16} /></div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Living Architecture Knowledge Graph</div>
+                  <div style={{ fontSize: 13, color: "#A3A3A3", marginTop: 2 }}>Agents consult codebase dependencies first, eliminating blind guesswork and cross-file regressions.</div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <div style={{ color: "#F97316", marginTop: 2 }}><CheckCircle2 size={16} /></div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Cryptographic Code Provenance</div>
+                  <div style={{ fontSize: 13, color: "#A3A3A3", marginTop: 2 }}>Every commit is digitally stamped with complete history: which agent wrote it, why, and what tests ran.</div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <div style={{ color: "#F97316", marginTop: 2 }}><CheckCircle2 size={16} /></div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Mandatory Human Approval Gate</div>
+                  <div style={{ fontSize: 13, color: "#A3A3A3", marginTop: 2 }}>Agents are programmatically blocked from self-merging. A verified human must review and approve.</div>
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: "rgba(249, 115, 22, 0.08)",
+                border: "1px solid rgba(249, 115, 22, 0.25)",
+                borderRadius: 10,
+                padding: "12px 16px",
+                fontSize: 12,
+                color: "#F5F5F5",
+              }}
+            >
+              <strong style={{ color: "#F97316" }}>SUTRA Advantage:</strong> Works alongside your existing GitHub repositories without replacing your source code host.
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* 3. PROBLEM SECTION */}
       <section
@@ -1352,7 +1557,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* 11. Beta CTA */}
+      {/* 11. CTA */}
       <section
         style={{
           maxWidth: 1000,
@@ -1386,7 +1591,7 @@ export function LandingPage() {
             margin: "0 auto 36px",
           }}
         >
-          SUTRA is currently available as a Beta for teams experimenting with real-world AI-assisted engineering workflows.
+          SUTRA gives your team the safe, governed execution environment needed to let autonomous agents build and ship real software.
         </p>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
           <Link
@@ -1400,7 +1605,7 @@ export function LandingPage() {
               textDecoration: "none",
             }}
           >
-            Join the Beta
+            Get Started
           </Link>
           <div style={{ fontSize: 13, color: "#737373" }}>
             Already have an account?{" "}
@@ -1462,7 +1667,7 @@ export function LandingPage() {
               Sign In
             </Link>
             <Link href="/register" style={{ color: "#F97316", textDecoration: "none", fontWeight: 600 }}>
-              Join the Beta
+              Get Started
             </Link>
             <a href="mailto:sutra@sudarshanai.com" style={{ color: "#C4C4C4", textDecoration: "none" }}>
               Contact Us
