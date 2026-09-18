@@ -290,7 +290,7 @@ export function LandingPage() {
           <div style={{ display: "none", alignItems: "center", gap: 14 }} className="desktop-nav">
             {isAuthed ? (
               <Link
-                href="/home"
+                href="/login"
                 className="btn primary"
                 onClick={() => trackEvent("click_cta", "navigation", "nav_open_dashboard")}
                 style={{
@@ -405,7 +405,7 @@ export function LandingPage() {
             <div style={{ height: 1, background: "#242424", margin: "6px 0" }} />
             {isAuthed ? (
               <Link
-                href="/home"
+                href="/login"
                 className="btn primary"
                 onClick={() => setMobileMenuOpen(false)}
                 style={{
