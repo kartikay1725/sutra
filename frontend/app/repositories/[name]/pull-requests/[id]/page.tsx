@@ -194,7 +194,7 @@ export default function PullRequestDetailPage({ params }: { params: Promise<{ na
       <div style={{ width: "100%" }}>
 
         {/* Status Bar */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24, padding: "12px 20px", background: "var(--bg-subtle)", borderRadius: 8, border: `1px solid ${statusColor}40` }}>
+        <div className="status-bar-strip" style={{ border: `1px solid ${statusColor}40` }}>
           <div style={{ width: 10, height: 10, borderRadius: "50%", background: statusColor }} />
           <span style={{ fontWeight: 700, color: statusColor, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.5px" }}>
             {pr.status}
@@ -213,7 +213,7 @@ export default function PullRequestDetailPage({ params }: { params: Promise<{ na
         </div>
 
         {/* Pipeline Checks Row */}
-        <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 28, background: "var(--bg-subtle)", borderRadius: 8, border: "1px solid var(--line)", overflow: "hidden" }}>
+        <div className="pipeline-strip">
           {[
             {
               label: "CI",
@@ -248,11 +248,11 @@ export default function PullRequestDetailPage({ params }: { params: Promise<{ na
         </div>
 
         {/* Main 2-column layout */}
-        <div style={{ display: "flex", gap: 32, alignItems: "flex-start" }}>
+        <div className="detail-layout" style={{ marginTop: 0 }}>
 
           {/* LEFT - Tabs + Content */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: "flex", borderBottom: "1px solid var(--line)", marginBottom: 24 }}>
+          <div className="detail-main" style={{ gap: 0 }}>
+            <div className="pr-tabs-strip" style={{ borderBottom: "1px solid var(--line)", marginBottom: 24 }}>
               {tabs.map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)} style={{
                   padding: "10px 18px", background: "transparent", border: "none",
@@ -468,7 +468,7 @@ export default function PullRequestDetailPage({ params }: { params: Promise<{ na
           </div>
 
           {/* RIGHT sidebar */}
-          <div style={{ width: 280, flexShrink: 0, display: "flex", flexDirection: "column", gap: 20 }}>
+          <div className="detail-sidebar-280">
 
             {/* SUTRA Provenance Card */}
             <Card style={{ padding: 16 }}>

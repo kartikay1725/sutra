@@ -198,6 +198,7 @@ function GlobalChangesContent() {
 
           {/* Filter Pills */}
           <div
+            className="filter-pills-row"
             style={{
               display: "flex",
               flexWrap: "wrap",
@@ -207,7 +208,7 @@ function GlobalChangesContent() {
             }}
           >
             {/* Actor Filter */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 12, color: "var(--muted)", marginRight: 4 }}>
                 Actor:
               </span>
@@ -247,7 +248,7 @@ function GlobalChangesContent() {
             </div>
 
             {/* Status Filter */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 12, color: "var(--muted)", marginRight: 4 }}>
                 Status:
               </span>
@@ -287,7 +288,7 @@ function GlobalChangesContent() {
             </div>
 
             {/* Risk Filter */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 12, color: "var(--muted)", marginRight: 4 }}>
                 Risk:
               </span>

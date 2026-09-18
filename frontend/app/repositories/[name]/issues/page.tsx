@@ -322,15 +322,7 @@ export default function RepositoryIssuesPage({
         }}
       >
         {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            gap: 20,
-            marginBottom: 24,
-          }}
-        >
+        <div className="issues-page-header" style={{ marginBottom: 24 }}>
           <div>
             <div
               style={{
@@ -377,13 +369,7 @@ export default function RepositoryIssuesPage({
             </p>
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
+          <div className="issues-header-actions">
             {lastSyncedAt && (
               <span
                 style={{
@@ -477,15 +463,7 @@ export default function RepositoryIssuesPage({
         )}
 
         {/* Stats */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns:
-              "repeat(3, minmax(0, 1fr))",
-            gap: 12,
-            marginBottom: 18,
-          }}
-        >
+        <div className="stats-grid-3">
           <div
             style={{
               padding: "15px 17px",

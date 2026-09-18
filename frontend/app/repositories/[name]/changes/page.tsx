@@ -80,8 +80,8 @@ export default function ChangesListPage({ params }: { params: Promise<{ name: st
       <div style={{ width: "100%" }}>
         
         {/* Filters and Stats Row */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <div style={{ display: "flex", gap: 8 }}>
+        <div className="changes-filter-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <div className="changes-filter-tabs" style={{ display: "flex", gap: 8 }}>
             {["All", "Open", "Needs Review", "Agent Changes", "My Changes"].map(f => (
               <button 
                 key={f}
@@ -102,7 +102,7 @@ export default function ChangesListPage({ params }: { params: Promise<{ name: st
               </button>
             ))}
           </div>
-          <div style={{ display: "flex", gap: 12 }}>
+          <div className="changes-search-group" style={{ display: "flex", gap: 12 }}>
             <div style={{ position: "relative" }}>
               <I.Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
               <input type="text" placeholder="Search changes..." style={{ padding: "6px 10px 6px 30px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--bg)", color: "var(--fg)", fontSize: 14 }} />
@@ -111,7 +111,7 @@ export default function ChangesListPage({ params }: { params: Promise<{ name: st
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 24, fontSize: 14, color: "var(--muted)", marginBottom: 24, padding: "12px 16px", background: "var(--bg-subtle)", borderRadius: 8, border: "1px solid var(--line)" }}>
+        <div className="changes-stats-row" style={{ display: "flex", gap: 24, fontSize: 14, color: "var(--muted)", marginBottom: 24, padding: "12px 16px", background: "var(--bg-subtle)", borderRadius: 8, border: "1px solid var(--line)" }}>
           <div><strong style={{ color: "var(--fg)" }}>{stats.open}</strong> Open Changes</div>
           <div><strong style={{ color: "var(--fg)" }}>{stats.needsReview}</strong> Needs Review</div>
           <div><strong style={{ color: "var(--fg)" }}>{stats.agentChanges}</strong> Agent Changes</div>

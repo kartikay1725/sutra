@@ -165,8 +165,8 @@ export default function PullRequestsPage({ params }: { params: Promise<{ name: s
       <div style={{ width: "100%" }}>
 
         {/* Filter Bar */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <div style={{ display: "flex", gap: 6 }}>
+        <div className="changes-filter-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <div className="changes-filter-tabs" style={{ display: "flex", gap: 6 }}>
             {["All", "Needs Review", "My PRs", "Approved", "Merged"].map(f => (
               <button key={f} onClick={() => setActiveFilter(f)} style={{
                 background: activeFilter === f ? "var(--bg-subtle)" : "transparent",
@@ -174,22 +174,23 @@ export default function PullRequestsPage({ params }: { params: Promise<{ name: s
                 color: activeFilter === f ? "var(--fg)" : "var(--muted)",
                 padding: "6px 14px", borderRadius: 6, cursor: "pointer", fontSize: 14,
                 fontWeight: activeFilter === f ? 600 : 400,
+                flexShrink: 0,
               }}>{f}</button>
             ))}
           </div>
-          <div style={{ position: "relative" }}>
+          <div className="changes-search-group" style={{ position: "relative" }}>
             <I.Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search pull requests..."
-              style={{ padding: "7px 12px 7px 32px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--bg)", color: "var(--fg)", fontSize: 14, width: 220 }}
+              style={{ padding: "7px 12px 7px 32px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--bg)", color: "var(--fg)", fontSize: 14, width: "100%", maxWidth: 220 }}
             />
           </div>
         </div>
 
         {/* Stats Row */}
-        <div style={{ display: "flex", gap: 24, fontSize: 14, color: "var(--muted)", marginBottom: 24, padding: "12px 16px", background: "var(--bg-subtle)", borderRadius: 8, border: "1px solid var(--line)" }}>
+        <div className="changes-stats-row" style={{ display: "flex", gap: 24, fontSize: 14, color: "var(--muted)", marginBottom: 24, padding: "12px 16px", background: "var(--bg-subtle)", borderRadius: 8, border: "1px solid var(--line)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <I.GitPullRequest size={14} color="var(--cyan)" />
             <strong style={{ color: "var(--fg)" }}>{stats.open}</strong> Open

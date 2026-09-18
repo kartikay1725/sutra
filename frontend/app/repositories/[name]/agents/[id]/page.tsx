@@ -621,15 +621,7 @@ export default function AgentDetailPage({
         </Card>
 
         {/* Real metrics */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns:
-              "repeat(3,minmax(0,1fr))",
-            gap: 12,
-            marginBottom: 24,
-          }}
-        >
+        <div className="agent-metrics-grid">
           <MetricCard
             label="Assigned Tasks"
             value={
@@ -792,15 +784,7 @@ export default function AgentDetailPage({
                   </div>
                 </div>
 
-                <div
-                  className="card-pad"
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns:
-                      "repeat(3,minmax(0,1fr))",
-                    gap: 16,
-                  }}
-                >
+                <div className="card-pad running-task-metrics">
                   <InfoRow
                     label="Priority"
                     value={
@@ -869,14 +853,7 @@ export default function AgentDetailPage({
               </Card>
             )}
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns:
-                  "1.2fr .8fr",
-                gap: 16,
-              }}
-            >
+            <div className="overview-cards-grid">
               <Card>
                 <div className="card-head">
                   <div>
@@ -937,17 +914,24 @@ export default function AgentDetailPage({
                                   taskStatusColor(
                                     status,
                                   ),
+                                minWidth: 0,
                               }}
                             >
-                              {taskStatusIcon(
-                                status,
-                              )}
+                              <span className="task-status-icon">
+                                {taskStatusIcon(
+                                  status,
+                                )}
+                              </span>
 
                               <span
                                 style={{
                                   color:
                                     "var(--fg)",
                                   fontSize: 13,
+                                  minWidth: 0,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
                                 }}
                               >
                                 {humanStatus(
@@ -1560,6 +1544,57 @@ export default function AgentDetailPage({
         confirmTone="danger"
         loading={Boolean(terminatingTaskId)}
       />
+
+      <style>{`
+        .agent-metrics-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 12px;
+          margin-bottom: 24px;
+        }
+
+        .running-task-metrics {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 16px;
+        }
+
+        .overview-cards-grid {
+          display: grid;
+          grid-template-columns: 1.2fr .8fr;
+          gap: 16px;
+        }
+
+        @media (max-width: 768px) {
+          .overview-cards-grid {
+            grid-template-columns: 1fr;
+            gap: 14px;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .agent-metrics-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+          }
+
+          .running-task-metrics {
+            grid-template-columns: 1fr;
+            gap: 10px;
+          }
+
+          .task-status-icon {
+            display: none !important;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .agent-metrics-grid {
+            grid-template-columns: 1fr;
+            gap: 8px;
+          }
+        }
+      `}</style>
     </AppShell>
   );
 }
@@ -1577,11 +1612,12 @@ function MetricCard({
     <Card
       style={{
         padding:
-          "16px 20px",
+          "14px 18px",
         display: "flex",
         alignItems:
           "center",
         gap: 12,
+        minWidth: 0,
       }}
     >
       <div
@@ -1603,12 +1639,13 @@ function MetricCard({
         {icon}
       </div>
 
-      <div>
+      <div style={{ minWidth: 0, overflow: "hidden" }}>
         <div
           style={{
             fontSize: 20,
             fontWeight: 700,
             color: "var(--fg)",
+            lineHeight: 1.2,
           }}
         >
           {value}
@@ -1618,6 +1655,9 @@ function MetricCard({
           style={{
             fontSize: 12,
             color: "var(--muted)",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
           }}
         >
           {label}
@@ -1644,11 +1684,12 @@ function InfoRow({
           "space-between",
         alignItems:
           "center",
-        gap: 20,
+        gap: 16,
         padding:
           "11px 0",
         borderBottom:
           "1px solid var(--line)",
+        minWidth: 0,
       }}
     >
       <span
@@ -1668,8 +1709,8 @@ function InfoRow({
             ? "monospace"
             : "inherit",
           textAlign: "right",
-          wordBreak:
-            "break-all",
+          wordBreak: mono ? "break-all" : "break-word",
+          minWidth: 0,
         }}
       >
         {value}

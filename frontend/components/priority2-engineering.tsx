@@ -382,13 +382,14 @@ export function RealChangeDetail() {
       />
 
       {/* Main Grid: Left Details & Right Metadata Sidebar */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: 20 }}>
+      <div className="change-detail-grid">
         {/* Left Column */}
         <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 20 }}>
           <Card>
-            <div style={{ display: 'flex', borderBottom: '1px solid var(--line)' }}>
+            <div className="change-tabs-bar" style={{ display: 'flex', borderBottom: '1px solid var(--line)', overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch', width: '100%' }}>
               <button
                 type="button"
+                className="change-tab-btn"
                 onClick={() => setActiveTab('commits')}
                 style={{
                   padding: '12px 18px',
@@ -399,9 +400,11 @@ export function RealChangeDetail() {
                   fontWeight: activeTab === 'commits' ? 600 : 400,
                   cursor: 'pointer',
                   fontSize: 13,
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
                   gap: 6,
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
                 }}
               >
                 <I.GitCommit size={14} /> Commits with Provenance
@@ -413,6 +416,7 @@ export function RealChangeDetail() {
               </button>
               <button
                 type="button"
+                className="change-tab-btn"
                 onClick={() => setActiveTab('files')}
                 style={{
                   padding: '12px 18px',
@@ -423,9 +427,11 @@ export function RealChangeDetail() {
                   fontWeight: activeTab === 'files' ? 600 : 400,
                   cursor: 'pointer',
                   fontSize: 13,
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
                   gap: 6,
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
                 }}
               >
                 <I.FileCode2 size={14} /> Files Changed
@@ -437,6 +443,7 @@ export function RealChangeDetail() {
               </button>
               <button
                 type="button"
+                className="change-tab-btn"
                 onClick={() => setActiveTab('activity')}
                 style={{
                   padding: '12px 18px',
@@ -447,9 +454,11 @@ export function RealChangeDetail() {
                   fontWeight: activeTab === 'activity' ? 600 : 400,
                   cursor: 'pointer',
                   fontSize: 13,
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
                   gap: 6,
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
                 }}
               >
                 <I.Activity size={14} /> Activity & Audit
@@ -862,12 +871,12 @@ export function RealPullRequests() {
       eyebrow="Delivery"
       title="Pull Requests"
       sub="Autonomous Agent & Human pull requests governed by SUTRA."
-      action={<RealButton onClick={() => void load()}><I.Activity size={14}/> Refresh</RealButton>}
+      action={<RealButton onClick={() => void load()}><I.Activity size={14} /> Refresh</RealButton>}
     />
     <div className="card" style={{ marginBottom: 14 }}>
       <div className="card-head">
         <div className="actions">
-          {['all','open','approved','merged','closed'].map((v) => (
+          {['all', 'open', 'approved', 'merged', 'closed'].map((v) => (
             <button type="button" className={`badge ${filter === v ? 'aqua' : ''}`} key={v} onClick={() => setFilter(v)}>
               {v === 'all' ? 'All' : v}
             </button>
@@ -1012,7 +1021,7 @@ export function RealPullRequestDetail() {
   const action = async (fn: () => Promise<any>) => {
     setBusy(true);
     try { await fn(); await load(); }
-    catch(e:any) { setError(e?.message || 'Action failed'); }
+    catch (e: any) { setError(e?.message || 'Action failed'); }
     finally { setBusy(false); }
   };
 
@@ -1042,17 +1051,17 @@ export function RealPullRequestDetail() {
               <I.ExternalLink size={14} /> Open on GitHub
             </a>
           )}
-          <RealButton onClick={() => void action(() => pullRequestService.requestReview(prId))} disabled={busy || ['merged','closed'].includes(pr.status)}>
+          <RealButton onClick={() => void action(() => pullRequestService.requestReview(prId))} disabled={busy || ['merged', 'closed'].includes(pr.status)}>
             Request review
           </RealButton>
-          <RealButton onClick={() => void action(() => pullRequestService.approvePR(prId))} disabled={busy || ['merged','closed'].includes(pr.status)}>
+          <RealButton onClick={() => void action(() => pullRequestService.approvePR(prId))} disabled={busy || ['merged', 'closed'].includes(pr.status)}>
             Approve
           </RealButton>
-          <RealButton onClick={() => void action(() => pullRequestService.closePR(prId))} disabled={busy || ['merged','closed'].includes(pr.status)}>
+          <RealButton onClick={() => void action(() => pullRequestService.closePR(prId))} disabled={busy || ['merged', 'closed'].includes(pr.status)}>
             Close
           </RealButton>
-          <RealButton primary onClick={() => void action(() => pullRequestService.mergePR(prId))} disabled={busy || ['merged','closed'].includes(pr.status) || !(pr.status === 'approved' || govData?.verdict === 'READY_FOR_MERGE')}>
-            <I.GitMerge size={14}/> Merge
+          <RealButton primary onClick={() => void action(() => pullRequestService.mergePR(prId))} disabled={busy || ['merged', 'closed'].includes(pr.status) || !(pr.status === 'approved' || govData?.verdict === 'READY_FOR_MERGE')}>
+            <I.GitMerge size={14} /> Merge
           </RealButton>
         </div>
       }
@@ -1067,15 +1076,15 @@ export function RealPullRequestDetail() {
     {/* Key Stats Bar */}
     <div className="grid g4">
       <Stat label="Status" value={pr.status} />
-      <Stat 
-        label="CI Checks" 
+      <Stat
+        label="CI Checks"
         value={
-          checksData?.summary?.total === 0 
-            ? 'No CI File (Not Blocked)' 
-            : checksData 
-              ? `${checksData.summary.passed}/${checksData.summary.total} Passed` 
+          checksData?.summary?.total === 0
+            ? 'No CI File (Not Blocked)'
+            : checksData
+              ? `${checksData.summary.passed}/${checksData.summary.total} Passed`
               : (pr.checks_summary ? `${pr.checks_summary.passed}/${pr.checks_summary.total} Passed` : 'Pending')
-        } 
+        }
       />
       <Stat label="Branch Flow" value={`${headRef} → ${baseRef}`} />
       <Stat label="Governance" value={`${reviews.filter((r: any) => r.status === 'approved').length} approvals`} />
@@ -1237,10 +1246,10 @@ export function RealPullRequestDetail() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span style={{ fontWeight: 600, fontSize: 14 }}>Overall:</span>
-            <span style={{ 
-              textTransform: 'capitalize', 
-              fontWeight: 600, 
-              color: checksData?.summary?.total === 0 ? 'var(--cyan)' : checksData?.overall_status === 'passed' ? 'var(--green)' : checksData?.overall_status === 'failed' ? '#ff4d4f' : 'var(--cyan)' 
+            <span style={{
+              textTransform: 'capitalize',
+              fontWeight: 600,
+              color: checksData?.summary?.total === 0 ? 'var(--cyan)' : checksData?.overall_status === 'passed' ? 'var(--green)' : checksData?.overall_status === 'failed' ? '#ff4d4f' : 'var(--cyan)'
             }}>
               {checksData?.summary?.total === 0 ? 'No CI File Configured' : checksData?.overall_status === 'passed' ? 'Passing' : checksData?.overall_status === 'failed' ? 'Failing' : checksData?.overall_status === 'running' ? 'Running' : 'No Checks Reported'}
             </span>
@@ -1356,7 +1365,7 @@ export function RealPullRequestDetail() {
                 overflowX: 'auto',
                 color: 'var(--foreground)',
               }}>
-{`name: CI
+                {`name: CI
 
 on:
   push:
@@ -1701,7 +1710,7 @@ jobs:
 
               {/* If not eligible for approval, show explanation */}
               {!(pr.status === 'approved' || govData?.verdict === 'READY_FOR_MERGE') && (
-                  checksData?.summary?.total !== 0 && checksData?.overall_status !== 'passed' && (
+                checksData?.summary?.total !== 0 && checksData?.overall_status !== 'passed' && (
                   <div style={{ fontSize: 12, color: 'var(--amber)', display: 'flex', alignItems: 'center', gap: 5 }}>
                     <I.AlertCircle size={13} />
                     Approval unavailable: required CI checks have not passed or are in progress.
@@ -1809,8 +1818,30 @@ export function RealAgents() {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [connectionState, setConnectionState] = useState<SutraConnectionState>(_cachedConnectionState);
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'revoked'>('all');
 
   const activeCount = useMemo(() => agents.filter(a => a.is_active && a.status === 'active').length, [agents]);
+
+  const filteredAgents = useMemo(() => {
+    return agents.filter((a: Agent) => {
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch =
+        !q ||
+        a.name.toLowerCase().includes(q) ||
+        (a.provider && a.provider.toLowerCase().includes(q)) ||
+        (a.model && a.model.toLowerCase().includes(q)) ||
+        (a.token_prefix && a.token_prefix.toLowerCase().includes(q));
+
+      const isActive = a.is_active && a.status === 'active';
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'active' && isActive) ||
+        (statusFilter === 'revoked' && !isActive);
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [agents, searchQuery, statusFilter]);
 
   const load = async () => {
     if (_cachedAgents.length === 0) setLoading(true);
@@ -1827,7 +1858,7 @@ export function RealAgents() {
       const nextState: SutraConnectionState = isConn ? 'connected' : 'not_connected';
       _cachedConnectionState = nextState;
       setConnectionState(nextState);
-    } catch(e) {
+    } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
@@ -1863,9 +1894,9 @@ export function RealAgents() {
       const created = await agentService.createAgent(form);
       setToken(created.token);
       setShowCreate(false);
-      setForm({name:'',description:'',provider:'',model:''});
+      setForm({ name: '', description: '', provider: '', model: '' });
       await load();
-    } catch(e:any) {
+    } catch (e: any) {
       alert(e?.message || 'Failed to register agent');
     }
   };
@@ -1875,7 +1906,7 @@ export function RealAgents() {
     try {
       await agentService.revokeAgent(id);
       await load();
-    } catch(e:any) {
+    } catch (e: any) {
       alert(e?.message || 'Failed to revoke agent');
     }
   };
@@ -1888,7 +1919,7 @@ export function RealAgents() {
       await agentService.approveRegistration(id);
       alert('Agent approved.');
       await load();
-    } catch(e:any) {
+    } catch (e: any) {
       alert(e?.message || 'Failed to approve registration request');
     }
   };
@@ -1901,7 +1932,7 @@ export function RealAgents() {
       await agentService.rejectRegistration(id);
       alert('Agent rejected.');
       await load();
-    } catch(e:any) {
+    } catch (e: any) {
       alert(e?.message || 'Failed to reject registration request');
     }
   };
@@ -2039,7 +2070,7 @@ print(res.json())`;
     {activeTab === 'active' && (
       <>
         {token && (
-          <Card style={{marginBottom:18, borderColor:'rgba(34, 197, 94, 0.4)', background: 'linear-gradient(180deg, rgba(34, 197, 94, 0.08) 0%, rgba(16, 21, 28, 0.6) 100%)'}}>
+          <Card style={{ marginBottom: 18, borderColor: 'rgba(34, 197, 94, 0.4)', background: 'linear-gradient(180deg, rgba(34, 197, 94, 0.08) 0%, rgba(16, 21, 28, 0.6) 100%)' }}>
             <div className="card-pad" style={{ padding: '20px 24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                 <div className="eyebrow" style={{ color: 'var(--green)', fontWeight: 600 }}>Permanent Token Created</div>
@@ -2052,7 +2083,7 @@ print(res.json())`;
                   {copiedKey === 'token-banner' ? 'Copied' : 'Copy Token'}
                 </button>
               </div>
-              <div className="code" style={{ wordBreak:'break-all', fontSize: 13, background: 'rgba(0,0,0,0.4)', padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="code" style={{ wordBreak: 'break-all', fontSize: 13, background: 'rgba(0,0,0,0.4)', padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
                 {token}
               </div>
               <div className="meta" style={{ marginTop: 8, color: 'var(--text-secondary)' }}>
@@ -2063,7 +2094,7 @@ print(res.json())`;
         )}
 
         {showCreate && (
-          <Card style={{marginBottom:18, border: '1px solid var(--line-accent)'}}>
+          <Card style={{ marginBottom: 18, border: '1px solid var(--line-accent)' }}>
             <div className="card-pad form" style={{ padding: '24px' }}>
               <div style={{ marginBottom: 16 }}>
                 <h3 style={{ fontSize: 16, fontWeight: 600 }}>Register New Coding Agent</h3>
@@ -2071,76 +2102,194 @@ print(res.json())`;
               </div>
               <div className="field">
                 <label className="label">Agent Name</label>
-                <input className="input" placeholder="e.g. Claude 3.7 Sonnet (Cursor)" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/>
+                <input className="input" placeholder="e.g. Claude 3.7 Sonnet (Cursor)" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
               </div>
               <div className="field">
                 <label className="label">Description</label>
-                <input className="input" placeholder="e.g. Lead autonomous coding assistant for feature development" value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/>
+                <input className="input" placeholder="e.g. Lead autonomous coding assistant for feature development" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <div className="field">
                   <label className="label">Provider</label>
-                  <input className="input" placeholder="e.g. Anthropic, OpenAI, Local" value={form.provider} onChange={e=>setForm({...form,provider:e.target.value})}/>
+                  <input className="input" placeholder="e.g. Anthropic, OpenAI, Local" value={form.provider} onChange={e => setForm({ ...form, provider: e.target.value })} />
                 </div>
                 <div className="field">
                   <label className="label">Model</label>
-                  <input className="input" placeholder="e.g. claude-3-7-sonnet" value={form.model} onChange={e=>setForm({...form,model:e.target.value})}/>
+                  <input className="input" placeholder="e.g. claude-3-7-sonnet" value={form.model} onChange={e => setForm({ ...form, model: e.target.value })} />
                 </div>
               </div>
               <div className="actions" style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-                <RealButton onClick={()=>setShowCreate(false)}>Cancel</RealButton>
-                <RealButton primary onClick={()=>void create()}>Generate Token & Register</RealButton>
+                <RealButton onClick={() => setShowCreate(false)}>Cancel</RealButton>
+                <RealButton primary onClick={() => void create()}>Generate Token & Register</RealButton>
               </div>
             </div>
           </Card>
         )}
 
+        {/* Search & Filter Bar */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+          marginBottom: 16,
+        }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {(['all', 'active', 'revoked'] as const).map(f => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setStatusFilter(f)}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: 6,
+                  border: '1px solid',
+                  borderColor: statusFilter === f ? 'var(--line)' : 'transparent',
+                  background: statusFilter === f ? 'var(--bg-subtle)' : 'transparent',
+                  color: statusFilter === f ? 'var(--fg)' : 'var(--muted)',
+                  fontSize: 13,
+                  fontWeight: statusFilter === f ? 600 : 400,
+                  cursor: 'pointer',
+                  textTransform: 'capitalize',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {f === 'all' ? `All (${agents.length})` : f === 'active' ? `Active (${activeCount})` : `Revoked (${agents.length - activeCount})`}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ position: 'relative', minWidth: 220, flex: '0 1 280px' }}>
+            <I.Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
+            <input
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search agents…"
+              style={{
+                width: '100%',
+                padding: '7px 12px 7px 30px',
+                borderRadius: 6,
+                border: '1px solid var(--line)',
+                background: 'var(--bg)',
+                color: 'var(--fg)',
+                fontSize: 13,
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+        </div>
+
         {loading ? (
           <SkeletonAgentList count={4} />
-        ) : agents.length === 0 ? (
+        ) : filteredAgents.length === 0 ? (
           <Card>
-            <div className="card-pad" style={{ textAlign: 'center', padding: '36px 20px' }}>
-              <I.Bot size={32} className="muted" style={{ marginBottom: 10 }} />
-              <div className="title-sm" style={{ fontWeight: 600 }}>No agents registered</div>
-              <div className="sub" style={{ marginTop: 4 }}>Register an agent above or connect via the MCP tab to enable autonomous coding governance.</div>
+            <div className="card-pad" style={{ textAlign: 'center', padding: '40px 20px' }}>
+              <I.Bot size={36} className="muted" style={{ marginBottom: 12, opacity: 0.4 }} />
+              <div className="title-sm" style={{ fontWeight: 600, fontSize: 16 }}>
+                {agents.length === 0 ? 'No agents registered' : 'No matching agents'}
+              </div>
+              <div className="sub" style={{ marginTop: 6, maxWidth: 460, margin: '6px auto 0' }}>
+                {agents.length === 0
+                  ? 'Register an agent above or connect via the MCP tab to enable autonomous coding governance.'
+                  : 'Try clearing your search query or changing the status filter above.'}
+              </div>
             </div>
           </Card>
         ) : (
-          <Card>
+          <Card style={{ padding: 0, overflow: 'hidden' }}>
             <div className="list">
-              {agents.map(a => (
-                <div className="list-row" key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px' }}>
-                  <div className="avatar" style={{
-                    width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', background: 'var(--accent-subtle)', color: 'var(--accent)',
-                    border: '1px solid var(--accent-border)'
-                  }}>
-                    <I.Bot size={18}/>
+              {filteredAgents.map(a => (
+                <div className="agent-list-row" key={a.id}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flex: 1, minWidth: 0 }}>
+                    <div
+                      className="avatar"
+                      style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: 10,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: a.is_active && a.status === 'active' ? 'var(--accent-subtle)' : 'rgba(255,255,255,0.03)',
+                        color: a.is_active && a.status === 'active' ? 'var(--accent)' : 'var(--muted)',
+                        border: `1px solid ${a.is_active && a.status === 'active' ? 'var(--accent-border)' : 'var(--line)'}`,
+                        flexShrink: 0,
+                        marginTop: 2,
+                      }}
+                    >
+                      <I.Bot size={18} />
+                    </div>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.3, wordBreak: 'break-word' }}>
+                          {a.name}
+                        </div>
+                        <div className="mobile-only-status" style={{ display: 'none' }}>
+                          <Badge tone={tone(a.status)} style={{ textTransform: 'capitalize' }}>
+                            {a.status}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12, color: 'var(--text-muted)' }}>
+                        {a.token_prefix && (
+                          <span
+                            className="badge"
+                            style={{
+                              fontSize: 11,
+                              fontFamily: 'monospace',
+                              padding: '2px 7px',
+                              borderRadius: 4,
+                              background: 'rgba(255,255,255,0.06)',
+                              color: 'var(--text-secondary)',
+                              border: '1px solid var(--line)',
+                            }}
+                          >
+                            {a.token_prefix}…
+                          </span>
+                        )}
+                        <span>{a.provider || 'Provider not set'}</span>
+                        <span>·</span>
+                        <span>{a.model || 'Model not set'}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div style={{flex:1, minWidth: 0}}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span className="title-sm" style={{ fontWeight: 600 }}>{a.name}</span>
-                      <span className="badge" style={{ fontSize: 11, background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' }}>
-                        {a.token_prefix}
+
+                  <div className="agent-list-row-actions" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                    <div className="desktop-only-status">
+                      <Badge tone={tone(a.status)} style={{ textTransform: 'capitalize' }}>
+                        {a.status}
+                      </Badge>
+                    </div>
+                    <Link
+                      className="btn"
+                      href={`/agents/${a.id}`}
+                      style={{ padding: '6px 14px', fontSize: 13, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <span>Details</span>
+                      <I.ChevronRight size={13} />
+                    </Link>
+                    {a.is_active && a.status === 'active' ? (
+                      <RealButton onClick={() => void revoke(a.id)}>
+                        <I.XCircle size={14} /> Revoke
+                      </RealButton>
+                    ) : (
+                      <span
+                        className="badge"
+                        style={{
+                          color: '#ef4444',
+                          background: 'rgba(239, 68, 68, 0.1)',
+                          border: '1px solid rgba(239, 68, 68, 0.2)',
+                          padding: '4px 8px',
+                          fontSize: 12,
+                        }}
+                      >
+                        Revoked
                       </span>
-                    </div>
-                    <div className="meta" style={{ marginTop: 4, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <span>{a.provider || 'Provider not set'}</span>
-                      <span>·</span>
-                      <span>{a.model || 'Model not set'}</span>
-                    </div>
+                    )}
                   </div>
-                  <Badge tone={tone(a.status)} style={{ textTransform: 'capitalize' }}>{a.status}</Badge>
-                  <Link className="btn" href={`/agents/${a.id}`} style={{ padding: '6px 12px', fontSize: 13 }}>Details</Link>
-                  {a.is_active && a.status === 'active' ? (
-                    <RealButton onClick={()=>void revoke(a.id)}>
-                      <I.XCircle size={14}/> Revoke
-                    </RealButton>
-                  ) : (
-                    <span className="badge" style={{ color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                      Revoked
-                    </span>
-                  )}
                 </div>
               ))}
             </div>
@@ -2575,51 +2724,104 @@ print(res.json())`;
       connectedAgentName={agents.find(a => a.is_active)?.name}
       onConnectAttempt={handleConnectClick}
     />
+
+    <style>{`
+      .agent-list-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--line);
+        transition: background var(--motion-fast) var(--ease-subtle);
+      }
+
+      .agent-list-row:last-child {
+        border-bottom: none;
+      }
+
+      .agent-list-row:hover {
+        background: var(--surface-hover, rgba(255, 255, 255, 0.02));
+      }
+
+      @media (max-width: 640px) {
+        .agent-list-row {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 12px;
+          padding: 14px 16px;
+        }
+
+        .mobile-only-status {
+          display: inline-flex !important;
+        }
+
+        .desktop-only-status {
+          display: none !important;
+        }
+
+        .agent-list-row-actions {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 8px;
+          border-top: 1px solid rgba(255, 255, 255, 0.05);
+          padding-top: 10px;
+          width: 100%;
+        }
+
+        .agent-list-row-actions .btn {
+          flex: 1;
+          justify-content: center;
+          text-align: center;
+        }
+      }
+    `}</style>
   </>;
 }
 
 export function RealAgentDetail() {
-  const params = useParams<{id:string}>();
-  const [agent,setAgent]=useState<Agent|null>(null);
-  const [loading,setLoading]=useState(true);
-  useEffect(()=>{ agentService.listAgents().then(rows=>setAgent(rows.find(a=>a.id===params.id)||null)).catch(console.error).finally(()=>setLoading(false)); },[params.id]);
+  const params = useParams<{ id: string }>();
+  const [agent, setAgent] = useState<Agent | null>(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { agentService.listAgents().then(rows => setAgent(rows.find(a => a.id === params.id) || null)).catch(console.error).finally(() => setLoading(false)); }, [params.id]);
   if (loading) return <div className="card-pad"><div className="sub">Loading agent…</div></div>;
   if (!agent) return <div className="card-pad"><div className="sub">Agent not found.</div></div>;
-  return <><PageHead eyebrow="Agent" title={agent.name} sub={agent.description || 'Registered SUTRA agent'} action={<Link className="btn" href="/agents">Back</Link>} /><div className="grid g4"><Stat label="Status" value={agent.status}/><Stat label="Token prefix" value={agent.token_prefix}/><Stat label="Active" value={agent.is_active ? "Yes" : "No"}/><Stat label="ID" value={agent.id.slice(0, 8)}/></div></>;
+  return <><PageHead eyebrow="Agent" title={agent.name} sub={agent.description || 'Registered SUTRA agent'} action={<Link className="btn" href="/agents">Back</Link>} /><div className="grid g4"><Stat label="Status" value={agent.status} /><Stat label="Token prefix" value={agent.token_prefix} /><Stat label="Active" value={agent.is_active ? "Yes" : "No"} /><Stat label="ID" value={agent.id.slice(0, 8)} /></div></>;
 }
 
 export function RealCI() {
-  const [prs,setPrs]=useState<PullRequest[]>([]);
-  const [jobs,setJobs]=useState<(CIJob & {prTitle:string})[]>([]);
-  const [loading,setLoading]=useState(true);
-  const load=async()=>{setLoading(true);try{const rows=await apiAuth<PullRequest[]>('/v1/pull-requests?limit=100');setPrs(rows);const results=await Promise.all(rows.map(async pr=>(await ciService.listJobsForPR(pr.id).catch(()=>[])).map(j=>({...j,prTitle:pr.title}))));setJobs(results.flat().sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime()));}finally{setLoading(false);}};
-  useEffect(()=>{void load();},[]);
-  const running=jobs.filter(j=>j.status==='running').length, passed=jobs.filter(j=>j.status==='passed').length, failed=jobs.filter(j=>j.status==='failed').length;
+  const [prs, setPrs] = useState<PullRequest[]>([]);
+  const [jobs, setJobs] = useState<(CIJob & { prTitle: string })[]>([]);
+  const [loading, setLoading] = useState(true);
+  const load = async () => { setLoading(true); try { const rows = await apiAuth<PullRequest[]>('/v1/pull-requests?limit=100'); setPrs(rows); const results = await Promise.all(rows.map(async pr => (await ciService.listJobsForPR(pr.id).catch(() => [])).map(j => ({ ...j, prTitle: pr.title })))); setJobs(results.flat().sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())); } finally { setLoading(false); } };
+  useEffect(() => { void load(); }, []);
+  const running = jobs.filter(j => j.status === 'running').length, passed = jobs.filter(j => j.status === 'passed').length, failed = jobs.filter(j => j.status === 'failed').length;
   return (
     <>
       <PageHead
         eyebrow="Delivery"
         title="CI / Pipelines"
         sub="Automated verification powered by GitHub Actions. Merges are never blocked if no CI file exists."
-        action={<RealButton onClick={()=>void load()}><I.Activity size={14}/> Refresh</RealButton>}
+        action={<RealButton onClick={() => void load()}><I.Activity size={14} /> Refresh</RealButton>}
       />
       <div className="grid g4">
-        <Stat label="Running" value={String(running)}/>
-        <Stat label="Passed" value={String(passed)}/>
-        <Stat label="Failed" value={String(failed)}/>
-        <Stat label="Total jobs" value={String(jobs.length)}/>
+        <Stat label="Running" value={String(running)} />
+        <Stat label="Passed" value={String(passed)} />
+        <Stat label="Failed" value={String(failed)} />
+        <Stat label="Total jobs" value={String(jobs.length)} />
       </div>
 
       <CIWorkflowSetupCard defaultExpanded={jobs.length === 0} style={{ marginTop: 14 }} />
 
-      <Card style={{marginTop:14}}>
+      <Card style={{ marginTop: 14 }}>
         <div className="card-head">
           <div className="h2">Recent CI Runs</div>
           <Badge tone="aqua">{jobs.length} runs</Badge>
         </div>
         {loading ? (
           <div className="card-pad"><div className="sub">Loading CI jobs…</div></div>
-        ) : jobs.length===0 ? (
+        ) : jobs.length === 0 ? (
           <div className="card-pad">
             <div className="sub" style={{ lineHeight: 1.6 }}>
               No CI runs have been reported yet. Create a <code style={{ color: '#38bdf8', background: 'rgba(56, 189, 248, 0.1)', padding: '2px 6px', borderRadius: 4 }}>.github/workflows/ci.yml</code> file using the template above to enable automated checks on every pull request.
@@ -2627,12 +2829,12 @@ export function RealCI() {
           </div>
         ) : (
           <div className="list">
-            {jobs.map(j=>(
+            {jobs.map(j => (
               <Link href={`/ci/${j.id}`} className="list-row" key={j.id}>
-                <I.Workflow size={14}/>
-                <div style={{flex:1}}>
+                <I.Workflow size={14} />
+                <div style={{ flex: 1 }}>
                   <div className="title-sm">{j.prTitle}</div>
-                  <div className="meta">{j.commit_sha.slice(0,8)} · {fmtDate(j.created_at)} · {j.runner_type || 'github_actions'}</div>
+                  <div className="meta">{j.commit_sha.slice(0, 8)} · {fmtDate(j.created_at)} · {j.runner_type || 'github_actions'}</div>
                 </div>
                 <Badge tone={tone(j.status)}>{j.status}</Badge>
               </Link>
@@ -2645,13 +2847,13 @@ export function RealCI() {
 }
 
 export function RealCIJob() {
-  const params=useParams<{id:string}>();
-  const [job,setJob]=useState<CIJob|null>(null); const [logs,setLogs]=useState<CILog|null>(null); const [prTitle,setPrTitle]=useState('CI job'); const [busy,setBusy]=useState(false); const [loading,setLoading]=useState(true);
-  const load=async()=>{setLoading(true);try{const prs=await apiAuth<PullRequest[]>('/v1/pull-requests?limit=100');for(const pr of prs){const jobs=await ciService.listJobsForPR(pr.id).catch(()=>[]);const found=jobs.find(j=>j.id===params.id);if(found){setJob(found);setPrTitle(pr.title);setLogs(await ciService.getLogs(pr.id,found.id).catch(()=>null));break;}}}finally{setLoading(false);}};
-  useEffect(()=>{void load();},[params.id]);
-  const cancel=async()=>{if(!job||job.status!=='running')return;setBusy(true);try{await ciService.cancelJob(job.pull_request_id,job.id);await load();}finally{setBusy(false);}};
-  if(loading)return <div className="card-pad"><div className="sub">Loading CI job…</div></div>;
-  if(!job)return <div className="card-pad"><div className="sub">CI job not found.</div></div>;
+  const params = useParams<{ id: string }>();
+  const [job, setJob] = useState<CIJob | null>(null); const [logs, setLogs] = useState<CILog | null>(null); const [prTitle, setPrTitle] = useState('CI job'); const [busy, setBusy] = useState(false); const [loading, setLoading] = useState(true);
+  const load = async () => { setLoading(true); try { const prs = await apiAuth<PullRequest[]>('/v1/pull-requests?limit=100'); for (const pr of prs) { const jobs = await ciService.listJobsForPR(pr.id).catch(() => []); const found = jobs.find(j => j.id === params.id); if (found) { setJob(found); setPrTitle(pr.title); setLogs(await ciService.getLogs(pr.id, found.id).catch(() => null)); break; } } } finally { setLoading(false); } };
+  useEffect(() => { void load(); }, [params.id]);
+  const cancel = async () => { if (!job || job.status !== 'running') return; setBusy(true); try { await ciService.cancelJob(job.pull_request_id, job.id); await load(); } finally { setBusy(false); } };
+  if (loading) return <div className="card-pad"><div className="sub">Loading CI job…</div></div>;
+  if (!job) return <div className="card-pad"><div className="sub">CI job not found.</div></div>;
 
   const isExternalGh = (logs?.output_log && logs.output_log.startsWith('http')) || (job.output_log && job.output_log.startsWith('http')) || job.runner_type === 'github_actions';
   const externalUrl = (logs?.output_log && logs.output_log.startsWith('http')) ? logs.output_log : (job.output_log && job.output_log.startsWith('http') ? job.output_log : null);
@@ -2659,9 +2861,9 @@ export function RealCIJob() {
   return (
     <>
       <PageHead
-        eyebrow={`CI #${job.id.slice(0,8)}`}
+        eyebrow={`CI #${job.id.slice(0, 8)}`}
         title={prTitle}
-        sub={`Commit ${job.commit_sha.slice(0,12)} · ${job.status}`}
+        sub={`Commit ${job.commit_sha.slice(0, 12)} · ${job.status}`}
         action={
           <div style={{ display: 'flex', gap: 8 }}>
             {externalUrl && (
@@ -2675,18 +2877,18 @@ export function RealCIJob() {
                 <I.ExternalLink size={14} /> Open GitHub Actions
               </a>
             )}
-            {job.status==='running' && (
-              <RealButton onClick={()=>void cancel()} disabled={busy}>Cancel</RealButton>
+            {job.status === 'running' && (
+              <RealButton onClick={() => void cancel()} disabled={busy}>Cancel</RealButton>
             )}
           </div>
         }
       />
       <div className="grid g3">
-        <Stat label="Status" value={job.status}/>
-        <Stat label="Runner" value={job.runner_type || 'github_actions'}/>
-        <Stat label="Trigger" value={job.trigger}/>
+        <Stat label="Status" value={job.status} />
+        <Stat label="Runner" value={job.runner_type || 'github_actions'} />
+        <Stat label="Trigger" value={job.trigger} />
       </div>
-      <Card style={{marginTop:14}}>
+      <Card style={{ marginTop: 14 }}>
         <div className="card-head">
           <div className="h2">{isExternalGh ? 'GitHub Actions Execution' : 'Logs'}</div>
           <Badge tone={tone(job.status)}>{job.status}</Badge>
@@ -2711,7 +2913,7 @@ export function RealCIJob() {
             </a>
           </div>
         ) : (
-          <div className="terminal"><div style={{whiteSpace:'pre-wrap'}}>{logs?.output_log || 'No logs available.'}</div></div>
+          <div className="terminal"><div style={{ whiteSpace: 'pre-wrap' }}>{logs?.output_log || 'No logs available.'}</div></div>
         )}
       </Card>
     </>
@@ -2720,14 +2922,14 @@ export function RealCIJob() {
 
 export function RealDeployments() {
   const { repos, loading: reposLoading } = useOwnedRepositories();
-  const [rows,setRows]=useState<(Deployment & {environmentName:string; repoName:string})[]>([]);
-  const [loading,setLoading]=useState(true);
-  const [showCreate,setShowCreate]=useState(false);
-  const [environments,setEnvironments]=useState<(Environment & {repoName:string})[]>([]);
-  const [envId,setEnvId]=useState('');
-  const [commitSha,setCommitSha]=useState('');
-  const load=async()=>{setLoading(true);try{const allEnvs:(Environment & {repoName:string})[]=[];for(const repo of repos){if(!repo.owner)continue;const envs=await environmentService.listEnvironments(repo.owner,repo.name).catch(()=>[]);envs.forEach(e=>allEnvs.push({...e,repoName:repo.name}));}setEnvironments(allEnvs);const deployed=await Promise.all(allEnvs.map(async e=>(await environmentService.listDeployments(e.id).catch(()=>[])).map(d=>({...d,environmentName:e.name,repoName:e.repoName}))));setRows(deployed.flat().sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime()));}finally{setLoading(false);}};
-  useEffect(()=>{if(!reposLoading)void load();},[reposLoading,repos]);
-  const create=async()=>{if(!envId||!commitSha.trim())return;try{await apiAuth(`/v1/environments/${envId}/deployments`,{method:'POST',body:JSON.stringify({commit_sha:commitSha.trim(),change_id:null})});setShowCreate(false);setEnvId('');setCommitSha('');await load();}catch(e:any){alert(e?.message||'Failed to create deployment');}};
-  return <><PageHead eyebrow="Delivery" title="Deployments" sub="Real deployment records from repository environments." action={<RealButton primary onClick={()=>setShowCreate(true)}><I.Plus size={14}/> New deployment</RealButton>} />{showCreate&&<Card style={{marginBottom:14}}><div className="card-pad form"><div className="field"><label className="label">Environment</label><select className="input" value={envId} onChange={e=>setEnvId(e.target.value)}><option value="">Select environment</option>{environments.map(e=><option key={e.id} value={e.id}>{e.repoName} · {e.name}</option>)}</select></div><div className="field"><label className="label">Commit SHA</label><input className="input" value={commitSha} onChange={e=>setCommitSha(e.target.value)} placeholder="40-character Git SHA"/></div><div className="actions"><RealButton onClick={()=>setShowCreate(false)}>Cancel</RealButton><RealButton primary onClick={()=>void create()}>Create deployment</RealButton></div></div></Card>}{loading?<div className="card-pad"><div className="sub">Loading deployments…</div></div>:rows.length===0?<Card><div className="card-pad"><div className="sub">No deployments found.</div></div></Card>:<Card><div className="list">{rows.map(d=><div className="list-row" key={d.id}><I.Rocket size={14}/><div style={{flex:1}}><div className="title-sm">{d.repoName} · {d.environmentName}</div><div className="meta">{d.commit_sha.slice(0,12)} · {fmtDate(d.created_at)}</div></div><Badge tone={tone(d.status)}>{d.status}</Badge><span className="meta">{d.id.slice(0,8)}</span></div>)}</div></Card>}</>;
+  const [rows, setRows] = useState<(Deployment & { environmentName: string; repoName: string })[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [environments, setEnvironments] = useState<(Environment & { repoName: string })[]>([]);
+  const [envId, setEnvId] = useState('');
+  const [commitSha, setCommitSha] = useState('');
+  const load = async () => { setLoading(true); try { const allEnvs: (Environment & { repoName: string })[] = []; for (const repo of repos) { if (!repo.owner) continue; const envs = await environmentService.listEnvironments(repo.owner, repo.name).catch(() => []); envs.forEach(e => allEnvs.push({ ...e, repoName: repo.name })); } setEnvironments(allEnvs); const deployed = await Promise.all(allEnvs.map(async e => (await environmentService.listDeployments(e.id).catch(() => [])).map(d => ({ ...d, environmentName: e.name, repoName: e.repoName })))); setRows(deployed.flat().sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())); } finally { setLoading(false); } };
+  useEffect(() => { if (!reposLoading) void load(); }, [reposLoading, repos]);
+  const create = async () => { if (!envId || !commitSha.trim()) return; try { await apiAuth(`/v1/environments/${envId}/deployments`, { method: 'POST', body: JSON.stringify({ commit_sha: commitSha.trim(), change_id: null }) }); setShowCreate(false); setEnvId(''); setCommitSha(''); await load(); } catch (e: any) { alert(e?.message || 'Failed to create deployment'); } };
+  return <><PageHead eyebrow="Delivery" title="Deployments" sub="Real deployment records from repository environments." action={<RealButton primary onClick={() => setShowCreate(true)}><I.Plus size={14} /> New deployment</RealButton>} />{showCreate && <Card style={{ marginBottom: 14 }}><div className="card-pad form"><div className="field"><label className="label">Environment</label><select className="input" value={envId} onChange={e => setEnvId(e.target.value)}><option value="">Select environment</option>{environments.map(e => <option key={e.id} value={e.id}>{e.repoName} · {e.name}</option>)}</select></div><div className="field"><label className="label">Commit SHA</label><input className="input" value={commitSha} onChange={e => setCommitSha(e.target.value)} placeholder="40-character Git SHA" /></div><div className="actions"><RealButton onClick={() => setShowCreate(false)}>Cancel</RealButton><RealButton primary onClick={() => void create()}>Create deployment</RealButton></div></div></Card>}{loading ? <div className="card-pad"><div className="sub">Loading deployments…</div></div> : rows.length === 0 ? <Card><div className="card-pad"><div className="sub">No deployments found.</div></div></Card> : <Card><div className="list">{rows.map(d => <div className="list-row" key={d.id}><I.Rocket size={14} /><div style={{ flex: 1 }}><div className="title-sm">{d.repoName} · {d.environmentName}</div><div className="meta">{d.commit_sha.slice(0, 12)} · {fmtDate(d.created_at)}</div></div><Badge tone={tone(d.status)}>{d.status}</Badge><span className="meta">{d.id.slice(0, 8)}</span></div>)}</div></Card>}</>;
 }

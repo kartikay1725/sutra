@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, UserRound, LogOut, Settings, ChevronDown, ExternalLink, X } from "lucide-react";
+import { Bell, UserRound, LogOut, Settings, ChevronDown, ExternalLink, X, Menu } from "lucide-react";
 import { GitHubSyncButton } from "./GitHubSyncButton";
 import { globalNav, repoNav } from "../lib/nav";
 import { authService, User } from "../lib/auth";
@@ -232,7 +232,9 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
             className="mobile-menu-trigger"
             onClick={() => setMobileOpen(true)}
             aria-label="Open navigation menu"
+            title="Open navigation menu"
           >
+            <Menu size={18} />
           </button>
           {(() => {
             if (isRepoScope && repoName) {
@@ -259,21 +261,21 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
               const subId = hasSubId ? subPath.split("/")[1] : null;
 
               return (
-                <div className="crumb" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-                  <Link href="/repositories" style={{ color: "var(--muted)", textDecoration: "none" }}>Repositories</Link>
-                  <span style={{ color: "var(--muted)" }}>/</span>
-                  <Link href={`/repositories/${repoName}`} style={{ color: section ? "var(--muted)" : "var(--fg)", textDecoration: "none", fontWeight: section ? 400 : 600 }}>
+                <div className="crumb repo-crumb" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                  <Link href="/repositories" className="crumb-repo-root" style={{ color: "var(--muted)", textDecoration: "none" }}>Repositories</Link>
+                  <span className="crumb-repo-root-sep" style={{ color: "var(--muted)" }}>/</span>
+                  <Link href={`/repositories/${repoName}`} className="crumb-repo-name" style={{ color: section ? "var(--muted)" : "var(--fg)", textDecoration: "none", fontWeight: section ? 400 : 600 }}>
                     {repoName}
                   </Link>
                   {section && (
                     <>
                       <span style={{ color: "var(--muted)" }}>/</span>
                       {hasSubId ? (
-                        <Link href={`/repositories/${repoName}/${section}`} style={{ color: "var(--muted)", textDecoration: "none" }}>
+                        <Link href={`/repositories/${repoName}/${section}`} className="crumb-repo-section" style={{ color: "var(--muted)", textDecoration: "none" }}>
                           {title}
                         </Link>
                       ) : (
-                        <strong style={{ color: "var(--fg)" }}>{title}</strong>
+                        <strong className="crumb-repo-section" style={{ color: "var(--fg)" }}>{title}</strong>
                       )}
                     </>
                   )}
@@ -337,7 +339,7 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
           <button
             type="button"
             onClick={() => router.push("/search")}
-            className="btn outline"
+            className="btn outline top-search-btn"
             title="Search repositories, tasks, pull requests, and changes (Ctrl+K)"
             style={{
               display: "inline-flex",
@@ -354,8 +356,8 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
             }}
           >
             <I.Search size={14} />
-            <span>Search...</span>
-            <kbd style={{
+            <span className="search-label">Search...</span>
+            <kbd className="search-kbd" style={{
               fontSize: 10,
               background: "rgba(255,255,255,0.08)",
               padding: "1px 5px",
@@ -366,10 +368,12 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
               ⌘K
             </kbd>
           </button>
-          <GitHubSyncButton variant="compact" />
+          <div className="top-sync-wrapper">
+            <GitHubSyncButton variant="compact" />
+          </div>
           <Link
             href="/docs"
-            className="btn guide"
+            className="btn guide top-docs-btn"
             title="Documentation & Guides"
             style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, height: 34 }}
           >

@@ -449,15 +449,7 @@ export default function CIPage({
         )}
 
         {/* Real stats */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns:
-              "repeat(4,minmax(0,1fr))",
-            gap: 12,
-            marginBottom: 24,
-          }}
-        >
+        <div className="ci-stats-grid">
           <MetricCard
             label="Running"
             value={stats.running}
@@ -977,6 +969,27 @@ export default function CIPage({
       </div>
 
       <style>{`
+        .ci-stats-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 12px;
+          margin-bottom: 24px;
+        }
+
+        @media (max-width: 768px) {
+          .ci-stats-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .ci-stats-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+          }
+        }
+
         .spin {
           animation: spin 1.2s linear infinite;
         }
@@ -1019,11 +1032,12 @@ function MetricCard({
     <Card
       style={{
         padding:
-          "14px 18px",
+          "12px 14px",
         display: "flex",
         alignItems:
           "center",
-        gap: 12,
+        gap: 10,
+        minWidth: 0,
       }}
     >
       <div
@@ -1044,12 +1058,13 @@ function MetricCard({
         {icon}
       </div>
 
-      <div>
+      <div style={{ minWidth: 0, overflow: "hidden" }}>
         <div
           style={{
             fontSize: 20,
             fontWeight: 700,
             color: "var(--fg)",
+            lineHeight: 1.2,
           }}
         >
           {value}
@@ -1060,6 +1075,9 @@ function MetricCard({
             fontSize: 12,
             color:
               "var(--muted)",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
           }}
         >
           {label}

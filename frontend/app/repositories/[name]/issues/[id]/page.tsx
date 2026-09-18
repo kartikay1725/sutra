@@ -285,22 +285,9 @@ export default function IssuePage({
         </div>
 
         {/* Main layout */}
-        <div
-          style={{
-            display: "flex",
-            gap: 20,
-            marginTop: 24,
-          }}
-        >
+        <div className="detail-layout">
           {/* Main column */}
-          <div
-            style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              gap: 20,
-            }}
-          >
+          <div className="detail-main">
             {/* Original issue body */}
             <Card style={{ padding: 20 }}>
               <div
@@ -522,14 +509,7 @@ export default function IssuePage({
           </div>
 
           {/* Sidebar */}
-          <div
-            style={{
-              width: 260,
-              display: "flex",
-              flexDirection: "column",
-              gap: 20,
-            }}
-          >
+          <div className="detail-sidebar">
             <div>
               <div
                 style={{

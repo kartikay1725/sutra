@@ -30,6 +30,7 @@ import {
   AlertCircle,
   Cpu,
   UserRound,
+  Menu,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -1662,6 +1663,7 @@ function CodeViewer({
     >
       {/* File toolbar */}
       <div
+        className="code-file-toolbar"
         style={{
           display:
             "flex",
@@ -1675,6 +1677,9 @@ function CodeViewer({
           background:
             "var(--bg-card)",
           flexShrink: 0,
+          overflowX: "auto",
+          WebkitOverflowScrolling: "touch",
+          whiteSpace: "nowrap",
         }}
       >
         <span
@@ -1683,6 +1688,7 @@ function CodeViewer({
             fontFamily:
               "monospace",
             opacity: 0.7,
+            flexShrink: 0,
           }}
         >
           {file.path}
@@ -1692,6 +1698,7 @@ function CodeViewer({
           style={{
             fontSize: 11,
             opacity: 0.4,
+            flexShrink: 0,
           }}
         >
           {formatSize(
@@ -1703,6 +1710,7 @@ function CodeViewer({
           style={{
             fontSize: 11,
             opacity: 0.4,
+            flexShrink: 0,
           }}
         >
           {lines.length} lines
@@ -1714,6 +1722,7 @@ function CodeViewer({
             opacity: 0.4,
             fontFamily:
               "monospace",
+            flexShrink: 0,
           }}
         >
           {lang}
@@ -1726,6 +1735,7 @@ function CodeViewer({
             display:
               "flex",
             gap: 6,
+            flexShrink: 0,
           }}
         >
           <button
@@ -1772,6 +1782,7 @@ function CodeViewer({
 
       {/* Provenance legend */}
       <div
+        className="code-provenance-legend"
         style={{
           display:
             "flex",
@@ -1786,6 +1797,9 @@ function CodeViewer({
             "rgba(255,255,255,0.015)",
           fontSize: 11,
           flexShrink: 0,
+          overflowX: "auto",
+          WebkitOverflowScrolling: "touch",
+          whiteSpace: "nowrap",
         }}
       >
         <span
@@ -1797,20 +1811,21 @@ function CodeViewer({
               "0.06em",
             fontWeight:
               600,
+            flexShrink: 0,
           }}
         >
           Provenance
         </span>
 
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--text-secondary)" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--text-secondary)", flexShrink: 0 }}>
           <Cpu size={12} style={{ color: "var(--accent)" }} /> SUTRA Agent
         </span>
 
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--text-secondary)" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--text-secondary)", flexShrink: 0 }}>
           <UserRound size={12} style={{ color: "var(--text-bright)" }} /> SUTRA Human
         </span>
 
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--text-secondary)" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--text-secondary)", flexShrink: 0 }}>
           <GitBranch size={12} style={{ color: "var(--link)" }} /> GitHub
         </span>
 
@@ -1820,10 +1835,11 @@ function CodeViewer({
               "auto",
             opacity: 0.4,
             fontSize: 10,
+            flexShrink: 0,
+            paddingLeft: 10,
           }}
         >
-          Click a provenance badge
-          for details
+          Click a badge for details
         </span>
       </div>
 
@@ -2456,6 +2472,20 @@ export default function CodePage({
     "files" | "commits"
   >("files");
 
+  const [fileTreeOpen, setFileTreeOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth <= 768;
+      setIsMobile(mobile);
+      if (!mobile) setFileTreeOpen(true);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
   const [
     comments,
     setComments,
@@ -2815,6 +2845,11 @@ export default function CodePage({
           ),
         );
 
+        // Close mobile file tree overlay once file is selected
+        if (window.innerWidth <= 768) {
+          setFileTreeOpen(false);
+        }
+
         setComments([]);
         setBlameRanges([]);
         setSelectedFile(null);
@@ -3016,25 +3051,58 @@ export default function CodePage({
               "center",
             gap: 10,
             padding:
-              "10px 20px",
+              "10px 14px",
             borderBottom:
               "1px solid var(--line)",
             background:
               "var(--bg-card)",
             flexShrink: 0,
+            overflowX: "auto",
+            flexWrap: "nowrap",
+            WebkitOverflowScrolling: "touch" as any,
+            scrollbarWidth: "none" as any,
           }}
         >
-          <BranchSwitcher
-            branches={
-              branches
-            }
-            current={
-              branch
-            }
-            onChange={
-              handleBranchChange
-            }
-          />
+          {/* Mobile three-line button to collapse/expand files panel */}
+          {view === "files" && (
+            <button
+              onClick={() => setFileTreeOpen((prev) => !prev)}
+              aria-label="Toggle file browser panel"
+              title="Toggle files"
+              className="btn outline repo-filetree-toggle"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "5px 10px",
+                height: 32,
+                fontSize: 12,
+                borderRadius: 6,
+                cursor: "pointer",
+                background: fileTreeOpen ? "var(--accent-subtle)" : "rgba(255,255,255,0.04)",
+                borderColor: fileTreeOpen ? "var(--accent-border)" : "var(--line)",
+                color: fileTreeOpen ? "var(--accent)" : "var(--fg)",
+                flexShrink: 0,
+              }}
+            >
+              <Menu size={15} />
+              <span className="filetree-toggle-label">Files</span>
+            </button>
+          )}
+
+          <div className="code-topbar-branch" style={{ flexShrink: 0 }}>
+            <BranchSwitcher
+              branches={
+                branches
+              }
+              current={
+                branch
+              }
+              onChange={
+                handleBranchChange
+              }
+            />
+          </div>
 
           {/* Breadcrumbs */}
           {breadcrumbs.length >
@@ -3143,6 +3211,8 @@ export default function CodePage({
               display:
                 "flex",
               gap: 6,
+              flexShrink: 0,
+              whiteSpace: "nowrap" as const,
             }}
           >
             <button
@@ -3323,133 +3393,168 @@ export default function CodePage({
                   : githubCliCmd;
 
                 return (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "calc(100% + 6px)",
-                      right: 0,
-                      zIndex: 100,
-                      background: "linear-gradient(145deg, #141418 0%, #0D0D11 100%)",
-                      border: "1px solid var(--line)",
-                      borderRadius: 14,
-                      width: 360,
-                      padding: 16,
-                      boxShadow: "0 16px 40px rgba(0,0,0,0.6), 0 0 20px rgba(34, 211, 238, 0.05)",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--fg)", display: "flex", alignItems: "center", gap: 6 }}>
-                        <GitBranch size={14} color="var(--cyan)" />
-                        Clone with GitHub
-                      </div>
-                      <a
-                        href={`https://github.com/${githubOwner}/${githubRepoName}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ fontSize: 11, color: "var(--cyan)", textDecoration: "none", display: "flex", alignItems: "center", gap: 3 }}
-                        title="Open on GitHub"
-                      >
-                        GitHub ↗
-                      </a>
-                    </div>
-
-                    {/* Protocol Switcher */}
-                    <div style={{ display: "flex", background: "rgba(255,255,255,0.04)", padding: 2, borderRadius: 8, gap: 2, marginBottom: 12 }}>
-                      {(["https", "ssh", "cli"] as const).map((proto) => (
-                        <button
-                          key={proto}
-                          type="button"
-                          onClick={() => setCloneProtocol(proto)}
-                          style={{
-                            flex: 1,
-                            padding: "5px 0",
-                            fontSize: 11,
-                            fontWeight: 600,
-                            border: "none",
-                            borderRadius: 6,
-                            background: cloneProtocol === proto ? "var(--bg-card)" : "transparent",
-                            color: cloneProtocol === proto ? "var(--fg)" : "var(--muted)",
-                            cursor: "pointer",
-                            boxShadow: cloneProtocol === proto ? "0 2px 6px rgba(0,0,0,0.3)" : "none",
-                            transition: "all 0.15s ease",
-                          }}
-                        >
-                          {proto === "https" ? "HTTPS" : proto === "ssh" ? "SSH" : "GitHub CLI"}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Command Box */}
+                  <>
+                    {/* Mobile backdrop */}
                     <div
+                      className="code-clone-backdrop"
+                      onClick={() => setShowCloneDropdown(false)}
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        background: "rgba(0,0,0,0.4)",
+                        display: "none",
+                        position: "fixed",
+                        inset: 0,
+                        zIndex: 999,
+                        background: "rgba(0,0,0,0.6)",
+                      }}
+                      aria-hidden="true"
+                    />
+
+                    <div
+                      className="code-clone-dropdown-container"
+                      style={{
+                        position: "absolute",
+                        top: "calc(100% + 6px)",
+                        right: 0,
+                        zIndex: 1000,
+                        background: "linear-gradient(145deg, #141418 0%, #0D0D11 100%)",
                         border: "1px solid var(--line)",
-                        borderRadius: 8,
-                        padding: "8px 10px",
-                        fontSize: 12,
-                        fontFamily: "monospace",
+                        borderRadius: 14,
+                        width: 360,
+                        padding: 16,
+                        boxShadow: "0 16px 40px rgba(0,0,0,0.6), 0 0 20px rgba(34, 211, 238, 0.05)",
                       }}
                     >
-                      <span
-                        style={{
-                          flex: 1,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                          color: "var(--fg)",
-                        }}
-                        title={currentCloneCmd}
-                      >
-                        {currentCloneCmd}
-                      </span>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--fg)", display: "flex", alignItems: "center", gap: 6 }}>
+                          <GitBranch size={14} color="var(--cyan)" />
+                          Clone with GitHub
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <a
+                            href={`https://github.com/${githubOwner}/${githubRepoName}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ fontSize: 11, color: "var(--cyan)", textDecoration: "none", display: "flex", alignItems: "center", gap: 3 }}
+                            title="Open on GitHub"
+                          >
+                            GitHub ↗
+                          </a>
+                          <button
+                            onClick={() => setShowCloneDropdown(false)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "var(--muted)",
+                              cursor: "pointer",
+                              padding: 2,
+                              display: "flex",
+                              alignItems: "center",
+                            }}
+                            title="Close clone popup"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      </div>
 
-                      <button
-                        onClick={() => {
-                          void navigator.clipboard.writeText(currentCloneCmd);
-                          setCopiedClone(true);
-                          window.setTimeout(() => setCopiedClone(false), 1500);
-                        }}
+                      {/* Protocol Switcher */}
+                      <div style={{ display: "flex", background: "rgba(255,255,255,0.04)", padding: 2, borderRadius: 8, gap: 2, marginBottom: 12 }}>
+                        {(["https", "ssh", "cli"] as const).map((proto) => (
+                          <button
+                            key={proto}
+                            type="button"
+                            onClick={() => setCloneProtocol(proto)}
+                            style={{
+                              flex: 1,
+                              padding: "5px 0",
+                              fontSize: 11,
+                              fontWeight: 600,
+                              border: "none",
+                              borderRadius: 6,
+                              background: cloneProtocol === proto ? "var(--bg-card)" : "transparent",
+                              color: cloneProtocol === proto ? "var(--fg)" : "var(--muted)",
+                              cursor: "pointer",
+                              boxShadow: cloneProtocol === proto ? "0 2px 6px rgba(0,0,0,0.3)" : "none",
+                              transition: "all 0.15s ease",
+                            }}
+                          >
+                            {proto === "https" ? "HTTPS" : proto === "ssh" ? "SSH" : "GitHub CLI"}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Command Box */}
+                      <div
                         style={{
-                          background: copiedClone ? "rgba(34, 197, 94, 0.15)" : "rgba(255,255,255,0.06)",
-                          border: `1px solid ${copiedClone ? "rgba(34, 197, 94, 0.3)" : "var(--line)"}`,
-                          borderRadius: 6,
-                          cursor: "pointer",
-                          color: copiedClone ? "var(--green)" : "var(--fg)",
-                          padding: "4px 8px",
                           display: "flex",
                           alignItems: "center",
-                          gap: 4,
-                          fontSize: 11,
-                          fontWeight: 600,
-                          transition: "all 0.15s ease",
+                          gap: 8,
+                          background: "rgba(0,0,0,0.4)",
+                          border: "1px solid var(--line)",
+                          borderRadius: 8,
+                          padding: "8px 10px",
+                          fontSize: 12,
+                          fontFamily: "monospace",
                         }}
-                        title="Copy clone command"
                       >
-                        {copiedClone ? (
-                          <>
-                            <Check size={12} />
-                            <span>Copied</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy size={12} />
-                            <span>Copy</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
+                        <span
+                          style={{
+                            flex: 1,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            color: "var(--fg)",
+                          }}
+                          title={currentCloneCmd}
+                        >
+                          {currentCloneCmd}
+                        </span>
 
-                    <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 8 }}>
-                      {cloneProtocol === "https"
-                        ? "Clone with GitHub HTTPS repository link."
-                        : cloneProtocol === "ssh"
-                        ? "Clone with an SSH key registered with GitHub."
-                        : "Clone directly using GitHub CLI."}
+                        <button
+                          onClick={() => {
+                            void navigator.clipboard.writeText(currentCloneCmd);
+                            setCopiedClone(true);
+                            window.setTimeout(() => setCopiedClone(false), 1500);
+                          }}
+                          style={{
+                            background: copiedClone ? "rgba(34, 197, 94, 0.15)" : "rgba(255,255,255,0.06)",
+                            border: `1px solid ${copiedClone ? "rgba(34, 197, 94, 0.3)" : "var(--line)"}`,
+                            borderRadius: 6,
+                            cursor: "pointer",
+                            color: copiedClone ? "var(--green)" : "var(--fg)",
+                            padding: "4px 8px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            transition: "all 0.15s ease",
+                            flexShrink: 0,
+                          }}
+                          title="Copy clone command"
+                        >
+                          {copiedClone ? (
+                            <>
+                              <Check size={12} />
+                              <span>Copied</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy size={12} />
+                              <span>Copy</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 8 }}>
+                        {cloneProtocol === "https"
+                          ? "Clone with GitHub HTTPS repository link."
+                          : cloneProtocol === "ssh"
+                          ? "Clone with an SSH key registered with GitHub."
+                          : "Clone directly using GitHub CLI."}
+                      </div>
                     </div>
-                  </div>
+                  </>
                 );
               })()}
             </div>
@@ -3539,34 +3644,112 @@ export default function CodePage({
             </div>
           ) : (
             <>
+              {/* Mobile overlay backdrop when file tree is open on mobile */}
+              {isMobile && fileTreeOpen && (
+                <div
+                  onClick={() => setFileTreeOpen(false)}
+                  style={{
+                    position: "fixed",
+                    inset: 0,
+                    background: "rgba(0, 0, 0, 0.75)",
+                    zIndex: 90,
+                  }}
+                  aria-hidden="true"
+                />
+              )}
+
               {/* File tree sidebar */}
               <div
                 style={{
-                  width: 260,
-                  minWidth: 200,
-                  borderRight:
-                    "1px solid var(--line)",
-                  overflowY:
-                    "auto",
-                  background:
-                    "var(--bg-card)",
+                  width: isMobile ? 280 : 260,
+                  minWidth: isMobile ? undefined : 200,
+                  borderRight: "1px solid var(--line)",
+                  overflowY: "auto",
+                  background: "var(--bg-card)",
+                  ...(isMobile
+                    ? {
+                        position: "fixed",
+                        top: 54,
+                        bottom: 0,
+                        left: 0,
+                        zIndex: 95,
+                        transform: fileTreeOpen ? "translateX(0)" : "translateX(-100%)",
+                        transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+                        boxShadow: fileTreeOpen ? "0 10px 30px rgba(0,0,0,0.8)" : "none",
+                      }
+                    : {
+                        display: fileTreeOpen ? "block" : "none",
+                      }),
                 }}
               >
                 <div
                   style={{
-                    padding:
-                      "10px 14px 6px",
-                    fontSize: 11,
-                    fontWeight:
-                      600,
-                    letterSpacing:
-                      "0.08em",
-                    opacity: 0.5,
-                    textTransform:
-                      "uppercase",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "10px 14px 6px",
+                    borderBottom: "1px solid rgba(255,255,255,0.05)",
                   }}
                 >
-                  Files
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      letterSpacing: "0.08em",
+                      opacity: 0.5,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Files
+                  </span>
+                  {isMobile && (
+                    <button
+                      onClick={() => setFileTreeOpen(false)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "var(--muted)",
+                        cursor: "pointer",
+                        padding: 2,
+                        display: "flex",
+                      }}
+                      title="Close files panel"
+                    >
+                      <X size={15} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Branch Selection under Files menu */}
+                <div
+                  style={{
+                    padding: "10px 14px",
+                    borderBottom: "1px solid rgba(255,255,255,0.05)",
+                    background: "rgba(255,255,255,0.015)",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      letterSpacing: "0.05em",
+                      color: "var(--muted)",
+                      textTransform: "uppercase",
+                      marginBottom: 6,
+                    }}
+                  >
+                    Branch
+                  </div>
+                  <BranchSwitcher
+                    branches={branches}
+                    current={branch}
+                    onChange={(newBranch) => {
+                      handleBranchChange(newBranch);
+                      if (isMobile) {
+                        setFileTreeOpen(false);
+                      }
+                    }}
+                  />
                 </div>
 
                 {loadingTree ? (

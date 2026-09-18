@@ -668,6 +668,80 @@ a.repo-link:hover,
 .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
+.change-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 24px;
+  align-items: start;
+  width: 100%;
+}
+
+.pipeline-flow-container {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  width: 100% !important;
+}
+
+.pipeline-flow-container::-webkit-scrollbar {
+  display: none !important;
+}
+
+.pipeline-flow-steps {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  width: max-content !important;
+  min-width: 100% !important;
+}
+
+.pipeline-flow-steps > * {
+  flex-shrink: 0 !important;
+}
+
+.change-tabs-bar {
+  display: flex !important;
+  align-items: center !important;
+  border-bottom: 1px solid var(--line) !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.change-tabs-bar::-webkit-scrollbar {
+  display: none !important;
+}
+
+.change-tab-btn,
+.change-tabs-bar button {
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+@media (max-width: 900px) {
+  .change-detail-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+    width: 100% !important;
+  }
+  .change-detail-grid > * {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  .change-detail-grid .g2,
+  .change-detail-grid .g3 {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 .card {
   background: var(--surface-1);
   border: 1px solid var(--border-default);
@@ -1024,7 +1098,12 @@ a.repo-link:hover,
   padding: 14px 18px;
   margin-bottom: 20px;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  white-space: nowrap;
 }
+.pipeline::-webkit-scrollbar { display: none; }
 
 .pipe {
   display: flex;
@@ -1701,12 +1780,22 @@ select optgroup {
     cursor: pointer;
     margin-right: 10px;
     flex-shrink: 0;
-    transition: background 0.15s, border-color 0.15s;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+
+  .mobile-menu-trigger svg {
+    display: block;
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    stroke-width: 2;
+    color: #FFFFFF !important;
   }
 
   .mobile-menu-trigger:hover {
     background: #202836;
     border-color: rgba(59, 130, 246, 0.35);
+    color: var(--accent);
   }
 
   .content {
@@ -1715,6 +1804,16 @@ select optgroup {
 
   .g4 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* CI pipeline stats: keep 2-col on tablet, ensure text doesn't get clipped */
+  .g4 .card .stat .num {
+    font-size: 20px;
+  }
+  .g4 .card .stat .eyebrow {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .g3 {
@@ -1741,20 +1840,47 @@ select optgroup {
 
 /* Small Tablet & Mobile Adaptations (<= 768px) */
 @media (max-width: 768px) {
-  .g4, .g3, .g2 {
+  .g4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .g3, .g2 {
     grid-template-columns: 1fr;
+  }
+
+  .pipeline-flow-steps {
+    flex-wrap: nowrap !important;
+    min-width: max-content !important;
+  }
+
+  .engineering-timeline {
+    padding: 16px 14px !important;
+    border-radius: 14px !important;
   }
 
   .kpi-strip {
     grid-template-columns: 1fr;
   }
 
+  .topbar {
+    gap: 8px;
+  }
+
   .topbar .crumb {
-    max-width: 180px;
+    max-width: 140px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 12px;
+  }
+
+  .top-search-btn {
+    padding: 0 8px !important;
+    height: 32px !important;
+    gap: 4px !important;
+  }
+
+  .top-search-btn .search-kbd {
+    display: none !important;
   }
 
   .searchbox {
@@ -1793,20 +1919,73 @@ select optgroup {
 /* Strict Mobile Adaptations (<= 640px) */
 @media (max-width: 640px) {
   .topbar {
-    padding: 0 12px;
+    padding: 0 10px;
     height: 50px;
-  }
-
-  .top-actions {
     gap: 6px;
   }
 
-  .top-actions .btn.guide span {
-    display: none;
+  .topbar .crumb {
+    max-width: 140px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .crumb-repo-root,
+  .crumb-repo-root-sep {
+    display: none !important;
+  }
+
+  .topbar .crumb a,
+  .topbar .crumb strong,
+  .topbar .crumb span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .top-actions {
+    gap: 4px;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+
+  .top-search-btn {
+    width: 30px !important;
+    height: 30px !important;
+    padding: 0 !important;
+    justify-content: center !important;
+  }
+
+  .top-search-btn .search-label,
+  .top-search-btn .search-kbd {
+    display: none !important;
+  }
+
+  .top-sync-wrapper .btn {
+    height: 30px !important;
+    padding: 0 6px !important;
+    font-size: 11px !important;
+    border-radius: 6px !important;
+  }
+
+  .top-sync-wrapper .btn span {
+    display: none !important;
+  }
+
+  .top-docs-btn span {
+    display: none !important;
+  }
+
+  .top-docs-btn {
+    width: 30px !important;
+    height: 30px !important;
+    padding: 0 !important;
+    justify-content: center !important;
   }
 
   .content {
-    padding: 14px 12px 32px;
+    padding: 14px 10px 32px;
   }
 
   /* Compact padding for buttons and badges */
@@ -1825,6 +2004,26 @@ select optgroup {
 
   .modal-body {
     padding: 16px;
+  }
+
+  /* Filter pill rows wrap cleanly with proper spacing */
+  .filter-pills-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+
+  .filter-pills-row > div {
+    width: 100% !important;
+    flex-wrap: wrap !important;
+  }
+
+  /* Change details page grid stacks vertically on mobile */
+  .change-detail-grid {
+    grid-template-columns: 1fr !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
   }
 
   .modal-header {
@@ -2203,5 +2402,476 @@ code {
   .task-status-meta > span { align-items: flex-start; flex-direction: column; gap: 3px; }
   .task-stats { grid-template-columns: 1fr !important; }
   .task-output { margin-top: 14px; }
+}
+
+/* ==========================================================================
+   SUTRA Mobile Responsiveness Pass — Repo Pages
+   ========================================================================== */
+
+/* ---- Shared: Page header (title + action buttons) ---- */
+.page-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+/* ---- Stats grid: 3-up on desktop, 1-up on mobile ---- */
+.stats-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+/* ---- Issues / Changes: filter + search toolbar ---- */
+.filter-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.filter-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.filter-search-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ---- 2-column detail layout (issue detail, PR detail) ---- */
+.detail-layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  margin-top: 24px;
+}
+.detail-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.detail-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.detail-sidebar-280 {
+  width: 280px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ---- Issues page header: flex row that wraps on mobile ---- */
+.issues-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.issues-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ---- Changes page filter row base styles ---- */
+.changes-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.changes-filter-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.changes-search-group {
+  flex: 1;
+  min-width: 180px;
+}
+.changes-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+/* ---- Code view toolbar: scrolls horizontally on mobile ---- */
+.code-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-1);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  min-height: 44px;
+  flex-shrink: 0;
+}
+.code-toolbar::-webkit-scrollbar { display: none; }
+.code-toolbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  transition: background 0.15s;
+}
+.code-toolbar-btn.active, .code-toolbar-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+/* ---- PR Pipeline checks strip: horizontal scroll on mobile ---- */
+.pipeline-strip {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 28px;
+  background: var(--bg-subtle);
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.pipeline-check {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ---- Status bar strip on PR detail ---- */
+.status-bar-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 12px 20px;
+  background: var(--bg-subtle);
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+
+/* ---- Kanban board: horizontal scroll container ---- */
+.kanban-board {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(200px, 1fr));
+  gap: 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 6px;
+}
+
+/* ---- Knowledge Graph: 2-column explorer grid ---- */
+.kg-explorer-grid {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 20px;
+}
+
+/* ---- Settings: tab strip horizontal scroll ---- */
+.settings-tab-strip {
+  display: flex;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 24px;
+  white-space: nowrap;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  gap: 6px;
+}
+.settings-tab-strip::-webkit-scrollbar {
+  display: none;
+}
+.settings-tab-strip button {
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+}
+
+/* ---- Assistant: thread sidebar overlay on mobile ---- */
+.assistant-layout {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 16px;
+  padding: 16px 0;
+  position: relative;
+}
+.assistant-thread-sidebar {
+  width: 250px;
+  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 14px;
+  background: rgba(255,255,255,.02);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.assistant-threads-toggle {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ---- Mobile breakpoints ---- */
+@media (max-width: 768px) {
+  /* Page header wraps on small screens */
+  .page-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .page-header-actions {
+    width: 100%;
+  }
+
+  /* Stats grid: 1 column on mobile */
+  .stats-grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  /* Filter toolbar: stack vertically */
+  .filter-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .filter-search-group {
+    width: 100%;
+  }
+  .filter-search-group input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Detail layout: stack vertically */
+  .detail-layout {
+    flex-direction: column;
+    gap: 16px;
+  }
+  .detail-sidebar,
+  .detail-sidebar-280 {
+    width: 100% !important;
+  }
+
+  /* Status bar: wrap items */
+  .status-bar-strip {
+    padding: 10px 14px;
+    gap: 8px;
+  }
+
+  /* Pipeline strip: horizontal scroll */
+  .pipeline-strip {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .pipeline-check {
+    min-width: 100px;
+    padding: 10px 8px;
+    font-size: 12px;
+  }
+
+  /* Knowledge Graph explorer: stack vertically */
+  .kg-explorer-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Assistant: thread sidebar becomes overlay */
+  .assistant-thread-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    z-index: 200;
+    border-radius: 0;
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.16,1,0.3,1);
+    box-shadow: 4px 0 24px rgba(0,0,0,0.7);
+  }
+  .assistant-thread-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  .assistant-threads-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 199;
+  }
+  .assistant-threads-toggle {
+    display: flex;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Stats grid: single column */
+  .stats-grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  /* Issues page header */
+  .issues-page-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+  .issues-header-actions {
+    width: 100% !important;
+    flex-wrap: wrap !important;
+  }
+
+  /* Changes page filter tabs: wrap and scroll */
+  .changes-filter-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+  .changes-filter-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+    display: flex !important;
+    gap: 6px;
+    width: 100%;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .changes-filter-tabs::-webkit-scrollbar { display: none; }
+  .changes-search-group {
+    width: 100% !important;
+  }
+  .changes-stats-row {
+    flex-wrap: wrap !important;
+    gap: 10px 20px !important;
+  }
+
+  /* PR detail tabs strip */
+  .pr-tabs-strip {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .pr-tabs-strip::-webkit-scrollbar { display: none; }
+
+  /* Kanban: allow column scroll */
+  .kanban-board {
+    grid-template-columns: repeat(5, minmax(180px, 1fr));
+  }
+
+  /* CI stats grid: single column on strict mobile */
+  .g4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* Issues header: "Open on GitHub" button stays full-width */
+  .issues-header-actions .btn,
+  .issues-header-actions a.btn {
+    white-space: nowrap;
+  }
+
+  /* Code view toolbar: compact on mobile */
+  .code-toolbar {
+    padding: 6px 8px;
+    gap: 4px;
+  }
+  .code-toolbar-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  /* Issue detail: title should wrap cleanly */
+  .detail-layout h1 {
+    font-size: 18px !important;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
+  /* Settings tabs: horizontal scroll */
+  .settings-tab-strip {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    white-space: nowrap;
+    display: flex !important;
+    gap: 6px !important;
+  }
+  .settings-tab-strip::-webkit-scrollbar { display: none; }
+  .settings-tab-strip .tab-danger {
+    margin-left: 0 !important;
+  }
+
+  /* Code page mobile adjustments */
+  .code-topbar-branch {
+    display: none !important;
+  }
+
+  .code-clone-dropdown-container {
+    position: fixed !important;
+    top: 54px !important;
+    left: 12px !important;
+    right: 12px !important;
+    width: auto !important;
+    max-width: calc(100vw - 24px) !important;
+    z-index: 1000 !important;
+    box-sizing: border-box !important;
+  }
+
+  .code-clone-backdrop {
+    display: block !important;
+  }
 }
 

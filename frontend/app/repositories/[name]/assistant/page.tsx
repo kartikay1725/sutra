@@ -420,6 +420,11 @@ export default function AssistantPage({
     setShowThreads,
   ] = useState(true);
 
+  const [
+    mobileThreadsOpen,
+    setMobileThreadsOpen,
+  ] = useState(false);
+
   const messagesEndRef =
     useRef<HTMLDivElement>(
       null,
@@ -907,52 +912,32 @@ export default function AssistantPage({
 
             <button
               type="button"
+              className="assistant-threads-toggle"
               onClick={() =>
-                setShowThreads(
-                  (value) =>
-                    !value,
+                setMobileThreadsOpen(
+                  (v) => !v,
                 )
               }
-              style={{
-                display:
-                  "none",
-              }}
             >
+              <I.Menu size={15} />
               Threads
             </button>
           </div>
         </div>
 
         {/* Main layout */}
-        <div
-          style={{
-            flex: 1,
-            minHeight: 0,
-            display:
-              "flex",
-            gap: 16,
-            padding:
-              "16px 0",
-          }}
-        >
+        <div className="assistant-layout">
+          {/* Mobile backdrop */}
+          {mobileThreadsOpen && (
+            <div
+              className="assistant-threads-backdrop"
+              onClick={() => setMobileThreadsOpen(false)}
+            />
+          )}
           {/* Thread sidebar */}
-          {showThreads && (
+          {(showThreads || mobileThreadsOpen) && (
             <aside
-              style={{
-                width: 250,
-                flexShrink: 0,
-                border:
-                  "1px solid rgba(255,255,255,.08)",
-                borderRadius: 14,
-                background:
-                  "rgba(255,255,255,.02)",
-                overflow:
-                  "hidden",
-                display:
-                  "flex",
-                flexDirection:
-                  "column",
-              }}
+              className={`assistant-thread-sidebar${mobileThreadsOpen ? " mobile-open" : ""}`}
             >
               <div
                 style={{

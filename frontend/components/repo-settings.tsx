@@ -582,18 +582,23 @@ export function RepoSettings() {
 
       {/* Modern Navigation Tabs */}
       <div
+        className="settings-tab-strip"
         style={{
           display: "flex",
+          alignItems: "center",
           gap: 6,
-          borderBottom: "1px solid var(--line)",
+          overflowX: "auto",
+          WebkitOverflowScrolling: "touch",
           paddingBottom: 2,
           marginBottom: 28,
-          overflowX: "auto",
         }}
       >
         <button
+          type="button"
           onClick={() => setActiveTab("general")}
           style={{
+            flexShrink: 0,
+            whiteSpace: "nowrap",
             display: "inline-flex",
             alignItems: "center",
             gap: 8,
@@ -614,8 +619,11 @@ export function RepoSettings() {
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveTab("policies")}
           style={{
+            flexShrink: 0,
+            whiteSpace: "nowrap",
             display: "inline-flex",
             alignItems: "center",
             gap: 8,
@@ -648,8 +656,11 @@ export function RepoSettings() {
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveTab("branches")}
           style={{
+            flexShrink: 0,
+            whiteSpace: "nowrap",
             display: "inline-flex",
             alignItems: "center",
             gap: 8,
@@ -682,8 +693,12 @@ export function RepoSettings() {
         </button>
 
         <button
+          type="button"
+          className="tab-danger"
           onClick={() => setActiveTab("danger")}
           style={{
+            flexShrink: 0,
+            whiteSpace: "nowrap",
             display: "inline-flex",
             alignItems: "center",
             gap: 8,

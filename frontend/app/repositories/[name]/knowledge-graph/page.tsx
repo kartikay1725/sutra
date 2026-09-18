@@ -1287,15 +1287,7 @@ export default function KnowledgeGraphPage({
                 {/* Explorer */}
                 {activeTab ===
                   "explorer" && (
-                  <div
-                    style={{
-                      display:
-                        "grid",
-                      gridTemplateColumns:
-                        "280px minmax(0,1fr)",
-                      gap: 20,
-                    }}
-                  >
+                  <div className="kg-explorer-grid">
                     {/* Search */}
                     <div
                       style={{

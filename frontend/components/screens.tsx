@@ -1154,13 +1154,27 @@ export function Repositories() {
   const [error, setError] = useState<string | null>(null);
   const [githubConnected, setGithubConnected] = useState(false);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 640);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
   const loadRepositories = async () => {
     try {
       setLoading(true);
       setError(null);
 
       const rows = await repositoryService.listRepositories();
-      setRepositories(rows);
+      // Sort alphabetically by repository name (case-insensitive) for both desktop and mobile
+      const sorted = [...rows].sort((a, b) =>
+        (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" })
+      );
+      setRepositories(sorted);
     } catch (err: any) {
       console.error("Failed to load repositories:", err);
       setError(
@@ -1298,59 +1312,103 @@ export function Repositories() {
 
       {!loading &&
         !error &&
-        repositories.length > 0 && (
-          <div className="grid g3">
-            {repositories.map((repo) => (
-              <Link
-                key={repo.id}
-                href={`/repositories/${encodeURIComponent(
-                  repo.name,
-                )}`}
-                className="card repo-card"
-              >
-                <div className="row">
-                  <div className="repo-name">
-                    {repo.name}
-                  </div>
+        repositories.length > 0 &&
+        (() => {
+          const pageSize = isMobile ? 10 : repositories.length;
+          const totalPages = Math.ceil(repositories.length / pageSize);
+          const safeCurrentPage = Math.min(currentPage, totalPages || 1);
+          const startIndex = (safeCurrentPage - 1) * pageSize;
+          const visibleRepos = isMobile
+            ? repositories.slice(startIndex, startIndex + pageSize)
+            : repositories;
 
-                  <div className="row" style={{ gap: 6 }}>
-                    {(repo as any).provider_type === "github" && (
-                      <Badge tone="aqua">GitHub</Badge>
-                    )}
-                    <Badge
-                      tone={
-                        repo.visibility === "private"
-                          ? "violet"
-                          : "green"
-                      }
+          return (
+            <>
+              <div className="grid g3">
+                {visibleRepos.map((repo) => (
+                  <Link
+                    key={repo.id}
+                    href={`/repositories/${encodeURIComponent(
+                      repo.name,
+                    )}`}
+                    className="card repo-card"
+                  >
+                    <div className="row">
+                      <div className="repo-name">
+                        {repo.name}
+                      </div>
+
+                      <div className="row" style={{ gap: 6 }}>
+                        {(repo as any).provider_type === "github" && (
+                          <Badge tone="aqua">GitHub</Badge>
+                        )}
+                        <Badge
+                          tone={
+                            repo.visibility === "private"
+                              ? "violet"
+                              : "green"
+                          }
+                        >
+                          {repo.visibility}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <div className="repo-desc">
+                      {repo.description ||
+                        "No repository description."}
+                    </div>
+
+                    <div className="row">
+                      <span className="meta">
+                        {repo.default_branch || "No branch"}
+                      </span>
+
+                      <span className="meta">
+                        {(repo as any).provider_owner
+                          ? `@${(repo as any).provider_owner}`
+                          : repo.owner
+                            ? `@${repo.owner}`
+                            : "Owned by you"}
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+
+              {/* Mobile Pagination (10 per page) */}
+              {isMobile && totalPages > 1 && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "16px 4px 8px",
+                    gap: 12,
+                  }}
+                >
+                  <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                    Page {safeCurrentPage} of {totalPages} ({repositories.length} repositories)
+                  </span>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <Btn
+                      disabled={safeCurrentPage <= 1}
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     >
-                      {repo.visibility}
-                    </Badge>
+                      <I.ChevronLeft size={14} /> Previous
+                    </Btn>
+                    <Btn
+                      disabled={safeCurrentPage >= totalPages}
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    >
+                      Next <I.ChevronRight size={14} />
+                    </Btn>
                   </div>
                 </div>
-
-                <div className="repo-desc">
-                  {repo.description ||
-                    "No repository description."}
-                </div>
-
-                <div className="row">
-                  <span className="meta">
-                    {repo.default_branch || "No branch"}
-                  </span>
-
-                  <span className="meta">
-                    {(repo as any).provider_owner
-                      ? `@${(repo as any).provider_owner}`
-                      : repo.owner
-                        ? `@${repo.owner}`
-                        : "Owned by you"}
-                  </span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
+              )}
+            </>
+          );
+        })()}
     </>
   );
 }
@@ -3474,15 +3532,7 @@ export function Tasks() {
           </div>
         </Card>
       ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns:
-              "repeat(5,minmax(200px,1fr))",
-            gap: 12,
-            overflowX: "auto",
-          }}
-        >
+        <div className="kanban-board">
           {groupedTasks.map(
             (column) => (
               <Card

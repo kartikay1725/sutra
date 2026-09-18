@@ -209,15 +209,8 @@ export default function ChangeDetailPage({
       >
         {/* Pipeline */}
         <Card style={{ marginBottom: 20 }}>
-          <div className="card-pad" style={{ overflowX: "auto" }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 14,
-                minWidth: 620,
-              }}
-            >
+          <div className="card-pad pipeline-flow-container">
+            <div className="pipeline-flow-steps">
               <PipelineStep
                 label="Task"
                 active={Boolean(change.task_id)}
@@ -266,21 +259,19 @@ export default function ChangeDetailPage({
           </div>
         </Card>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(0,1fr) 320px",
-            gap: 24,
-          }}
-        >
+        <div className="change-detail-grid">
           {/* Main */}
           <div style={{ minWidth: 0 }}>
             <Card>
               <div
+                className="change-tabs-bar"
                 style={{
                   display: "flex",
                   borderBottom: "1px solid var(--line)",
                   overflowX: "auto",
+                  scrollbarWidth: "none",
+                  WebkitOverflowScrolling: "touch",
+                  width: "100%",
                 }}
               >
                 {(
@@ -297,6 +288,7 @@ export default function ChangeDetailPage({
                     key={tab}
                     type="button"
                     onClick={() => setActiveTab(tab)}
+                    className="change-tab-btn"
                     style={{
                       padding: "12px 18px",
                       background: "transparent",
@@ -310,6 +302,9 @@ export default function ChangeDetailPage({
                       fontWeight: activeTab === tab ? 600 : 400,
                       cursor: "pointer",
                       whiteSpace: "nowrap",
+                      flexShrink: 0,
+                      display: "inline-flex",
+                      alignItems: "center",
                     }}
                   >
                     {tab}
@@ -384,6 +379,8 @@ export default function ChangeDetailPage({
                         whiteSpace: "pre-wrap",
                         lineHeight: 1.7,
                         color: "var(--fg)",
+                        wordBreak: "break-word",
+                        overflowWrap: "break-word",
                       }}
                     >
                       {change.intent ||
@@ -657,6 +654,8 @@ export default function ChangeDetailPage({
                                   display: "flex",
                                   alignItems: "center",
                                   justifyContent: "space-between",
+                                  flexWrap: "wrap",
+                                  gap: 8,
                                 }}
                               >
                                 <div
@@ -664,14 +663,17 @@ export default function ChangeDetailPage({
                                     display: "flex",
                                     alignItems: "center",
                                     gap: 8,
+                                    minWidth: 0,
+                                    flex: 1,
                                   }}
                                 >
-                                  <I.FileText size={15} className="muted" />
+                                  <I.FileText size={15} className="muted" style={{ flexShrink: 0 }} />
                                   <span
                                     style={{
                                       fontFamily: "monospace",
                                       fontSize: 13,
                                       fontWeight: 600,
+                                      wordBreak: "break-all",
                                     }}
                                   >
                                     {filePath}
@@ -687,6 +689,7 @@ export default function ChangeDetailPage({
                                             ? "red"
                                             : "aqua"
                                       }
+                                      style={{ flexShrink: 0 }}
                                     >
                                       {file.operation || file.status}
                                     </Badge>
@@ -698,6 +701,7 @@ export default function ChangeDetailPage({
                                     gap: 8,
                                     fontSize: 12,
                                     fontFamily: "monospace",
+                                    flexShrink: 0,
                                   }}
                                 >
                                   <span style={{ color: "var(--green)" }}>
@@ -811,9 +815,14 @@ export default function ChangeDetailPage({
                           <div
                             key={job.id}
                             className="list-row"
-                            style={{ alignItems: "flex-start", gap: 14 }}
+                            style={{
+                              alignItems: "flex-start",
+                              gap: 12,
+                              flexWrap: "wrap",
+                              padding: "12px 14px",
+                            }}
                           >
-                            <div style={{ marginTop: 2 }}>
+                            <div style={{ marginTop: 2, flexShrink: 0 }}>
                               {job.status === "passed" ? (
                                 <I.CheckCircle2
                                   size={18}
@@ -903,6 +912,8 @@ export default function ChangeDetailPage({
                                 display: "flex",
                                 alignItems: "center",
                                 gap: 10,
+                                flexShrink: 0,
+                                marginLeft: "auto",
                               }}
                             >
                               <Badge
@@ -1003,9 +1014,14 @@ export default function ChangeDetailPage({
                               <div
                                 key={review.id}
                                 className="list-row"
-                                style={{ alignItems: "flex-start", gap: 14 }}
+                                style={{
+                                  alignItems: "flex-start",
+                                  gap: 12,
+                                  flexWrap: "wrap",
+                                  padding: "12px 14px",
+                                }}
                               >
-                                <div style={{ marginTop: 2 }}>
+                                <div style={{ marginTop: 2, flexShrink: 0 }}>
                                   {isApproved ? (
                                     <I.CheckCircle2
                                       size={18}
@@ -1054,6 +1070,8 @@ export default function ChangeDetailPage({
                                       style={{
                                         marginTop: 4,
                                         color: "var(--fg)",
+                                        wordBreak: "break-word",
+                                        overflowWrap: "break-word",
                                       }}
                                     >
                                       {review.reason}
@@ -1062,7 +1080,12 @@ export default function ChangeDetailPage({
 
                                   <div
                                     className="meta"
-                                    style={{ marginTop: 6, lineHeight: 1.6 }}
+                                    style={{
+                                      marginTop: 6,
+                                      lineHeight: 1.6,
+                                      wordBreak: "break-word",
+                                      overflowWrap: "break-word",
+                                    }}
                                   >
                                     {review.reviewer_id && (
                                       <span>
@@ -1104,21 +1127,23 @@ export default function ChangeDetailPage({
                                   </div>
                                 </div>
 
-                                <Badge
-                                  tone={
-                                    isApproved
-                                      ? "green"
+                                <div style={{ flexShrink: 0, marginLeft: "auto" }}>
+                                  <Badge
+                                    tone={
+                                      isApproved
+                                        ? "green"
+                                        : isPending
+                                          ? "amber"
+                                          : "red"
+                                    }
+                                  >
+                                    {isApproved
+                                      ? "Approved"
                                       : isPending
-                                        ? "amber"
-                                        : "red"
-                                  }
-                                >
-                                  {isApproved
-                                    ? "Approved"
-                                    : isPending
-                                      ? "Pending"
-                                      : "Changes Requested"}
-                                </Badge>
+                                        ? "Pending"
+                                        : "Changes Requested"}
+                                  </Badge>
+                                </div>
                               </div>
                             );
                           })}
@@ -1319,6 +1344,7 @@ export default function ChangeDetailPage({
                             alignItems: "center",
                             justifyContent: "space-between",
                             gap: 8,
+                            flexWrap: "wrap",
                           }}
                         >
                           <div
@@ -1404,6 +1430,7 @@ export default function ChangeDetailPage({
                               alignItems: "center",
                               justifyContent: "space-between",
                               gap: 10,
+                              flexWrap: "wrap",
                             }}
                           >
                             <span
@@ -1499,13 +1526,15 @@ function InfoBlock({
   value: React.ReactNode;
 }) {
   return (
-    <div style={{ marginBottom: 14 }}>
+    <div style={{ marginBottom: 14, minWidth: 0 }}>
       <div className="meta">{label}</div>
       <div
         style={{
           marginTop: 3,
           fontSize: 14,
           color: "var(--fg)",
+          wordBreak: "break-word",
+          overflowWrap: "break-word",
         }}
       >
         {value}
