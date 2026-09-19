@@ -23,7 +23,8 @@ from app.mcp.auth import MCPAuthError, resolve_mcp_agent_session
 from app.models.actor import Actor
 from app.models.agent_repository_access import AgentRepositoryAccess
 from app.models.change import Change
-from app.models.discussion import Discussion
+from app.models.discussion import Discussion, DiscussionComment
+from app.models.inline_review_comment import InlineReviewComment
 from app.models.issue import Issue
 from app.models.pull_request import PullRequest
 from app.models.repository import Repository
@@ -1068,6 +1069,29 @@ Answers intents like:
                 if not task:
                     return _format_error(f"Task '{task_id}' not found")
 
+                author = db.scalar(select(Actor).where(Actor.id == agent.id))
+                if not author:
+                    author = Actor(
+                        id=agent.id,
+                        type="agent",
+                        name=agent.name,
+                    )
+                    db.add(author)
+                    db.flush()
+                elif author.name != agent.name:
+                    author.name = agent.name
+                    db.flush()
+
+                clean_title = title.strip()
+                agent_prefix = f"[{agent.name}]"
+                if not clean_title.startswith(agent_prefix) and not clean_title.startswith("[Agent:"):
+                    issue_title = f"{agent_prefix} {clean_title}"
+                else:
+                    issue_title = clean_title
+
+                header = f"[SUTRA Agent: {agent.name}]\nAgent ID: {agent.id}\nSession ID: {session.id}\nTask ID: {task.id}\n\n"
+                full_body = header + body
+
                 now = datetime.now(timezone.utc)
                 issue = Issue(
                     repository_id=task.repository_id,
@@ -1075,9 +1099,9 @@ Answers intents like:
                     agent_id=agent.id,
                     agent_session_id=session.id,
                     task_id=task.id,
-                    actor_id=agent.id,
-                    title=title,
-                    body=body,
+                    actor_id=author.id,
+                    title=issue_title,
+                    body=full_body,
                     status="open",
                     created_at=now,
                     updated_at=now,
@@ -1091,6 +1115,7 @@ Answers intents like:
                     "issue_id": issue.id,
                     "task_id": task.id,
                     "title": issue.title,
+                    "author_name": agent.name,
                     "created_at": issue.created_at.isoformat(),
                 }
             except MCPAuthError as e:
@@ -1284,13 +1309,26 @@ Enables agents to propose design alternatives, request architectural guidance, o
                     )
                     db.add(author)
                     db.flush()
+                elif author.name != agent.name:
+                    author.name = agent.name
+                    db.flush()
+
+                clean_title = title.strip()
+                agent_prefix = f"[{agent.name}]"
+                if not clean_title.startswith(agent_prefix) and not clean_title.startswith("[Agent:"):
+                    disc_title = f"{agent_prefix} {clean_title}"
+                else:
+                    disc_title = clean_title
+
+                header = f"[SUTRA Agent: {agent.name}]\nAgent ID: {agent.id}\nSession ID: {session.id}\nTask ID: {task.id}\n\n"
+                full_body = header + body
 
                 now = datetime.now(timezone.utc)
                 discussion = Discussion(
                     repository_id=task.repository_id,
                     author_id=author.id,
-                    title=title,
-                    body=body,
+                    title=disc_title,
+                    body=full_body,
                     category=category,
                     created_at=now,
                     updated_at=now,
@@ -1305,6 +1343,7 @@ Enables agents to propose design alternatives, request architectural guidance, o
                     "repository_id": task.repository_id,
                     "task_id": task.id,
                     "title": discussion.title,
+                    "author_name": agent.name,
                     "category": discussion.category,
                     "created_at": discussion.created_at.isoformat(),
                 }
@@ -1314,3 +1353,336 @@ Enables agents to propose design alternatives, request architectural guidance, o
                 db.rollback()
                 logger.error(f"sutra_create_discussion failed: {e}", exc_info=True)
                 return _format_error(f"Failed to create discussion: {str(e)}")
+
+    # =========================================================================
+    # TOOL 17: sutra_list_discussions
+    # =========================================================================
+    @server.tool()
+    async def sutra_list_discussions(
+        ctx: Context,
+        repository_id: Annotated[str, Field(description="UUID or slug of the repository to query discussions for.")],
+        category: Annotated[Optional[str], Field(description="Optional category to filter discussions by (e.g. 'General', 'Architecture', 'Q&A', 'RFC').")] = None,
+        limit: Annotated[int, Field(description="Maximum number of discussions to return (default 20, max 50).")] = 20,
+    ) -> Dict[str, Any]:
+        """LIST ARCHITECTURAL DISCUSSIONS: Lists discussion topics and design threads for a repository.
+
+Enables agents to discover ongoing architectural proposals, design decisions, and team guidance.
+        """
+        with SessionLocal() as db:
+            try:
+                session, agent = resolve_mcp_agent_session(ctx, db)
+                repo = db.scalar(
+                    select(Repository).where(
+                        (Repository.id == repository_id) | (Repository.slug == repository_id.lower()),
+                        Repository.deleted_at.is_(None),
+                    )
+                )
+                if not repo:
+                    return _format_error(f"Repository '{repository_id}' not found")
+
+                stmt = select(Discussion).where(Discussion.repository_id == repo.id)
+                if category and category != "View all discussions":
+                    stmt = stmt.where(Discussion.category == category)
+                stmt = stmt.order_by(Discussion.created_at.desc()).limit(min(limit, 50))
+                discussions = db.scalars(stmt).all()
+
+                results = []
+                for d in discussions:
+                    author = db.get(Actor, d.author_id)
+                    results.append({
+                        "id": d.id,
+                        "title": d.title,
+                        "category": d.category,
+                        "author_name": author.name if author else "Unknown",
+                        "author_type": author.type if author else "human",
+                        "created_at": d.created_at.isoformat(),
+                    })
+
+                return {
+                    "status": "success",
+                    "repository_id": repo.id,
+                    "count": len(results),
+                    "discussions": results,
+                }
+            except MCPAuthError as e:
+                return _format_error(e.message, {"code": e.code})
+            except Exception as e:
+                logger.error(f"sutra_list_discussions failed: {e}", exc_info=True)
+                return _format_error(f"Failed to list discussions: {str(e)}")
+
+    # =========================================================================
+    # TOOL 18: sutra_comment_discussion
+    # =========================================================================
+    @server.tool()
+    async def sutra_comment_discussion(
+        ctx: Context,
+        discussion_id: Annotated[str, Field(description="UUID of the discussion to reply or participate in.")],
+        body: Annotated[str, Field(description="Markdown body of the comment or design recommendation.")],
+        task_id: Annotated[Optional[str], Field(description="Optional task UUID providing engineering context for this reply.")] = None,
+    ) -> Dict[str, Any]:
+        """PARTICIPATE IN ARCHITECTURAL DISCUSSION: Posts a reply or comment to an existing discussion thread with full agent provenance.
+
+Allows agents to engage in collaborative technical discussions, answer questions, and propose concrete architectural solutions.
+        """
+        with SessionLocal() as db:
+            try:
+                session, agent = resolve_mcp_agent_session(ctx, db)
+                discussion = db.scalar(select(Discussion).where(Discussion.id == discussion_id))
+                if not discussion:
+                    return _format_error(f"Discussion '{discussion_id}' not found")
+
+                repo = db.scalar(select(Repository).where(Repository.id == discussion.repository_id))
+                if not repo:
+                    return _format_error("Repository not found")
+
+                author = db.scalar(select(Actor).where(Actor.id == agent.id))
+                if not author:
+                    author = Actor(
+                        id=agent.id,
+                        type="agent",
+                        name=agent.name,
+                    )
+                    db.add(author)
+                    db.flush()
+                elif author.name != agent.name:
+                    author.name = agent.name
+                    db.flush()
+
+                task_info = f"Task ID: {task_id}" if task_id else "Task ID: None"
+                header = f"[SUTRA Agent: {agent.name}]\nAgent ID: {agent.id}\nSession ID: {session.id}\n{task_info}\n\n"
+                full_body = header + body
+
+                now = datetime.now(timezone.utc)
+                comment = DiscussionComment(
+                    discussion_id=discussion.id,
+                    author_id=author.id,
+                    body=full_body,
+                    created_at=now,
+                    updated_at=now,
+                )
+                db.add(comment)
+                db.commit()
+                db.refresh(comment)
+
+                return {
+                    "status": "created",
+                    "comment_id": comment.id,
+                    "discussion_id": discussion.id,
+                    "author_name": agent.name,
+                    "created_at": comment.created_at.isoformat(),
+                    "message": "Comment posted with agent provenance.",
+                }
+            except MCPAuthError as e:
+                return _format_error(e.message, {"code": e.code})
+            except Exception as e:
+                db.rollback()
+                logger.error(f"sutra_comment_discussion failed: {e}", exc_info=True)
+                return _format_error(f"Failed to comment on discussion: {str(e)}")
+
+    # =========================================================================
+    # TOOL 19: sutra_list_issues
+    # =========================================================================
+    @server.tool()
+    async def sutra_list_issues(
+        ctx: Context,
+        repository_id: Annotated[str, Field(description="UUID or slug of the repository to query issues for.")],
+        status: Annotated[str, Field(description="Issue state filter: 'open', 'closed', or 'all' (default 'open').")] = "open",
+        limit: Annotated[int, Field(description="Maximum number of issues to return (default 20, max 50).")] = 20,
+    ) -> Dict[str, Any]:
+        """LIST ISSUES & BUG TICKETS: Lists tracked repository issues, bug reports, and technical debt items.
+
+Enables agents to discover backlog work, review reported bugs, and prioritize engineering tasks.
+        """
+        with SessionLocal() as db:
+            try:
+                session, agent = resolve_mcp_agent_session(ctx, db)
+                repo = db.scalar(
+                    select(Repository).where(
+                        (Repository.id == repository_id) | (Repository.slug == repository_id.lower()),
+                        Repository.deleted_at.is_(None),
+                    )
+                )
+                if not repo:
+                    return _format_error(f"Repository '{repository_id}' not found")
+
+                stmt = select(Issue).where(Issue.repository_id == repo.id)
+                if status in {"open", "closed"}:
+                    stmt = stmt.where(Issue.status == status)
+                stmt = stmt.order_by(Issue.created_at.desc()).limit(min(limit, 50))
+                issues = db.scalars(stmt).all()
+
+                results = []
+                for i in issues:
+                    author = db.get(Actor, i.actor_id) if i.actor_id else None
+                    author_name = author.name if author else (i.github_author_login or "Unknown")
+                    author_type = author.type if author else ("agent" if i.agent_id else "human")
+                    results.append({
+                        "id": i.id,
+                        "github_issue_number": i.github_issue_number,
+                        "title": i.title,
+                        "status": i.status,
+                        "author_name": author_name,
+                        "author_type": author_type,
+                        "created_at": i.created_at.isoformat(),
+                        "github_html_url": i.github_html_url,
+                    })
+
+                return {
+                    "status": "success",
+                    "repository_id": repo.id,
+                    "count": len(results),
+                    "issues": results,
+                }
+            except MCPAuthError as e:
+                return _format_error(e.message, {"code": e.code})
+            except Exception as e:
+                logger.error(f"sutra_list_issues failed: {e}", exc_info=True)
+                return _format_error(f"Failed to list issues: {str(e)}")
+
+    # =========================================================================
+    # TOOL 20: sutra_get_ci_logs
+    # =========================================================================
+    @server.tool()
+    async def sutra_get_ci_logs(
+        ctx: Context,
+        pull_request_id: Annotated[str, Field(description="UUID of the SUTRA Pull Request to inspect CI check logs for.")],
+    ) -> Dict[str, Any]:
+        """INSPECT CI LOGS & STEP FAILURES: Fetches CI job statuses, check runs, and failure logs for a Pull Request.
+
+Crucial for autonomous debugging: when a CI build or test fails, calling this reveals the exact error, failing step, and failure logs so the agent can fix it immediately.
+        """
+        with SessionLocal() as db:
+            try:
+                session, agent = resolve_mcp_agent_session(ctx, db)
+                ci_svc = CIService(db)
+                checks = ci_svc.get_pr_checks(pull_request_id, actor_id=agent.id)
+                return {
+                    "status": "success",
+                    "pull_request_id": pull_request_id,
+                    "checks": checks,
+                }
+            except MCPAuthError as e:
+                return _format_error(e.message, {"code": e.code})
+            except Exception as e:
+                logger.error(f"sutra_get_ci_logs failed: {e}", exc_info=True)
+                return _format_error(f"Failed to fetch CI logs: {str(e)}")
+
+    # =========================================================================
+    # TOOL 21: sutra_get_pr_comments
+    # =========================================================================
+    @server.tool()
+    async def sutra_get_pr_comments(
+        ctx: Context,
+        pull_request_id: Annotated[str, Field(description="UUID of the Pull Request to retrieve comments and review threads for.")],
+    ) -> Dict[str, Any]:
+        """READ PR REVIEW COMMENTS: Retrieves review comments, feedback threads, and inline review notes on a Pull Request.
+
+Enables agents to read human code review comments, understand change requests, and address feedback accurately.
+        """
+        with SessionLocal() as db:
+            try:
+                session, agent = resolve_mcp_agent_session(ctx, db)
+                pr = db.scalar(select(PullRequest).where(PullRequest.id == pull_request_id))
+                if not pr:
+                    return _format_error(f"Pull Request '{pull_request_id}' not found")
+
+                comments = db.scalars(
+                    select(InlineReviewComment)
+                    .where(InlineReviewComment.pull_request_id == pr.id)
+                    .order_by(InlineReviewComment.created_at.asc())
+                ).all()
+
+                results = [
+                    {
+                        "id": c.id,
+                        "author_id": c.author_id,
+                        "body": c.body,
+                        "path": c.path,
+                        "line_number": c.line_number,
+                        "status": c.status,
+                        "parent_id": c.parent_id,
+                        "created_at": c.created_at.isoformat(),
+                    }
+                    for c in comments
+                ]
+
+                return {
+                    "status": "success",
+                    "pull_request_id": pr.id,
+                    "count": len(results),
+                    "comments": results,
+                }
+            except MCPAuthError as e:
+                return _format_error(e.message, {"code": e.code})
+            except Exception as e:
+                logger.error(f"sutra_get_pr_comments failed: {e}", exc_info=True)
+                return _format_error(f"Failed to get PR comments: {str(e)}")
+
+    # =========================================================================
+    # TOOL 22: sutra_add_pr_comment
+    # =========================================================================
+    @server.tool()
+    async def sutra_add_pr_comment(
+        ctx: Context,
+        pull_request_id: Annotated[str, Field(description="UUID of the Pull Request to add a review comment or reply to.")],
+        body: Annotated[str, Field(description="Markdown body of the comment or response to review feedback.")],
+        path: Annotated[Optional[str], Field(description="Optional file path for an inline code comment.")] = None,
+        line_number: Annotated[Optional[int], Field(description="Optional line number for an inline code comment.")] = None,
+        parent_id: Annotated[Optional[str], Field(description="Optional parent comment UUID if replying to an existing thread.")] = None,
+    ) -> Dict[str, Any]:
+        """POST PR REVIEW COMMENT: Posts a response or inline review comment on a Pull Request with agent provenance.
+
+Allows agents to acknowledge reviewer suggestions, clarify architectural decisions, or confirm fixes on PR threads.
+        """
+        with SessionLocal() as db:
+            try:
+                session, agent = resolve_mcp_agent_session(ctx, db)
+                pr = db.scalar(select(PullRequest).where(PullRequest.id == pull_request_id))
+                if not pr:
+                    return _format_error(f"Pull Request '{pull_request_id}' not found")
+
+                author = db.scalar(select(Actor).where(Actor.id == agent.id))
+                if not author:
+                    author = Actor(
+                        id=agent.id,
+                        type="agent",
+                        name=agent.name,
+                    )
+                    db.add(author)
+                    db.flush()
+
+                header = f"[SUTRA Agent: {agent.name}]\nAgent ID: {agent.id}\nSession ID: {session.id}\n\n"
+                full_body = header + body
+
+                now = datetime.now(timezone.utc)
+                comment = InlineReviewComment(
+                    pull_request_id=pr.id,
+                    repository_id=pr.repository_id,
+                    author_id=agent.owner_id,
+                    parent_id=parent_id,
+                    path=path,
+                    diff_side="RIGHT" if path else None,
+                    line_number=line_number,
+                    body=full_body,
+                    status=InlineReviewComment.STATUS_ACTIVE,
+                    created_at=now,
+                    updated_at=now,
+                )
+                db.add(comment)
+                db.commit()
+                db.refresh(comment)
+
+                return {
+                    "status": "created",
+                    "comment_id": comment.id,
+                    "pull_request_id": pr.id,
+                    "author_name": agent.name,
+                    "created_at": comment.created_at.isoformat(),
+                    "message": "Review comment posted with agent provenance.",
+                }
+            except MCPAuthError as e:
+                return _format_error(e.message, {"code": e.code})
+            except Exception as e:
+                db.rollback()
+                logger.error(f"sutra_add_pr_comment failed: {e}", exc_info=True)
+                return _format_error(f"Failed to post PR comment: {str(e)}")

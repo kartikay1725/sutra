@@ -45,6 +45,8 @@ export default function PullRequestsPage({ params }: { params: Promise<{ name: s
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("All");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   useEffect(() => {
     const load = async () => {
@@ -55,6 +57,7 @@ export default function PullRequestsPage({ params }: { params: Promise<{ name: s
         const repo = await repositoryService.getRepository(user.username, repoName);
         const data = await pullRequestService.listPRs(repo.id);
         setPrs(data);
+        setPage(1);
       } catch (e) {
         console.error("Failed to load PRs", e);
         setPrs([]);
@@ -78,14 +81,20 @@ export default function PullRequestsPage({ params }: { params: Promise<{ name: s
     });
   }, [prs, activeFilter, search]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredPrs.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paginatedPrs = useMemo(() => {
+    return filteredPrs.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  }, [filteredPrs, safePage]);
+
   const stats = {
     open: prs.filter(p => p.status === "open" || p.status === "draft").length,
     approved: prs.filter(p => p.status === "approved").length,
     merged: prs.filter(p => p.status === "merged").length,
   };
 
-  const needsReview = filteredPrs.filter(p => p.status === "open");
-  const others = filteredPrs.filter(p => p.status !== "open");
+  const needsReview = paginatedPrs.filter(p => p.status === "open");
+  const others = paginatedPrs.filter(p => p.status !== "open");
 
   const PRCard = ({ pr }: { pr: PullRequest }) => (
     <Link
@@ -168,7 +177,10 @@ export default function PullRequestsPage({ params }: { params: Promise<{ name: s
         <div className="changes-filter-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div className="changes-filter-tabs" style={{ display: "flex", gap: 6 }}>
             {["All", "Needs Review", "My PRs", "Approved", "Merged"].map(f => (
-              <button key={f} onClick={() => setActiveFilter(f)} style={{
+              <button key={f} onClick={() => {
+                setActiveFilter(f);
+                setPage(1);
+              }} style={{
                 background: activeFilter === f ? "var(--bg-subtle)" : "transparent",
                 border: "1px solid", borderColor: activeFilter === f ? "var(--line)" : "transparent",
                 color: activeFilter === f ? "var(--fg)" : "var(--muted)",
@@ -182,7 +194,10 @@ export default function PullRequestsPage({ params }: { params: Promise<{ name: s
             <I.Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
             <input
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
               placeholder="Search pull requests..."
               style={{ padding: "7px 12px 7px 32px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--bg)", color: "var(--fg)", fontSize: 14, width: "100%", maxWidth: 220 }}
             />
@@ -235,6 +250,40 @@ export default function PullRequestsPage({ params }: { params: Promise<{ name: s
                   {others.map(pr => <PRCard key={pr.id} pr={pr} />)}
                 </div>
               </section>
+            )}
+
+            {/* Pagination Controls (10 per page) */}
+            {filteredPrs.length > PAGE_SIZE && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "16px 4px 8px",
+                  gap: 12,
+                }}
+              >
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                  Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filteredPrs.length)} of {filteredPrs.length} pull requests
+                </span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Btn
+                    disabled={safePage <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </Btn>
+                  <span style={{ fontSize: 12, color: "var(--muted)", minWidth: 48, textAlign: "center", lineHeight: "28px" }}>
+                    {safePage} / {totalPages}
+                  </span>
+                  <Btn
+                    disabled={safePage >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    Next
+                  </Btn>
+                </div>
+              </div>
             )}
           </div>
         )}

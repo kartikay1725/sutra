@@ -306,9 +306,11 @@ class GovernanceService:
                 passed.append("Repository policy satisfied: SUTRA provenance verified.")
 
         if repo_policies.get("require_ci_passed") and not (effective_branch_rule and getattr(effective_branch_rule, "require_ci_passed", False)):
-            if ci_status != "passed":
+            if ci_status not in ("passed", "no_ci_file"):
                 policy_passed = False
                 failed.append("Repository policy requires all automated CI checks to pass.")
+            elif ci_status == "no_ci_file":
+                passed.append("Repository policy: Automated CI waived (no CI file found).")
             else:
                 passed.append("Repository policy satisfied: Automated CI checks passed.")
 
@@ -375,9 +377,12 @@ class GovernanceService:
                     f"and does not authorize current HEAD {head_sha[:8]}. Fresh review required."
                 )
             elif head_sha and not review_head:
-                warnings.append(
-                    f"Review by {r.reviewer_id[:8]} lacks commit binding for current HEAD {head_sha[:8]}. Fresh review required."
-                )
+                if change and change.resulting_commit == head_sha:
+                    valid_reviews.append(r)
+                else:
+                    warnings.append(
+                        f"Review by {r.reviewer_id[:8]} lacks commit binding for current HEAD {head_sha[:8]}. Fresh review required."
+                    )
             else:
                 valid_reviews.append(r)
 

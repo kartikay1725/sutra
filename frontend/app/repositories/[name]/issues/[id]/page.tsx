@@ -273,10 +273,26 @@ export default function IssuePage({
 
             <span
               className="muted"
-              style={{ fontSize: 14 }}
+              style={{ fontSize: 14, display: "inline-flex", alignItems: "center", gap: 6 }}
             >
-              <strong>{user?.username}</strong>{" "}
-              opened this issue on{" "}
+              <strong>{issue.author_name || issue.github_author_login || (issue.author_id ? issue.author_id.slice(0, 8) : user?.username || "Unknown")}</strong>
+              {(issue.author_type === "agent" || issue.source_type === "agent" || Boolean(issue.agent_id)) && (
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    padding: "1px 6px",
+                    borderRadius: 4,
+                    background: "rgba(168,85,247,0.15)",
+                    color: "#c084fc",
+                    border: "1px solid rgba(168,85,247,0.3)",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Agent
+                </span>
+              )}
+              {" "}opened this issue on{" "}
               {new Date(
                 issue.created_at
               ).toLocaleDateString()}
@@ -303,24 +319,46 @@ export default function IssuePage({
                     width: 28,
                     height: 28,
                     borderRadius: "50%",
-                    background: "var(--cyan)",
+                    background: (issue.author_type === "agent" || issue.source_type === "agent" || Boolean(issue.agent_id)) ? "rgba(168,85,247,0.2)" : "var(--cyan)",
+                    border: (issue.author_type === "agent" || issue.source_type === "agent" || Boolean(issue.agent_id)) ? "1px solid rgba(168,85,247,0.4)" : "none",
+                    color: (issue.author_type === "agent" || issue.source_type === "agent" || Boolean(issue.agent_id)) ? "#c084fc" : "#000",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     fontWeight: "bold",
+                    fontSize: 12,
                   }}
                 >
-                  U
+                  {(issue.author_type === "agent" || issue.source_type === "agent" || Boolean(issue.agent_id)) ? "AI" : (issue.author_name?.[0] || user?.username?.[0] || "U").toUpperCase()}
                 </div>
 
                 <div
                   style={{
                     fontSize: 14,
                     color: "var(--muted)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
                   }}
                 >
-                  <strong>{user?.username}</strong>{" "}
-                  opened this issue
+                  <strong>{issue.author_name || issue.github_author_login || (issue.author_id ? issue.author_id.slice(0, 8) : user?.username || "Unknown")}</strong>
+                  {(issue.author_type === "agent" || issue.source_type === "agent" || Boolean(issue.agent_id)) && (
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        padding: "1px 6px",
+                        borderRadius: 4,
+                        background: "rgba(168,85,247,0.15)",
+                        color: "#c084fc",
+                        border: "1px solid rgba(168,85,247,0.3)",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      Agent
+                    </span>
+                  )}
+                  {" "}opened this issue
                 </div>
               </div>
 

@@ -1,4 +1,4 @@
-﻿from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Optional
 import json
 import logging
@@ -30,6 +30,11 @@ class GitHubCredentialProvider(CredentialProvider):
             perms["contents"] = "write"
         elif "repository.read" in capabilities:
             perms["contents"] = "read"
+
+        if "workflow.write" in capabilities:
+            perms["workflows"] = "write"
+        elif "workflow.read" in capabilities:
+            perms["workflows"] = "read"
         return perms
 
     def issue_agent_token(

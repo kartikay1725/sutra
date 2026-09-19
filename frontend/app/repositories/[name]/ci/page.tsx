@@ -210,6 +210,9 @@ export default function CIPage({
   const [filter, setFilter] =
     useState("All");
 
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
+
   const [triggering, setTriggering] =
     useState<string | null>(null);
 
@@ -515,9 +518,10 @@ export default function CIPage({
             <button
               key={value}
               type="button"
-              onClick={() =>
-                setFilter(value)
-              }
+              onClick={() => {
+                setFilter(value);
+                setPage(1);
+              }}
               style={{
                 background:
                   filter === value
@@ -626,7 +630,7 @@ export default function CIPage({
             </div>
 
             <div className="list">
-              {recent.map(
+              {recent.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(
                 (job) => {
                   const pr =
                     prMap[
@@ -872,6 +876,44 @@ export default function CIPage({
                 },
               )}
             </div>
+            {recent.length > PAGE_SIZE && (() => {
+              const totalPages = Math.ceil(recent.length / PAGE_SIZE);
+              return (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "12px 16px",
+                    borderTop: "1px solid var(--line)",
+                    background: "rgba(255, 255, 255, 0.015)",
+                  }}
+                >
+                  <div className="meta" style={{ fontSize: 12 }}>
+                    Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, recent.length)} of {recent.length} runs
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <Btn
+                      disabled={page <= 1}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      style={{ padding: "4px 10px", fontSize: 12 }}
+                    >
+                      Previous
+                    </Btn>
+                    <span style={{ fontSize: 12, color: "var(--muted)", minWidth: 48, textAlign: "center" }}>
+                      {page} / {totalPages}
+                    </span>
+                    <Btn
+                      disabled={page >= totalPages}
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      style={{ padding: "4px 10px", fontSize: 12 }}
+                    >
+                      Next
+                    </Btn>
+                  </div>
+                </div>
+              );
+            })()}
           </Card>
         )}
 

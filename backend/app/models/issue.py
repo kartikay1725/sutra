@@ -160,6 +160,22 @@ class Issue(Base):
     def author_id(self, value: str | None) -> None:
         self.actor_id = value
 
+    @property
+    def author_name(self) -> str:
+        if self.actor and self.actor.name:
+            return self.actor.name
+        if self.github_author_login:
+            return self.github_author_login
+        return "Unknown"
+
+    @property
+    def author_type(self) -> str:
+        if self.actor and self.actor.type:
+            return self.actor.type
+        if self.agent_id:
+            return "agent"
+        return "human"
+
 
 class IssueComment(Base):
     __tablename__ = "issue_comments"

@@ -76,6 +76,9 @@ class IssueResponse(BaseModel):
     agent_id: Optional[str]
     agent_session_id: Optional[str]
     task_id: Optional[str]
+    author_id: Optional[str] = None
+    author_name: Optional[str] = None
+    author_type: Optional[str] = None
 
     title: str
     body: str
@@ -244,19 +247,55 @@ def _sync_issue_link(
 
     now = datetime.now(timezone.utc)
 
+    body_str = github_issue.body or ""
+    resolved_source_type = source_type
+    resolved_agent_id = agent_id
+    resolved_session_id = agent_session_id
+    resolved_task_id = task_id
+    resolved_author_id = author_id
+
+    if "[SUTRA Agent:" in body_str:
+        import re
+        from app.models.actor import Actor
+        agent_match = re.search(r"\[SUTRA Agent:\s*([^\]]+)\]", body_str)
+        aid_match = re.search(r"Agent ID:\s*([a-f0-9\-]+)", body_str)
+        sid_match = re.search(r"Session ID:\s*([a-f0-9\-]+)", body_str)
+        tid_match = re.search(r"Task ID:\s*([a-f0-9\-]+)", body_str)
+
+        resolved_source_type = "agent"
+        if aid_match and aid_match.group(1).lower() != "none":
+            resolved_agent_id = aid_match.group(1).strip()
+            if not resolved_author_id:
+                resolved_author_id = resolved_agent_id
+            # Ensure Actor exists with agent name
+            if agent_match:
+                ag_name = agent_match.group(1).strip()
+                actor = db.get(Actor, resolved_agent_id)
+                if not actor:
+                    actor = Actor(id=resolved_agent_id, type="agent", name=ag_name)
+                    db.add(actor)
+                    db.flush()
+                elif actor.name != ag_name:
+                    actor.name = ag_name
+                    db.flush()
+        if sid_match and sid_match.group(1).lower() != "none":
+            resolved_session_id = sid_match.group(1).strip()
+        if tid_match and tid_match.group(1).lower() != "none":
+            resolved_task_id = tid_match.group(1).strip()
+
     if issue is None:
         issue = Issue(
             repository_id=repository.id,
             github_issue_id=str(github_issue.id),
             github_issue_number=github_issue.number,
             github_html_url=github_issue.html_url,
-            source_type=source_type,
-            agent_id=agent_id,
-            agent_session_id=agent_session_id,
-            task_id=task_id,
-            author_id=author_id,
+            source_type=resolved_source_type,
+            agent_id=resolved_agent_id,
+            agent_session_id=resolved_session_id,
+            task_id=resolved_task_id,
+            author_id=resolved_author_id,
             title=github_issue.title,
-            body=github_issue.body or "",
+            body=body_str,
             status=github_issue.state,
             github_author_login=github_issue.author_login,
             created_at=github_issue.created_at,
@@ -271,7 +310,7 @@ def _sync_issue_link(
         issue.github_html_url = github_issue.html_url
 
         issue.title = github_issue.title
-        issue.body = github_issue.body or ""
+        issue.body = body_str
         issue.status = github_issue.state
         issue.github_author_login = (
             github_issue.author_login
@@ -281,20 +320,19 @@ def _sync_issue_link(
         issue.updated_at = github_issue.updated_at
         issue.closed_at = github_issue.closed_at
 
-        # Only populate provenance when explicitly supplied.
-        if agent_id is not None:
-            issue.agent_id = agent_id
+        if resolved_agent_id is not None:
+            issue.agent_id = resolved_agent_id
 
-        if agent_session_id is not None:
-            issue.agent_session_id = agent_session_id
+        if resolved_session_id is not None:
+            issue.agent_session_id = resolved_session_id
 
-        if task_id is not None:
-            issue.task_id = task_id
+        if resolved_task_id is not None:
+            issue.task_id = resolved_task_id
 
-        if author_id is not None:
-            issue.author_id = author_id
+        if resolved_author_id is not None:
+            issue.author_id = resolved_author_id
 
-        issue.source_type = source_type
+        issue.source_type = resolved_source_type
 
         issue.updated_at = now
 

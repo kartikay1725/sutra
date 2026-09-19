@@ -562,9 +562,16 @@ class BranchProtectionService:
                 or latest_ci.status
                 != CIJob.STATUS_PASSED
             ):
-                failed_gates.append(
-                    "missing_or_failed_ci"
-                )
+                from app.services.ci_service import CIService
+                ci_checks = CIService(self.db).get_pr_checks(pr.id)
+                has_ci_file = ci_checks.get("has_ci_file", True)
+                total_checks = ci_checks.get("summary", {}).get("total", 0)
+
+                # Only fail gate if a CI file/checks exist and failed or were missing
+                if has_ci_file and total_checks > 0:
+                    failed_gates.append(
+                        "missing_or_failed_ci"
+                    )
 
         passed = len(failed_gates) == 0
 

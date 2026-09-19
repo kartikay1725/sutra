@@ -1314,13 +1314,11 @@ export function Repositories() {
         !error &&
         repositories.length > 0 &&
         (() => {
-          const pageSize = isMobile ? 10 : repositories.length;
+          const pageSize = 10;
           const totalPages = Math.ceil(repositories.length / pageSize);
           const safeCurrentPage = Math.min(currentPage, totalPages || 1);
           const startIndex = (safeCurrentPage - 1) * pageSize;
-          const visibleRepos = isMobile
-            ? repositories.slice(startIndex, startIndex + pageSize)
-            : repositories;
+          const visibleRepos = repositories.slice(startIndex, startIndex + pageSize);
 
           return (
             <>
@@ -1331,44 +1329,78 @@ export function Repositories() {
                     href={`/repositories/${encodeURIComponent(
                       repo.name,
                     )}`}
-                    className="card repo-card"
+                    className="card interactive"
+                    style={{
+                      padding: 16,
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      gap: 12,
+                    }}
                   >
-                    <div className="row">
-                      <div className="repo-name">
-                        {repo.name}
-                      </div>
+                    <div>
+                      <div
+                        className="row"
+                        style={{
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: 8,
+                        }}
+                      >
+                        <span
+                          className="mono"
+                          style={{
+                            fontSize: 14,
+                            fontWeight: 600,
+                            color: "var(--fg)",
+                          }}
+                        >
+                          {repo.name}
+                        </span>
 
-                      <div className="row" style={{ gap: 6 }}>
-                        {(repo as any).provider_type === "github" && (
-                          <Badge tone="aqua">GitHub</Badge>
-                        )}
                         <Badge
                           tone={
-                            repo.visibility === "private"
-                              ? "violet"
-                              : "green"
+                            repo.visibility === "public"
+                              ? "green"
+                              : "neutral"
                           }
                         >
-                          {repo.visibility}
+                          {repo.visibility || "private"}
                         </Badge>
+                      </div>
+
+                      <div
+                        className="sub"
+                        style={{
+                          fontSize: 13,
+                          lineHeight: 1.45,
+                          minHeight: 38,
+                        }}
+                      >
+                        {repo.description || "No description provided."}
                       </div>
                     </div>
 
-                    <div className="repo-desc">
-                      {repo.description ||
-                        "No repository description."}
-                    </div>
-
-                    <div className="row">
-                      <span className="meta">
-                        {repo.default_branch || "No branch"}
+                    <div
+                      className="row"
+                      style={{
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        fontSize: 12,
+                        color: "var(--muted)",
+                        paddingTop: 10,
+                        borderTop: "1px solid var(--line)",
+                      }}
+                    >
+                      <span className="mono">
+                        {repo.default_branch || "main"}
                       </span>
 
-                      <span className="meta">
-                        {(repo as any).provider_owner
-                          ? `@${(repo as any).provider_owner}`
-                          : repo.owner
-                            ? `@${repo.owner}`
+                      <span>
+                        {(repo as any).provider_type === "github" || (repo as any).provider === "github"
+                          ? "GitHub"
+                          : (repo as any).provider_owner || repo.owner
+                            ? `@${(repo as any).provider_owner || repo.owner}`
                             : "Owned by you"}
                       </span>
                     </div>
@@ -1376,8 +1408,8 @@ export function Repositories() {
                 ))}
               </div>
 
-              {/* Mobile Pagination (10 per page) */}
-              {isMobile && totalPages > 1 && (
+              {/* Repositories Pagination (10 per page) */}
+              {totalPages > 1 && (
                 <div
                   style={{
                     display: "flex",

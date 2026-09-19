@@ -3044,6 +3044,7 @@ export default function CodePage({
       >
         {/* Top bar */}
         <div
+          className="code-page-topbar"
           style={{
             display:
               "flex",
@@ -3057,7 +3058,10 @@ export default function CodePage({
             background:
               "var(--bg-card)",
             flexShrink: 0,
-            overflowX: "auto",
+            position: "relative",
+            zIndex: 50,
+            overflowX: isMobile ? "auto" : "visible",
+            overflowY: "visible",
             flexWrap: "nowrap",
             WebkitOverflowScrolling: "touch" as any,
             scrollbarWidth: "none" as any,
@@ -3720,37 +3724,37 @@ export default function CodePage({
                   )}
                 </div>
 
-                {/* Branch Selection under Files menu */}
-                <div
-                  style={{
-                    padding: "10px 14px",
-                    borderBottom: "1px solid rgba(255,255,255,0.05)",
-                    background: "rgba(255,255,255,0.015)",
-                  }}
-                >
+                {/* Branch Selection under Files menu (Mobile only) */}
+                {isMobile && (
                   <div
                     style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      letterSpacing: "0.05em",
-                      color: "var(--muted)",
-                      textTransform: "uppercase",
-                      marginBottom: 6,
+                      padding: "10px 14px",
+                      borderBottom: "1px solid rgba(255,255,255,0.05)",
+                      background: "rgba(255,255,255,0.015)",
                     }}
                   >
-                    Branch
-                  </div>
-                  <BranchSwitcher
-                    branches={branches}
-                    current={branch}
-                    onChange={(newBranch) => {
-                      handleBranchChange(newBranch);
-                      if (isMobile) {
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        letterSpacing: "0.05em",
+                        color: "var(--muted)",
+                        textTransform: "uppercase",
+                        marginBottom: 6,
+                      }}
+                    >
+                      Branch
+                    </div>
+                    <BranchSwitcher
+                      branches={branches}
+                      current={branch}
+                      onChange={(newBranch) => {
+                        handleBranchChange(newBranch);
                         setFileTreeOpen(false);
-                      }
-                    }}
-                  />
-                </div>
+                      }}
+                    />
+                  </div>
+                )}
 
                 {loadingTree ? (
                   <SkeletonFileTree count={10} />

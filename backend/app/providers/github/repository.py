@@ -57,13 +57,13 @@ class GitHubRepositoryProvider(RepositoryProvider):
             token_data = self.auth_service.create_installation_token_cached(
                 installation_id=inst_id,
                 repositories=[name],
-                permissions={"contents": "write", "pull_requests": "write", "checks": "write", "metadata": "read"},
+                permissions={"contents": "write", "pull_requests": "write", "checks": "write", "metadata": "read", "workflows": "write"},
             )
         else:
             token_data = self.auth_service.create_installation_token(
                 installation_id=inst_id,
                 repositories=[name],
-                permissions={"contents": "write", "pull_requests": "write", "checks": "write", "metadata": "read"},
+                permissions={"contents": "write", "pull_requests": "write", "checks": "write", "metadata": "read", "workflows": "write"},
             )
         return {
             "Authorization": f"Bearer {token_data['token']}",

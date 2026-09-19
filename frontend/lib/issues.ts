@@ -18,6 +18,8 @@ export interface Issue {
   state?: "open" | "closed";
   status: "open" | "closed";
   author_id?: string | null;
+  author_name?: string | null;
+  author_type?: string | null;
   created_at: string;
   updated_at: string;
   closed_at: string | null;

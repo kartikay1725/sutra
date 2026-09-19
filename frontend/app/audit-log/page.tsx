@@ -8,12 +8,15 @@ import * as I from "lucide-react";
 export default function AuditLogPage() {
   const [logs, setLogs] = useState<ActivityEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   async function loadLogs() {
     setLoading(true);
     try {
       const res = await activityService.getAuditLogs(100);
       setLogs(res.items || []);
+      setPage(1);
     } catch (err) {
       console.error("Failed to load audit logs:", err);
     } finally {
@@ -24,6 +27,10 @@ export default function AuditLogPage() {
   useEffect(() => {
     void loadLogs();
   }, []);
+
+  const totalPages = Math.max(1, Math.ceil(logs.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paginatedLogs = logs.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const exportCSV = () => {
     if (logs.length === 0) return;
@@ -92,41 +99,79 @@ export default function AuditLogPage() {
               />
             </div>
           ) : (
-            <Table>
-              <thead>
-                <tr>
-                  <th style={{ width: "22%" }}>Time</th>
-                  <th style={{ width: "18%" }}>Actor</th>
-                  <th style={{ width: "24%" }}>Action</th>
-                  <th style={{ width: "20%" }}>Resource</th>
-                  <th style={{ width: "16%" }}>Repository</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.map((item, idx) => (
-                  <tr key={item.id || idx}>
-                    <td style={{ fontSize: "11px", whiteSpace: "nowrap" }} className="meta">
-                      {new Date(item.timestamp).toLocaleString()}
-                    </td>
-                    <td>
-                      <span className={`badge ${item.actor.type === "agent" ? "orange" : item.actor.type === "system" ? "gray" : "green"}`}>
-                        {item.actor.type === "agent" ? <I.Bot size={11} /> : <I.User size={11} />}
-                        {item.actor.name || item.actor.type}
-                      </span>
-                    </td>
-                    <td style={{ fontWeight: 500 }}>{item.action}</td>
-                    <td>
-                      <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "11px", color: "var(--text-secondary)" }}>
-                        {item.resource_type}:{item.resource_id.slice(0, 8)}
-                      </span>
-                    </td>
-                    <td style={{ color: "var(--text-secondary)", fontSize: "12px" }}>
-                      {item.repository || "—"}
-                    </td>
+            <>
+              <Table>
+                <thead>
+                  <tr>
+                    <th style={{ width: "22%" }}>Time</th>
+                    <th style={{ width: "18%" }}>Actor</th>
+                    <th style={{ width: "24%" }}>Action</th>
+                    <th style={{ width: "20%" }}>Resource</th>
+                    <th style={{ width: "16%" }}>Repository</th>
                   </tr>
-                ))}
-              </tbody>
-            </Table>
+                </thead>
+                <tbody>
+                  {paginatedLogs.map((item, idx) => (
+                    <tr key={item.id || idx}>
+                      <td style={{ fontSize: "11px", whiteSpace: "nowrap" }} className="meta">
+                        {new Date(item.timestamp).toLocaleString()}
+                      </td>
+                      <td>
+                        <span className={`badge ${item.actor.type === "agent" ? "orange" : item.actor.type === "system" ? "gray" : "green"}`}>
+                          {item.actor.type === "agent" ? <I.Bot size={11} /> : <I.User size={11} />}
+                          {item.actor.name || item.actor.type}
+                        </span>
+                      </td>
+                      <td style={{ fontWeight: 500 }}>{item.action}</td>
+                      <td>
+                        <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "11px", color: "var(--text-secondary)" }}>
+                          {item.resource_type}:{item.resource_id.slice(0, 8)}
+                        </span>
+                      </td>
+                      <td style={{ color: "var(--text-secondary)", fontSize: "12px" }}>
+                        {item.repository || "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+
+              {logs.length > PAGE_SIZE && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "12px 16px",
+                    borderTop: "1px solid var(--line)",
+                    background: "rgba(255, 255, 255, 0.015)",
+                  }}
+                >
+                  <div className="meta" style={{ fontSize: 12 }}>
+                    Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, logs.length)} of {logs.length} entries
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <Btn
+                      disabled={safePage <= 1}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      style={{ padding: "4px 10px", fontSize: 12 }}
+                    >
+                      Previous
+                    </Btn>
+                    <span style={{ fontSize: 12, color: "var(--muted)", minWidth: 48, textAlign: "center" }}>
+                      {safePage} / {totalPages}
+                    </span>
+                    <Btn
+                      disabled={safePage >= totalPages}
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      style={{ padding: "4px 10px", fontSize: 12 }}
+                    >
+                      Next
+                    </Btn>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </Card>
       </div>

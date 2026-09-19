@@ -55,6 +55,9 @@ function GlobalChangesContent() {
   const [search, setSearch] = useState<string>("");
   const initialMount = useRef(true);
 
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
+
   const load = async (forceRefresh = false) => {
     setLoading(changes.length === 0 || forceRefresh);
     setError(null);
@@ -78,6 +81,7 @@ function GlobalChangesContent() {
         { staleMs: 15000, ttlMs: 60000, forceRefresh }
       );
       setChanges(rows);
+      setPage(1);
     } catch (err: any) {
       console.error("Failed to load changes:", err);
       setError(err?.message || "Failed to load global changes");
@@ -360,301 +364,360 @@ function GlobalChangesContent() {
           </div>
         </Card>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {changes.map((change) => {
-            const isAgent =
-              change.actor_type === "agent" || Boolean(change.agent_id);
-            const detailHref = change.repository_name
-              ? `/repositories/${encodeURIComponent(change.repository_name)}/changes/${encodeURIComponent(change.id)}`
-              : `/changes/${encodeURIComponent(change.id)}`;
+        <>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {changes.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((change) => {
+              const isAgent =
+                change.actor_type === "agent" || Boolean(change.agent_id);
+              const detailHref = change.repository_name
+                ? `/repositories/${encodeURIComponent(change.repository_name)}/changes/${encodeURIComponent(change.id)}`
+                : `/changes/${encodeURIComponent(change.id)}`;
 
-            return (
-              <Card key={change.id} style={{ transition: "border-color var(--motion-fast) var(--ease-subtle)" }}>
-                <div
-                  style={{
-                    padding: "16px 20px",
-                    display: "flex",
-                    alignItems: "flex-start",
-                    justifyContent: "space-between",
-                    gap: 16,
-                  }}
-                >
-                  {/* Left: Change Info */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    {/* Top Meta Line: Repo, Branch, Actor */}
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        flexWrap: "wrap",
-                        marginBottom: 6,
-                      }}
-                    >
-                      {/* Repo Name */}
-                      {change.repository_name ? (
-                        <Link
-                          href={`/repositories/${encodeURIComponent(change.repository_name)}`}
-                          style={{
-                            fontSize: 12,
-                            fontWeight: 600,
-                            color: "var(--link)",
-                            textDecoration: "none",
-                          }}
-                        >
-                          {change.repository_name}
-                        </Link>
-                      ) : (
-                        <span
-                          style={{
-                            fontSize: 12,
-                            color: "var(--muted)",
-                            fontFamily: "monospace",
-                          }}
-                        >
-                          {change.repository_id.slice(0, 8)}
+              return (
+                <Card key={change.id} style={{ transition: "border-color var(--motion-fast) var(--ease-subtle)" }}>
+                  <div
+                    style={{
+                      padding: "16px 20px",
+                      display: "flex",
+                      alignItems: "flex-start",
+                      justifyContent: "space-between",
+                      gap: 16,
+                    }}
+                  >
+                    {/* Left: Change Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {/* Top Meta Line: Repo, Branch, Actor */}
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          flexWrap: "wrap",
+                          marginBottom: 6,
+                        }}
+                      >
+                        {/* Repo Name */}
+                        {change.repository_name ? (
+                          <Link
+                            href={`/repositories/${encodeURIComponent(change.repository_name)}`}
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: "var(--link)",
+                              textDecoration: "none",
+                            }}
+                          >
+                            {change.repository_name}
+                          </Link>
+                        ) : (
+                          <span
+                            style={{
+                              fontSize: 12,
+                              color: "var(--muted)",
+                              fontFamily: "monospace",
+                            }}
+                          >
+                            {change.repository_id.slice(0, 8)}
+                          </span>
+                        )}
+
+                        <span style={{ color: "var(--line)" }}>•</span>
+
+                        {/* Actor Badge */}
+                        {isAgent ? (
+                          <span
+                            className="badge orange"
+                            style={{
+                              fontSize: 11,
+                              padding: "2px 8px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                              borderRadius: 4,
+                            }}
+                          >
+                            <Bot size={12} />
+                            {change.agent_name || change.actor_name || "Agent"}
+                          </span>
+                        ) : (
+                          <span
+                            className="badge gray"
+                            style={{
+                              fontSize: 11,
+                              padding: "2px 8px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                              borderRadius: 4,
+                            }}
+                          >
+                            <UserRound size={12} />
+                            {change.actor_name || "User"}
+                          </span>
+                        )}
+
+                        {/* Branch */}
+                        {((change as any).branch_name || change.branch) && (
+                          <>
+                            <span style={{ color: "var(--line)" }}>•</span>
+                            <span
+                              style={{
+                                fontSize: 12,
+                                color: "var(--muted)",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                fontFamily: "monospace",
+                              }}
+                            >
+                              <GitBranch size={12} />
+                              {(change as any).branch_name || change.branch}
+                            </span>
+                          </>
+                        )}
+
+                        {/* Time */}
+                        <span style={{ color: "var(--line)" }}>•</span>
+                        <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                          {relativeTime(change.updated_at || change.created_at)}
                         </span>
-                      )}
+                      </div>
 
-                      <span style={{ color: "var(--line)" }}>•</span>
-
-                      {/* Actor Badge */}
-                      {isAgent ? (
-                        <span
-                          className="badge orange"
-                          style={{
-                            fontSize: 11,
-                            padding: "2px 8px",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 4,
-                            borderRadius: 4,
-                          }}
-                        >
-                          <Bot size={12} />
-                          {change.agent_name || change.actor_name || "Agent"}
-                        </span>
-                      ) : (
-                        <span
-                          className="badge gray"
-                          style={{
-                            fontSize: 11,
-                            padding: "2px 8px",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 4,
-                            borderRadius: 4,
-                          }}
-                        >
-                          <UserRound size={12} />
-                          {change.actor_name || "User"}
-                        </span>
-                      )}
-
-                      {/* Branch Name */}
-                      {change.branch && (
-                        <span
-                          className="badge"
-                          style={{
-                            fontSize: 11,
-                            background: "var(--bg)",
-                            border: "1px solid var(--line)",
-                            padding: "2px 8px",
-                            borderRadius: 4,
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 4,
-                          }}
-                        >
-                          <GitBranch size={11} className="muted" />
-                          {change.branch}
-                        </span>
-                      )}
-
-                      {/* Linked Pull Request */}
-                      {change.pull_request_id && (
-                        <span
-                          className="badge violet"
-                          style={{
-                            fontSize: 11,
-                            padding: "2px 8px",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 4,
-                            borderRadius: 4,
-                          }}
-                        >
-                          <GitPullRequest size={11} />
-                          PR #{change.pull_request_id.slice(0, 6)}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Change Title & Intent */}
-                    <Link
-                      href={detailHref}
-                      style={{
-                        textDecoration: "none",
-                        color: "inherit",
-                        display: "block",
-                      }}
-                    >
+                      {/* Intent / Title */}
                       <div
                         style={{
                           fontSize: 15,
                           fontWeight: 600,
                           color: "var(--fg)",
-                          marginBottom: 4,
-                          lineHeight: 1.3,
+                          marginBottom: 6,
+                          lineHeight: 1.4,
                         }}
                       >
-                        {change.title || change.intent}
+                        <Link
+                          href={detailHref}
+                          style={{
+                            color: "inherit",
+                            textDecoration: "none",
+                          }}
+                        >
+                          {change.intent ||
+                            change.title ||
+                            `Change ${change.id.slice(0, 8)}`}
+                        </Link>
                       </div>
-                    </Link>
 
-                    {change.description && change.description !== change.title && (
+                      {/* Description if present */}
+                      {change.description && (
+                        <div
+                          style={{
+                            fontSize: 13,
+                            color: "var(--muted)",
+                            marginBottom: 8,
+                            lineHeight: 1.5,
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {change.description}
+                        </div>
+                      )}
+
+                      {/* Bottom Meta Badges: Stats, Risk, Governance */}
                       <div
                         style={{
-                          fontSize: 12,
-                          color: "var(--muted)",
-                          marginBottom: 8,
-                          maxWidth: 720,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {change.description}
-                      </div>
-                    )}
-
-                    {/* Bottom Metadata: Diffs, Risk, Time */}
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        fontSize: 12,
-                        color: "var(--muted)",
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      {/* Diff Stats */}
-                      <span
-                        style={{
-                          display: "inline-flex",
+                          display: "flex",
                           alignItems: "center",
-                          gap: 6,
+                          gap: 12,
+                          flexWrap: "wrap",
+                          fontSize: 12,
                         }}
                       >
-                        <FileCode2 size={13} className="muted" />
-                        <span>{change.files_changed} files</span>
-                        {((change.additions ?? 0) > 0 || (change.deletions ?? 0) > 0) && (
-                          <span style={{ marginLeft: 4 }}>
-                            <span style={{ color: "#10b981", fontWeight: 600 }}>
-                              +{change.additions ?? 0}
-                            </span>{" "}
-                            <span style={{ color: "#ef4444", fontWeight: 600 }}>
-                              -{change.deletions ?? 0}
-                            </span>
-                          </span>
-                        )}
-                      </span>
-
-                      <span>•</span>
-
-                      {/* Resulting Commit */}
-                      {change.resulting_commit ? (
+                        {/* Additions / Deletions / Files */}
                         <span
                           style={{
-                            fontFamily: "monospace",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
                             color: "var(--muted)",
                           }}
                         >
-                          sha: {change.resulting_commit.slice(0, 7)}
+                          <FileCode2 size={13} />
+                          {change.files_changed !== undefined ? (
+                            <span>{change.files_changed} files</span>
+                          ) : null}
+                          {change.additions !== undefined ? (
+                            <span style={{ color: "var(--green)", fontWeight: 600 }}>
+                              +{change.additions}
+                            </span>
+                          ) : null}
+                          {change.deletions !== undefined ? (
+                            <span style={{ color: "var(--red)", fontWeight: 600 }}>
+                              -{change.deletions}
+                            </span>
+                          ) : null}
                         </span>
-                      ) : (
-                        <span style={{ color: "var(--muted)" }}>In progress</span>
-                      )}
 
-                      <span>•</span>
+                        {/* Risk Level Badge */}
+                        {change.risk_level && (
+                          <span
+                            className={`badge ${
+                              change.risk_level === "critical" ||
+                              change.risk_level === "high"
+                                ? "red"
+                                : change.risk_level === "medium"
+                                ? "orange"
+                                : "green"
+                            }`}
+                            style={{
+                              fontSize: 11,
+                              padding: "2px 7px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 3,
+                              borderRadius: 4,
+                            }}
+                          >
+                            <ShieldAlert size={11} />
+                            {change.risk_level} risk
+                          </span>
+                        )}
 
-                      {/* Relative Time */}
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
-                        }}
-                      >
-                        <Clock size={12} />
-                        {relativeTime(change.updated_at || change.created_at)}
-                      </span>
+                        {/* Linked PR Badge if any */}
+                        {change.pull_request_id && (
+                          <span
+                            className="badge aqua"
+                            style={{
+                              fontSize: 11,
+                              padding: "2px 7px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 3,
+                              borderRadius: 4,
+                            }}
+                          >
+                            <GitPullRequest size={11} />
+                            PR linked
+                          </span>
+                        )}
+
+                        {/* Linked Task Badge if any */}
+                        {change.task_id && (
+                          <span
+                            style={{
+                              fontSize: 11,
+                              color: "var(--muted)",
+                              fontFamily: "monospace",
+                            }}
+                          >
+                            task-{change.task_id.slice(0, 6)}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Right: Status & Actions */}
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "flex-end",
-                      gap: 10,
-                      flexShrink: 0,
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      {/* Risk Badge */}
-                      {change.risk_level && change.risk_level !== "unknown" && (
+                    {/* Right: Status & Inspect CTA */}
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "flex-end",
+                        gap: 10,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        {/* Governance Indicator */}
+                        {Boolean((change as any).governance_state || (change as any).policy_status) && (
+                          <Badge
+                            tone={
+                              ((change as any).governance_state || (change as any).policy_status) === "passed"
+                                ? "green"
+                                : ((change as any).governance_state || (change as any).policy_status) === "failed"
+                                ? "red"
+                                : "amber"
+                            }
+                          >
+                            {(change as any).governance_state || (change as any).policy_status}
+                          </Badge>
+                        )}
+
+                        {/* Status Badge */}
                         <Badge
                           tone={
-                            change.risk_level === "critical" ||
-                            change.risk_level === "high"
+                            change.status === "recorded" || change.status === "merged"
+                              ? "green"
+                              : change.status === "blocked" ||
+                                change.status === "rejected"
                               ? "red"
-                              : change.risk_level === "medium"
-                              ? "amber"
-                              : "green"
+                              : "aqua"
                           }
                         >
-                          {change.risk_level} risk
+                          {change.status}
                         </Badge>
-                      )}
+                      </div>
 
-                      {/* Status Badge */}
-                      <Badge
-                        tone={
-                          change.status === "recorded" || change.status === "merged"
-                            ? "green"
-                            : change.status === "blocked" ||
-                              change.status === "rejected"
-                            ? "red"
-                            : "aqua"
-                        }
-                      >
-                        {change.status}
-                      </Badge>
+                      <Link href={detailHref} style={{ textDecoration: "none" }}>
+                        <Btn
+                          sm
+                          style={{
+                            fontSize: 12,
+                            padding: "4px 10px",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          Inspect <ArrowUpRight size={13} />
+                        </Btn>
+                      </Link>
                     </div>
-
-                    <Link href={detailHref} style={{ textDecoration: "none" }}>
-                      <Btn
-                        sm
-                        style={{
-                          fontSize: 12,
-                          padding: "4px 10px",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
-                        }}
-                      >
-                        Inspect <ArrowUpRight size={13} />
-                      </Btn>
-                    </Link>
                   </div>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* Pagination Controls (10 per page) */}
+          {changes.length > PAGE_SIZE && (() => {
+            const totalPages = Math.ceil(changes.length / PAGE_SIZE);
+            return (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "16px 4px 8px",
+                  marginTop: 8,
+                }}
+              >
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                  Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, changes.length)} of {changes.length} changes
+                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Btn
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    style={{ padding: "4px 10px", fontSize: 12 }}
+                  >
+                    Previous
+                  </Btn>
+                  <span style={{ fontSize: 12, color: "var(--muted)", minWidth: 48, textAlign: "center" }}>
+                    {page} / {totalPages}
+                  </span>
+                  <Btn
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    style={{ padding: "4px 10px", fontSize: 12 }}
+                  >
+                    Next
+                  </Btn>
                 </div>
-              </Card>
+              </div>
             );
-          })}
-        </div>
+          })()}
+        </>
       )}
     </AppShell>
   );

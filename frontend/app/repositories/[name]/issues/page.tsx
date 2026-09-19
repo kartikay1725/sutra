@@ -115,6 +115,9 @@ export default function RepositoryIssuesPage({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
 
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
+
   const loadIssues = useCallback(
     async (showRefreshState = false, forceRefresh = false) => {
       if (!owner) {
@@ -751,7 +754,7 @@ export default function RepositoryIssuesPage({
             </div>
           ) : (
             <div>
-              {filteredIssues.map(
+              {filteredIssues.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(
                 (issue) => {
                   const status =
                     getIssueStatus(issue);
@@ -911,9 +914,31 @@ export default function RepositoryIssuesPage({
                                 color:
                                   "var(--muted)",
                                 fontSize: 11,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 5,
                               }}
                             >
-                              {issue.author_id}
+                              <span>
+                                {issue.author_name || issue.github_author_login || (issue.author_id ? issue.author_id.slice(0, 8) : "Unknown")}
+                              </span>
+                              {(issue.author_type === "agent" || issue.source_type === "agent" || Boolean(issue.agent_id)) && (
+                                <span
+                                  style={{
+                                    fontSize: 9,
+                                    fontWeight: 700,
+                                    letterSpacing: "0.04em",
+                                    padding: "1px 5px",
+                                    borderRadius: 4,
+                                    background: "rgba(168,85,247,0.15)",
+                                    color: "#c084fc",
+                                    border: "1px solid rgba(168,85,247,0.3)",
+                                    textTransform: "uppercase",
+                                  }}
+                                >
+                                  Agent
+                                </span>
+                              )}
                             </span>
 
                             <span
@@ -1183,6 +1208,48 @@ export default function RepositoryIssuesPage({
                   );
                 },
               )}
+
+              {/* Issues Pagination (10 per page) */}
+              {filteredIssues.length > PAGE_SIZE && (() => {
+                const totalPages = Math.ceil(filteredIssues.length / PAGE_SIZE);
+                return (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "12px 16px",
+                      borderTop: "1px solid var(--line)",
+                      background: "rgba(255, 255, 255, 0.015)",
+                    }}
+                  >
+                    <div className="meta" style={{ fontSize: 12 }}>
+                      Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredIssues.length)} of {filteredIssues.length} issues
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <button
+                        className="btn"
+                        disabled={page <= 1}
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        style={{ padding: "4px 10px", fontSize: 12, height: 28 }}
+                      >
+                        Previous
+                      </button>
+                      <span style={{ fontSize: 12, color: "var(--muted)", minWidth: 48, textAlign: "center" }}>
+                        {page} / {totalPages}
+                      </span>
+                      <button
+                        className="btn"
+                        disabled={page >= totalPages}
+                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                        style={{ padding: "4px 10px", fontSize: 12, height: 28 }}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>

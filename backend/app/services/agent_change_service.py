@@ -673,7 +673,12 @@ class AgentChangeService:
                     f"Policy violation: Agent PR creation blocked because Git detected a merge conflict with '{base_branch}'."
                 )
 
-        pr_title = (title or task.title or change.intent or f"Task: {task.title}").strip()
+        base_pr_title = (title or task.title or change.intent or f"Task: {task.title}").strip()
+        agent_prefix = f"[{agent.name}]"
+        if not base_pr_title.startswith(agent_prefix) and not base_pr_title.startswith(f"[Agent:"):
+            pr_title = f"{agent_prefix} {base_pr_title}"
+        else:
+            pr_title = base_pr_title
 
         # Format SUTRA Agent provenance block for GitHub PR body
         provenance_footer = (

@@ -93,9 +93,19 @@ export const Group2IdentityAccess: DocSection[] = [
                 <td>Bypassing branch protection or force-pushing</td>
               </tr>
               <tr>
-                <td style={{ fontFamily: "monospace", color: "#3B82F6" }}>changes.create</td>
+                <td style={{ fontFamily: "monospace", color: "#3B82F6" }}>change.create</td>
                 <td>Creating Pull Requests & Changes</td>
                 <td>Self-approving Pull Requests</td>
+              </tr>
+              <tr>
+                <td style={{ fontFamily: "monospace", color: "#3B82F6" }}>workflow.write</td>
+                <td>Modifying CI/CD pipelines (.github/workflows/*)</td>
+                <td>Bypassing branch rules or workflow run tampering</td>
+              </tr>
+              <tr>
+                <td style={{ fontFamily: "monospace", color: "#3B82F6" }}>discussion.create</td>
+                <td>Proposing architecture RFCs & participating in discussion threads</td>
+                <td>Deleting discussion channels or unverified posts</td>
               </tr>
             </tbody>
           </table>

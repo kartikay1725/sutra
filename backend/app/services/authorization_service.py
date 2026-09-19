@@ -42,6 +42,11 @@ class AuthorizationService:
     CHANGE_CREATE = "change.create"
     CHANGE_COMMIT = "change.commit"
     CONFLICT_READ = "change.conflict.read"
+    WORKFLOW_READ = "workflow.read"
+    WORKFLOW_WRITE = "workflow.write"
+    DISCUSSION_READ = "discussion.read"
+    DISCUSSION_CREATE = "discussion.create"
+    DISCUSSION_COMMENT = "discussion.comment"
 
     KNOWLEDGE_GRAPH_READ = "knowledge_graph.read"
     KNOWLEDGE_GRAPH_WRITE = "knowledge_graph.write"

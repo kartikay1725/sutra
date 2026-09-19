@@ -221,6 +221,8 @@ export default function AgentsPage({ params }: { params: Promise<{ name: string 
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
   const [taskToTerminate, setTaskToTerminate] = useState<{ id: string; title?: string } | null>(null);
   const [terminating, setTerminating] = useState(false);
 
@@ -376,7 +378,10 @@ export default function AgentsPage({ params }: { params: Promise<{ name: string 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div style={{ display: "flex", gap: 4 }}>
             {["All", "Active", "Revoked"].map(f => (
-              <button key={f} onClick={() => setFilter(f)} style={{
+              <button key={f} onClick={() => {
+                setFilter(f);
+                setPage(1);
+              }} style={{
                 background: filter === f ? "var(--bg-subtle)" : "transparent",
                 border: "1px solid", borderColor: filter === f ? "var(--line)" : "transparent",
                 color: filter === f ? "var(--fg)" : "var(--muted)",
@@ -387,7 +392,10 @@ export default function AgentsPage({ params }: { params: Promise<{ name: string 
           </div>
           <div style={{ position: "relative" }}>
             <I.Search size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search agents…"
+            <input value={search} onChange={e => {
+              setSearch(e.target.value);
+              setPage(1);
+            }} placeholder="Search agents…"
               style={{ padding: "7px 12px 7px 30px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--bg)", color: "var(--fg)", fontSize: 13, width: 200 }} />
           </div>
         </div>
@@ -432,7 +440,7 @@ export default function AgentsPage({ params }: { params: Promise<{ name: string 
                 All Agents
               </div>
               <Card style={{ padding: 0, overflow: "hidden" }}>
-                {filtered.map((agent, idx) => {
+                {filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((agent, idx) => {
                   const tasks = agentTasks[agent.id] || [];
                   const runningTask = tasks.find(t => t.status === "in_progress");
                   const completedTasks = tasks.filter(t => t.status === "completed").length;
@@ -444,7 +452,7 @@ export default function AgentsPage({ params }: { params: Promise<{ name: string 
                       onClick={() => router.push(`/repositories/${repoName}/agents/${agent.id}`)}
                       style={{
                         display: "flex", alignItems: "center", gap: 16, padding: "14px 20px",
-                        borderBottom: idx < filtered.length - 1 ? "1px solid var(--line)" : "none",
+                        borderBottom: idx < Math.min(PAGE_SIZE, filtered.length - (page - 1) * PAGE_SIZE) - 1 ? "1px solid var(--line)" : "none",
                         cursor: "pointer", transition: "background 0.15s",
                       }}
                       onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-subtle)")}
@@ -494,6 +502,46 @@ export default function AgentsPage({ params }: { params: Promise<{ name: string 
                     </div>
                   );
                 })}
+
+                {/* Agents Pagination (10 per page) */}
+                {filtered.length > PAGE_SIZE && (() => {
+                  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+                  return (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "12px 16px",
+                        borderTop: "1px solid var(--line)",
+                        background: "rgba(255, 255, 255, 0.015)",
+                      }}
+                    >
+                      <div className="meta" style={{ fontSize: 12 }}>
+                        Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length} agents
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <Btn
+                          disabled={page <= 1}
+                          onClick={() => setPage((p) => Math.max(1, p - 1))}
+                          style={{ padding: "4px 10px", fontSize: 12 }}
+                        >
+                          Previous
+                        </Btn>
+                        <span style={{ fontSize: 12, color: "var(--muted)", minWidth: 48, textAlign: "center" }}>
+                          {page} / {totalPages}
+                        </span>
+                        <Btn
+                          disabled={page >= totalPages}
+                          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                          style={{ padding: "4px 10px", fontSize: 12 }}
+                        >
+                          Next
+                        </Btn>
+                      </div>
+                    </div>
+                  );
+                })()}
               </Card>
             </section>
           </div>

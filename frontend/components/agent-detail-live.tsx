@@ -42,14 +42,33 @@ export function AgentDetailLive() {
     onConfirm: () => Promise<void>;
   } | null>(null);
 
-  const load = async () => {
+  const [notification, setNotification] = useState<{
+    message: string;
+    type: "success" | "error" | "info";
+  } | null>(null);
+
+  // Pagination state: 10 items per page
+  const [sessionsPage, setSessionsPage] = useState(1);
+  const [tasksPage, setTasksPage] = useState(1);
+  const PAGE_SIZE = 10;
+
+  const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
+    setNotification({ message, type });
+    window.setTimeout(() => {
+      setNotification((curr) => (curr?.message === message ? null : curr));
+    }, 3500);
+  };
+
+  const load = async (silent = false) => {
     if (!agentId) return;
     try {
-      setLoading(true);
-      setError(null);
+      if (!silent) {
+        setLoading(true);
+        setError(null);
+      }
       const current = await agentService.getAgent(agentId);
       if (!current) {
-        setError("Agent not found.");
+        if (!silent) setError("Agent not found.");
         return;
       }
       setAgent(current);
@@ -67,9 +86,13 @@ export function AgentDetailLive() {
       setTasks(allTasks.filter((t) => t.assigned_agent_id === current.id));
     } catch (err: any) {
       console.error(err);
-      setError(err?.detail || err?.message || "Failed to load agent.");
+      if (!silent) {
+        setError(err?.detail || err?.message || "Failed to load agent.");
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
@@ -82,11 +105,26 @@ export function AgentDetailLive() {
     [sessions],
   );
 
+  const paginatedSessions = useMemo(() => {
+    const start = (sessionsPage - 1) * PAGE_SIZE;
+    return sessions.slice(start, start + PAGE_SIZE);
+  }, [sessions, sessionsPage]);
+
+  const totalSessionPages = Math.max(1, Math.ceil(sessions.length / PAGE_SIZE));
+
+  const paginatedTasks = useMemo(() => {
+    const start = (tasksPage - 1) * PAGE_SIZE;
+    return tasks.slice(start, start + PAGE_SIZE);
+  }, [tasks, tasksPage]);
+
+  const totalTaskPages = Math.max(1, Math.ceil(tasks.length / PAGE_SIZE));
+
   const handleRevoke = async (sessionId: string) => {
     try {
       setRevoking(sessionId);
       await agentService.revokeSession(sessionId);
-      await load();
+      await load(true);
+      showToast("Session revoked successfully");
     } catch (err: any) {
       setError(err?.detail || err?.message || "Failed to revoke session.");
     } finally {
@@ -110,8 +148,9 @@ export function AgentDetailLive() {
         setRevokingAgent(true);
         try {
           await agentService.revokeAgent(agent.id);
-          await load();
+          await load(true);
           setConfirmConfig(null);
+          showToast("Agent revoked successfully");
         } catch (err: any) {
           setError(err?.detail || err?.message || "Failed to revoke agent.");
         } finally {
@@ -136,8 +175,9 @@ export function AgentDetailLive() {
         setTerminatingTaskId(task.id);
         try {
           await taskService.terminateTask(task.id);
-          await load();
+          await load(true);
           setConfirmConfig(null);
+          showToast(`Task "${task.title}" terminated`);
         } catch (err: any) {
           setError(err?.detail || err?.message || "Failed to terminate task.");
         } finally {
@@ -149,13 +189,42 @@ export function AgentDetailLive() {
 
   const togglePermission = async (access: AgentRepositoryAccess, permission: string) => {
     if (!agent) return;
-    const permissions = access.permissions.includes(permission)
+    const isCurrentlyEnabled = access.permissions.includes(permission);
+    const newPermissions = isCurrentlyEnabled
       ? access.permissions.filter(p => p !== permission)
       : [...access.permissions, permission];
+
+    // Optimistically update local state immediately without full-page spinner or scroll loss
+    setAccessList(prev =>
+      prev.map(item =>
+        item.repository_id === access.repository_id
+          ? { ...item, permissions: newPermissions }
+          : item
+      )
+    );
+
+    const actionText = isCurrentlyEnabled ? "disabled" : "enabled";
+    showToast(`[${permission}] ${actionText} for ${access.repository_name}`);
+
     try {
-      await agentService.updateRepositoryAccess(agent.id, access.repository_id, permissions, access.enabled);
-      await load();
+      await agentService.updateRepositoryAccess(
+        agent.id,
+        access.repository_id,
+        newPermissions,
+        access.enabled
+      );
+      // Refresh silently in background to keep full sync
+      await load(true);
     } catch (err: any) {
+      // Revert optimistic update on failure
+      setAccessList(prev =>
+        prev.map(item =>
+          item.repository_id === access.repository_id
+            ? { ...item, permissions: access.permissions }
+            : item
+        )
+      );
+      showToast(`Failed to update [${permission}]`, "error");
       setError(err?.detail || err?.message || "Failed to update permissions.");
     }
   };
@@ -173,7 +242,8 @@ export function AgentDetailLive() {
       ];
       await agentService.grantRepositoryAccess(agent.id, selectedRepoId, defaultPerms);
       setSelectedRepoId("");
-      await load();
+      await load(true);
+      showToast("Repository access granted");
     } catch (err: any) {
       setError(err?.detail || err?.message || "Failed to grant repository access.");
     } finally {
@@ -196,8 +266,9 @@ export function AgentDetailLive() {
       onConfirm: async () => {
         try {
           await agentService.revokeRepositoryAccess(agent.id, repositoryId);
-          await load();
+          await load(true);
           setConfirmConfig(null);
+          showToast(`Revoked access to ${repoName || "repository"}`);
         } catch (err: any) {
           setError(err?.detail || err?.message || "Failed to revoke repository access.");
         }
@@ -233,6 +304,58 @@ export function AgentDetailLive() {
 
   return (
     <>
+      {/* Smooth Toast Notification */}
+      {notification && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "12px 18px",
+            borderRadius: 12,
+            background: notification.type === "error"
+              ? "linear-gradient(145deg, #2a1215 0%, #17090b 100%)"
+              : "linear-gradient(145deg, #121826 0%, #0d111a 100%)",
+            border: notification.type === "error"
+              ? "1px solid rgba(239, 68, 68, 0.4)"
+              : "1px solid rgba(99, 102, 241, 0.4)",
+            boxShadow: "0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(99, 102, 241, 0.15)",
+            color: notification.type === "error" ? "#fca5a5" : "#c7d2fe",
+            fontSize: 13,
+            fontWeight: 500,
+            animation: "slideInSmooth 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+            backdropFilter: "blur(8px)",
+          }}
+        >
+          {notification.type === "error" ? (
+            <I.XCircle size={16} style={{ color: "#ef4444", flexShrink: 0 }} />
+          ) : (
+            <I.ShieldCheck size={16} style={{ color: "var(--cyan, #22d3ee)", flexShrink: 0 }} />
+          )}
+          <span>{notification.message}</span>
+          <button
+            onClick={() => setNotification(null)}
+            style={{
+              background: "none",
+              border: "none",
+              color: "inherit",
+              cursor: "pointer",
+              padding: 2,
+              marginLeft: 8,
+              opacity: 0.6,
+              display: "flex",
+            }}
+            title="Dismiss"
+          >
+            <I.XCircle size={14} />
+          </button>
+        </div>
+      )}
+
       <PageHead
         eyebrow={`Agent · ${agent.name}`}
         title={agent.name}
@@ -245,7 +368,7 @@ export function AgentDetailLive() {
         }
         action={
           <div style={{ display: "flex", gap: 8 }}>
-            <Btn onClick={() => void load()}>
+            <Btn onClick={() => void load(false)}>
               Refresh
             </Btn>
             {agent.status === "active" && (
@@ -284,32 +407,71 @@ export function AgentDetailLive() {
             <div className="sub">No agent sessions have been created yet.</div>
           </div>
         ) : (
-          <div className="list">
-            {sessions.map((session) => (
-              <div className="list-row" key={session.session_id}>
-                <I.Bot size={15} style={{ color: "#63e5e8" }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="title-sm">
-                    {session.token_prefix}…
+          <>
+            <div className="list">
+              {paginatedSessions.map((session) => (
+                <div className="list-row" key={session.session_id}>
+                  <I.Bot size={15} style={{ color: "#63e5e8" }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="title-sm">
+                      {session.token_prefix}…
+                    </div>
+                    <div className="meta">
+                      Created {fmt(session.created_at)} · last seen {fmt(session.last_seen_at)} · expires {fmt(session.expires_at)}
+                    </div>
                   </div>
-                  <div className="meta">
-                    Created {fmt(session.created_at)} · last seen {fmt(session.last_seen_at)} · expires {fmt(session.expires_at)}
-                  </div>
+                  <Badge tone={session.status === "active" ? "green" : "amber"}>
+                    {session.status}
+                  </Badge>
+                  {session.status === "active" && (
+                    <Btn
+                      disabled={revoking === session.session_id}
+                      onClick={() => void handleRevoke(session.session_id)}
+                    >
+                      {revoking === session.session_id ? "Revoking…" : "Revoke"}
+                    </Btn>
+                  )}
                 </div>
-                <Badge tone={session.status === "active" ? "green" : "amber"}>
-                  {session.status}
-                </Badge>
-                {session.status === "active" && (
+              ))}
+            </div>
+
+            {/* Sessions Pagination (10 per page) */}
+            {sessions.length > PAGE_SIZE && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "12px 16px",
+                  borderTop: "1px solid var(--line)",
+                  background: "rgba(255, 255, 255, 0.015)",
+                }}
+              >
+                <div className="meta" style={{ fontSize: 12 }}>
+                  Showing {(sessionsPage - 1) * PAGE_SIZE + 1}–{Math.min(sessionsPage * PAGE_SIZE, sessions.length)} of {sessions.length} sessions
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <Btn
-                    disabled={revoking === session.session_id}
-                    onClick={() => void handleRevoke(session.session_id)}
+                    disabled={sessionsPage <= 1}
+                    onClick={() => setSessionsPage((p) => Math.max(1, p - 1))}
+                    style={{ padding: "4px 10px", fontSize: 12 }}
                   >
-                    {revoking === session.session_id ? "Revoking…" : "Revoke"}
+                    Previous
                   </Btn>
-                )}
+                  <span style={{ fontSize: 12, color: "var(--muted)", minWidth: 48, textAlign: "center" }}>
+                    {sessionsPage} / {totalSessionPages}
+                  </span>
+                  <Btn
+                    disabled={sessionsPage >= totalSessionPages}
+                    onClick={() => setSessionsPage((p) => Math.min(totalSessionPages, p + 1))}
+                    style={{ padding: "4px 10px", fontSize: 12 }}
+                  >
+                    Next
+                  </Btn>
+                </div>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </Card>
 
@@ -358,51 +520,106 @@ export function AgentDetailLive() {
                 "change.create",
                 "change.commit",
                 "change.conflict.read",
+                "workflow.read",
+                "workflow.write",
+                "discussion.read",
+                "discussion.create",
+                "discussion.comment",
                 "knowledge_graph.read",
                 "knowledge_graph.write"
               ];
               return (
                 <div key={access.repository_id} style={{ display: "flex", flexDirection: "column", padding: "16px", borderBottom: "1px solid var(--line)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                    <div>
-                      <div className="title-sm" style={{ fontSize: 15, fontWeight: 600 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+                    <div style={{ minWidth: 200, flex: 1 }}>
+                      <div className="title-sm" style={{ fontSize: 15, fontWeight: 600, wordBreak: "break-all" }}>
                         {access.repository_owner} / {access.repository_name}
                       </div>
-                      <div className="meta">Repository ID: {access.repository_id}</div>
+                      <div className="meta" style={{ wordBreak: "break-all" }}>Repository ID: {access.repository_id}</div>
                     </div>
                     <Btn
-                      style={{ backgroundColor: "var(--red, #ff4d4f)", color: "#fff", padding: "4px 8px", fontSize: 12 }}
+                      style={{ backgroundColor: "var(--red, #ff4d4f)", color: "#fff", padding: "4px 8px", fontSize: 12, flexShrink: 0 }}
                       onClick={() => handleRevokeAccess(access.repository_id, `${access.repository_owner}/${access.repository_name}`)}
                     >
                       Revoke Repo
                     </Btn>
                   </div>
                   <div className="field">
-                    <label className="label" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", marginBottom: 8 }}>
-                      Allowed capabilities (toggles)
-                    </label>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                      <label className="label" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", margin: 0 }}>
+                        Repository Capabilities & Permissions
+                      </label>
+                      <span className="meta" style={{ fontSize: 11 }}>
+                        {access.permissions.length} granted
+                      </span>
+                    </div>
+
+                    <div style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+                      gap: 8,
+                      width: "100%",
+                    }}>
                       {capabilitiesList.map((perm) => {
                         const active = access.permissions.includes(perm);
                         return (
-                          <button
+                          <div
                             key={perm}
                             onClick={() => void togglePermission(access, perm)}
                             style={{
-                              padding: "6px 12px",
-                              borderRadius: "16px",
-                              fontSize: "12px",
-                              fontWeight: 500,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              padding: "9px 12px",
+                              borderRadius: "8px",
+                              backgroundColor: active ? "rgba(99, 102, 241, 0.08)" : "rgba(255, 255, 255, 0.02)",
+                              border: `1px solid ${active ? "rgba(99, 102, 241, 0.3)" : "var(--line)"}`,
                               cursor: "pointer",
-                              border: "1px solid",
-                              transition: "all 0.2s ease",
-                              backgroundColor: active ? "rgba(99, 102, 241, 0.15)" : "transparent",
-                              borderColor: active ? "#6366f1" : "var(--line)",
-                              color: active ? "#818cf8" : "var(--muted)"
+                              transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                              userSelect: "none",
                             }}
                           >
-                            {perm} {active ? "✓" : ""}
-                          </button>
+                            <div style={{ display: "flex", flexDirection: "column", minWidth: 0, paddingRight: 8 }}>
+                              <span style={{
+                                fontFamily: "monospace",
+                                fontSize: "12px",
+                                fontWeight: active ? 600 : 400,
+                                color: active ? "#c7d2fe" : "var(--text)",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}>
+                                {perm}
+                              </span>
+                            </div>
+
+                            {/* Modern Switch Toggle UI with Fluid Motion */}
+                            <div
+                              style={{
+                                width: 34,
+                                height: 18,
+                                borderRadius: 10,
+                                backgroundColor: active ? "#6366f1" : "rgba(255, 255, 255, 0.15)",
+                                position: "relative",
+                                flexShrink: 0,
+                                transition: "background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: 14,
+                                  height: 14,
+                                  borderRadius: "50%",
+                                  backgroundColor: "#fff",
+                                  position: "absolute",
+                                  top: 2,
+                                  left: active ? 18 : 2,
+                                  boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                                  transition: "left 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                                }}
+                              />
+                            </div>
+                          </div>
                         );
                       })}
                     </div>
@@ -475,72 +692,111 @@ export function AgentDetailLive() {
             <div className="sub">No tasks currently assigned to this agent.</div>
           </div>
         ) : (
-          <div className="list">
-            {tasks.map((task) => (
-              <div
-                className="list-row"
-                key={task.id}
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
-                  <I.CheckSquare
-                    size={16}
-                    style={{
-                      color:
-                        task.status === "done"
-                          ? "var(--green)"
-                          : task.status === "in_progress"
-                          ? "var(--cyan)"
-                          : "var(--muted)",
-                    }}
-                  />
-                  <div style={{ minWidth: 0 }}>
-                    <div className="title-sm" style={{ fontWeight: 600 }}>
-                      <Link href={`/tasks/${task.id}`} style={{ color: "inherit", textDecoration: "none" }}>
-                        {task.title}
-                      </Link>
-                    </div>
-                    <div className="meta">
-                      {task.priority && (
-                        <span style={{ textTransform: "uppercase", marginRight: 8 }}>
-                          {task.priority}
-                        </span>
-                      )}
-                      Created {fmt(task.created_at)}
+          <>
+            <div className="list">
+              {paginatedTasks.map((task) => (
+                <div
+                  className="list-row"
+                  key={task.id}
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                    <I.CheckSquare
+                      size={16}
+                      style={{
+                        color:
+                          task.status === "done"
+                            ? "var(--green)"
+                            : task.status === "in_progress"
+                            ? "var(--cyan)"
+                            : "var(--muted)",
+                      }}
+                    />
+                    <div style={{ minWidth: 0 }}>
+                      <div className="title-sm" style={{ fontWeight: 600 }}>
+                        <Link href={`/tasks/${task.id}`} style={{ color: "inherit", textDecoration: "none" }}>
+                          {task.title}
+                        </Link>
+                      </div>
+                      <div className="meta">
+                        {task.priority && (
+                          <span style={{ textTransform: "uppercase", marginRight: 8 }}>
+                            {task.priority}
+                          </span>
+                        )}
+                        Created {fmt(task.created_at)}
+                      </div>
                     </div>
                   </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <Badge
+                      tone={
+                        task.status === "done"
+                          ? "green"
+                          : task.status === "in_progress"
+                          ? "cyan"
+                          : "neutral"
+                      }
+                    >
+                      {task.status.replace("_", " ")}
+                    </Badge>
+                    {task.status === "in_progress" && (
+                      <Btn
+                        disabled={terminatingTaskId === task.id}
+                        onClick={() => handleTerminateTask(task)}
+                        style={{
+                          backgroundColor: "rgba(239, 68, 68, 0.15)",
+                          color: "#f87171",
+                          border: "1px solid rgba(239, 68, 68, 0.3)",
+                          padding: "4px 8px",
+                          fontSize: 12,
+                        }}
+                      >
+                        {terminatingTaskId === task.id ? "Terminating…" : "Terminate"}
+                      </Btn>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Tasks Pagination (10 per page) */}
+            {tasks.length > PAGE_SIZE && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "12px 16px",
+                  borderTop: "1px solid var(--line)",
+                  background: "rgba(255, 255, 255, 0.015)",
+                }}
+              >
+                <div className="meta" style={{ fontSize: 12 }}>
+                  Showing {(tasksPage - 1) * PAGE_SIZE + 1}–{Math.min(tasksPage * PAGE_SIZE, tasks.length)} of {tasks.length} tasks
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Badge
-                    tone={
-                      task.status === "done"
-                        ? "green"
-                        : task.status === "in_progress"
-                        ? "cyan"
-                        : "neutral"
-                    }
+                  <Btn
+                    disabled={tasksPage <= 1}
+                    onClick={() => setTasksPage((p) => Math.max(1, p - 1))}
+                    style={{ padding: "4px 10px", fontSize: 12 }}
                   >
-                    {task.status.replace("_", " ")}
-                  </Badge>
-                  {task.status === "in_progress" && (
-                    <Btn
-                      disabled={terminatingTaskId === task.id}
-                      onClick={() => handleTerminateTask(task)}
-                      style={{
-                        backgroundColor: "rgba(239, 68, 68, 0.15)",
-                        color: "#f87171",
-                        border: "1px solid rgba(239, 68, 68, 0.3)",
-                        padding: "4px 8px",
-                        fontSize: 12,
-                      }}
-                    >
-                      {terminatingTaskId === task.id ? "Terminating…" : "Terminate"}
-                    </Btn>
-                  )}
+                    Previous
+                  </Btn>
+                  <span style={{ fontSize: 12, color: "var(--muted)", minWidth: 48, textAlign: "center" }}>
+                    {tasksPage} / {totalTaskPages}
+                  </span>
+                  <Btn
+                    disabled={tasksPage >= totalTaskPages}
+                    onClick={() => setTasksPage((p) => Math.min(totalTaskPages, p + 1))}
+                    style={{ padding: "4px 10px", fontSize: 12 }}
+                  >
+                    Next
+                  </Btn>
                 </div>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </Card>
       {confirmConfig && (
