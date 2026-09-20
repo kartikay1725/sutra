@@ -19,23 +19,24 @@ export const metadata: Metadata = {
     template: "%s | SUTRA",
   },
   description:
-    "SUTRA is an AI-native engineering control plane by Sudarshan Harness for governed autonomous software engineering, repository access, and human review.",
+    "SUTRA is an AI-native engineering control plane by AchintAI for governed autonomous software engineering, repository access, and human review.",
   applicationName: "SUTRA",
-  authors: [{ name: "Sudarshan Harness", url: "https://sudarshanai.com" }],
-  creator: "Sudarshan Harness",
-  publisher: "Sudarshan Harness",
+  authors: [{ name: "AchintAI" }],
+  creator: "AchintAI",
+  publisher: "AchintAI",
   category: "technology",
   manifest: "/site.webmanifest",
   keywords: [
     "SUTRA",
+    "AchintAI",
     "AI-native engineering control plane",
     "governed autonomous software engineering",
     "AI agents",
     "software engineering governance",
-    "Sudarshan Harness",
     "Git automation",
     "human review",
     "code verification",
+    "MCP coding agents",
   ],
   alternates: {
     canonical: "/",
@@ -51,7 +52,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "SUTRA — AI-Native Engineering Control Plane",
     description:
-      "SUTRA is an AI-native engineering control plane by Sudarshan Harness for governed autonomous software engineering, repository access, and human review.",
+      "SUTRA is an AI-native engineering control plane by AchintAI for governed autonomous software engineering, repository access, and human review.",
     url: "/",
     siteName: "SUTRA",
     locale: "en_US",
@@ -61,7 +62,7 @@ export const metadata: Metadata = {
         url: "https://sutra.sudarshanai.com/og-image.png",
         width: 1200,
         height: 630,
-        alt: "SUTRA — AI-Native Engineering Control Plane by Sudarshan Harness",
+        alt: "SUTRA — AI-Native Engineering Control Plane by AchintAI",
       },
     ],
   },
@@ -69,7 +70,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "SUTRA — AI-Native Engineering Control Plane",
     description:
-      "SUTRA is an AI-native engineering control plane by Sudarshan Harness for governed autonomous software engineering, repository access, and human review.",
+      "SUTRA is an AI-native engineering control plane by AchintAI for governed autonomous software engineering, repository access, and human review.",
     images: ["https://sutra.sudarshanai.com/og-image.png"],
   },
   robots: {

@@ -4,14 +4,14 @@ import { AboutPage } from "@/components/about_page";
 export const metadata: Metadata = {
   title: "About SUTRA — AI-Native Engineering Control Plane",
   description:
-    "Learn about SUTRA by Sudarshan Harness: an AI-native engineering control plane providing bounded authority, real Git workflows, and human review for autonomous engineering.",
+    "Learn about SUTRA by AchintAI: an AI-native engineering control plane providing bounded authority, real Git workflows, and human review for autonomous engineering.",
   alternates: {
     canonical: "/about",
   },
   openGraph: {
     title: "About SUTRA — AI-Native Engineering Control Plane",
     description:
-      "Learn about SUTRA by Sudarshan Harness: an AI-native engineering control plane providing bounded authority, real Git workflows, and human review for autonomous engineering.",
+      "Learn about SUTRA by AchintAI: an AI-native engineering control plane providing bounded authority, real Git workflows, and human review for autonomous engineering.",
     url: "/about",
     siteName: "SUTRA",
     locale: "en_US",
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "About SUTRA — AI-Native Engineering Control Plane",
     description:
-      "Learn about SUTRA by Sudarshan Harness: an AI-native engineering control plane providing bounded authority, real Git workflows, and human review for autonomous engineering.",
+      "Learn about SUTRA by AchintAI: an AI-native engineering control plane providing bounded authority, real Git workflows, and human review for autonomous engineering.",
     images: ["/logo-s.png"],
   },
 };

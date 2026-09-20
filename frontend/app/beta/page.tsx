@@ -1366,7 +1366,7 @@ export default function BetaExplainerPage() {
           }}
         >
           <div>
-            &copy; {new Date().getFullYear()} SUTRA. A Sudarshan Harness Product. All rights reserved.
+            &copy; {new Date().getFullYear()} SUTRA. An AchintAI Product. All rights reserved.
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <span>

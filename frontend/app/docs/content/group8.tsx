@@ -53,8 +53,38 @@ export const Group8Reference: DocSection[] = [
         </section>
 
         <section>
+          <h3 className="text-lg font-bold mb-4">Troubleshooting & Common Issues</h3>
+          <table className="table mt-4">
+            <thead>
+              <tr>
+                <th>ISSUE</th>
+                <th>ROOT CAUSE</th>
+                <th>RESOLUTION</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="font-mono text-xs text-orange-400">MCP 401 on tool invocation</td>
+                <td>OAuth token or AgentSession lease expired after 15 minutes.</td>
+                <td>Re-trigger OAuth authorization in client or refresh via <code>/oauth/token</code>.</td>
+              </tr>
+              <tr>
+                <td className="font-mono text-xs text-orange-400">PR merge button disabled</td>
+                <td>Governance verdict is not <code>READY_FOR_MERGE</code> (e.g. failing CI or missing human approval).</td>
+                <td>Inspect <code>/pull-requests/[id]</code> governance card for active blockers.</td>
+              </tr>
+              <tr>
+                <td className="font-mono text-xs text-orange-400">Approval invalidated</td>
+                <td>A new commit was pushed to the branch, changing the HEAD SHA.</td>
+                <td>Re-review the latest diff and click Approve again in SUTRA.</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section>
           <h3 className="text-lg font-bold mb-4">Current Limitations</h3>
-          <p className="mb-4">This section outlines brutally honest limitations in the current implementation to maintain trust.</p>
+          <p className="mb-4">This section outlines verified limitations in the current implementation to maintain transparency.</p>
           <table className="table mt-4">
             <thead>
               <tr>
@@ -70,9 +100,9 @@ export const Group8Reference: DocSection[] = [
                 <td>No UI currently exists in the dashboard to rotate tokens. You must use the API.</td>
               </tr>
               <tr>
-                <td className="font-mono text-xs text-yellow-300">WebAuthn</td>
-                <td>NOT CURRENTLY AVAILABLE</td>
-                <td>Hardware keys are not yet supported for login.</td>
+                <td className="font-mono text-xs text-yellow-300">Substrate Support</td>
+                <td>GITHUB NATIVE</td>
+                <td>GitHub is the primary production substrate. GitLab and Bitbucket adapters are in development.</td>
               </tr>
             </tbody>
           </table>

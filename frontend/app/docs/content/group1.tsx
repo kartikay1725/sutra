@@ -12,14 +12,34 @@ export const Group1GettingStarted: DocSection[] = [
       <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
         {/* Overview Section */}
         <section>
-          <h2 style={{ fontSize: 20, fontWeight: 700, color: "#F5F5F5", marginBottom: 12 }}>
-            The engineering execution system for humans and AI agents.
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 600,
+                color: "#F97316",
+                background: "rgba(249, 115, 22, 0.1)",
+                border: "1px solid rgba(249, 115, 22, 0.25)",
+                padding: "2px 8px",
+                borderRadius: 4,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
+              AchintAI Control Plane
+            </span>
+            <span style={{ fontSize: 13, color: "#737373" }}>v1.0 Production Architecture</span>
+          </div>
+
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: "#F5F5F5", marginBottom: 12 }}>
+            SUTRA — AI-Native Engineering Control Plane
           </h2>
           <p style={{ color: "#A3A3A3", lineHeight: 1.7, marginBottom: 16 }}>
-            SUTRA is an <strong style={{ color: "#F5F5F5" }}>Engineering Execution System</strong> designed to coordinate software development flows across human engineers, automated CI/CD environments, and agentic AI systems.
+            SUTRA is an <strong style={{ color: "#F5F5F5" }}>AI-Native Engineering Control Plane</strong> developed by <strong style={{ color: "#F5F5F5" }}>AchintAI</strong>.
+            It gives autonomous AI coding agents bounded authority, cryptographic commit provenance, and an auditable path from task to merge.
           </p>
           <p style={{ color: "#A3A3A3", lineHeight: 1.7, marginBottom: 20 }}>
-            Code generation alone is insufficient for production software engineering. Engineering requires execution: testing, reviewing, verifying policy, and merging safely. SUTRA ensures every participant follows the exact same verification lifecycle.
+            AI agents can write code, run workspace tests, and formulate technical changes. SUTRA governs how they operate: enforcing short-lived session leases, evaluating automated CI verification, blocking self-approval, and ensuring that merge authority remains governed by human review.
           </p>
 
           {/* Interactive Graph Flow */}
@@ -32,7 +52,7 @@ export const Group1GettingStarted: DocSection[] = [
             Actor & Identity Architecture
           </h3>
           <p style={{ color: "#A3A3A3", lineHeight: 1.7, marginBottom: 16 }}>
-            SUTRA strictly separates human account management from autonomous agent execution. Agents operate through bounded, short-lived sessions and cannot approve their own work.
+            SUTRA strictly separates human account management from autonomous agent execution. Agents operate through bounded, short-lived sessions (15-minute leases with idle timeouts) and cannot approve their own work or authorize merges.
           </p>
 
           <IdentityAccessFlowGraph />
@@ -41,43 +61,43 @@ export const Group1GettingStarted: DocSection[] = [
         {/* What SUTRA Controls Section */}
         <section>
           <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F5F5F5", marginBottom: 16 }}>
-            What SUTRA Controls
+            Control Plane vs. Substrate Model
           </h3>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14 }}>
             <div style={{ padding: 18, border: "1px solid #242424", borderRadius: 10, background: "#151515" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#3B82F6", fontWeight: 700, marginBottom: 6 }}>
                 <ShieldCheck size={16} />
-                Identity Scoping
+                Agent Identity & Leases
               </div>
               <p style={{ fontSize: 12, color: "#A3A3A3", lineHeight: 1.6, margin: 0 }}>
-                Differentiates Human vs Agent Actors securely with cryptographic tokens.
+                Issues temporary 15-minute <code>AgentSession</code> tokens tied to specific tasks with automatic heartbeat extensions.
               </p>
             </div>
             <div style={{ padding: 18, border: "1px solid #242424", borderRadius: 10, background: "#151515" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#F97316", fontWeight: 700, marginBottom: 6 }}>
                 <Lock size={16} />
-                Repository Authority
+                Capability-Bounded Access
               </div>
               <p style={{ fontSize: 12, color: "#A3A3A3", lineHeight: 1.6, margin: 0 }}>
-                Strict boundaries on clone, branch, and push per Actor capability.
+                Restricts agent permissions via explicit grants (e.g. <code>repository.read</code>, <code>repository.write</code>, <code>change.create</code>).
               </p>
             </div>
             <div style={{ padding: 18, border: "1px solid #242424", borderRadius: 10, background: "#151515" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#22C55E", fontWeight: 700, marginBottom: 6 }}>
                 <Workflow size={16} />
-                Changes & PRs
+                Changes & Commit Provenance
               </div>
               <p style={{ fontSize: 12, color: "#A3A3A3", lineHeight: 1.6, margin: 0 }}>
-                Abstracts atomic Git commits into reviewable work blocks with evidence.
+                Binds commit SHAs to the originating AgentSession and Task, distinguishing agent vs human authorship.
               </p>
             </div>
             <div style={{ padding: 18, border: "1px solid #242424", borderRadius: 10, background: "#151515" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#F59E0B", fontWeight: 700, marginBottom: 6 }}>
                 <Eye size={16} />
-                Branch Protection
+                Governed Merge Gate
               </div>
               <p style={{ fontSize: 12, color: "#A3A3A3", lineHeight: 1.6, margin: 0 }}>
-                Enforces rules on merging via automated CI checks and human sign-off.
+                Enforces multi-pillar governance, CI check completion, and mandatory human approval before merge execution.
               </p>
             </div>
           </div>
@@ -86,15 +106,15 @@ export const Group1GettingStarted: DocSection[] = [
         {/* Quickstart Sequence */}
         <section>
           <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F5F5F5", marginBottom: 14 }}>
-            Operating Your First Engineering Loop
+            Quickstart: Connect and Run in 5 Steps
           </h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {[
-              { step: "1. Authenticate", desc: "Create an account, verify email OTP, and sign in." },
-              { step: "2. Repository Setup", desc: "Create or clone a repository. Your human identity grants Owner capabilities." },
-              { step: "3. Agent Session", desc: "Register an AI agent and approve bounded repository permissions." },
-              { step: "4. Git Execution", desc: "Push commits over HTTP and observe automated Change evidence creation." },
-              { step: "5. Review & Merge", desc: "Satisfy branch protection policies and complete the merge." },
+              { step: "1. Connect Repository", desc: "Link an existing GitHub repository from the SUTRA dashboard (/repositories)." },
+              { step: "2. Configure MCP", desc: "Add SUTRA's native Streamable HTTP endpoint (/v1/mcp) to Cursor, Claude Code, or Antigravity." },
+              { step: "3. Authenticate Agent", desc: "Authenticate via OAuth 2.1 PKCE or an agent session credential to acquire a lease." },
+              { step: "4. Autonomous Execution", desc: "The agent claims tasks (sutra_start_task), declares changes, and pushes commits." },
+              { step: "5. Human Review & Merge", desc: "Review the resulting pull request in SUTRA, verify CI checks, and approve the merge." },
             ].map((s) => (
               <div key={s.step} style={{ padding: "14px 18px", border: "1px solid #242424", borderRadius: 8, background: "#151515", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: "#F5F5F5" }}>{s.step}</span>

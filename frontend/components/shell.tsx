@@ -514,7 +514,7 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
             gap: 12,
           }}
         >
-          <div>© {new Date().getFullYear()} SUTRA. A Sudarshan Harness Product. All rights reserved.</div>
+          <div>© {new Date().getFullYear()} SUTRA. An AchintAI Product. All rights reserved.</div>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <span>Contact us at <a href="mailto:sutra@sudarshanai.com" style={{ color: "#60A5FA", textDecoration: "none" }}>sutra@sudarshanai.com</a></span>
             <span>•</span>

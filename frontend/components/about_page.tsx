@@ -20,7 +20,7 @@ export function AboutPage() {
         "@id": "https://sutra.sudarshanai.com/about/#webpage",
         "url": "https://sutra.sudarshanai.com/about",
         "name": "About SUTRA — AI-Native Engineering Control Plane",
-        "description": "Learn about SUTRA by Sudarshan Harness: an AI-native engineering control plane providing bounded authority, real Git workflows, and human review for autonomous engineering.",
+        "description": "Learn about SUTRA by AchintAI: an AI-native engineering control plane providing bounded authority, real Git workflows, and human review for autonomous engineering.",
         "isPartOf": {
           "@type": "WebSite",
           "name": "SUTRA — AI-Native Engineering Control Plane",
@@ -29,7 +29,7 @@ export function AboutPage() {
         "about": {
           "@type": "SoftwareApplication",
           "name": "SUTRA",
-          "description": "AI-native engineering control plane by Sudarshan Harness"
+          "description": "AI-native engineering control plane by AchintAI"
         }
       }
     ]
@@ -643,7 +643,7 @@ export function AboutPage() {
             gap: 12,
           }}
         >
-          <div>© {new Date().getFullYear()} SUTRA. A Sudarshan Harness Product. All rights reserved.</div>
+          <div>© {new Date().getFullYear()} SUTRA. An AchintAI Product. All rights reserved.</div>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <span>Contact us at <a href="mailto:sutra@sudarshanai.com" style={{ color: "#3B82F6", textDecoration: "none" }}>sutra@sudarshanai.com</a></span>
             <span>•</span>

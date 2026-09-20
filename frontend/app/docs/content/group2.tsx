@@ -53,16 +53,36 @@ export const Group2IdentityAccess: DocSection[] = [
           </table>
         </section>
 
-        {/* Git HTTP Flow */}
+        {/* AgentSession Leases & Token Architecture */}
         <section>
           <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F5F5F5", marginBottom: 12 }}>
-            Session-Bound Git HTTP Protocol
+            AgentSession Architecture & Leases
           </h3>
           <p style={{ color: "#A3A3A3", lineHeight: 1.7, marginBottom: 16 }}>
-            When an external AI agent runs git operations against a SUTRA repository, authentication is validated per HTTP request against the agent's active session and repository permissions.
+            Agents authenticate using short-lived <strong style={{ color: "#F5F5F5" }}>AgentSession</strong> leases (<code style={{ color: "#F97316" }}>sutra_session_...</code>) or OAuth 2.1 access tokens (<code style={{ color: "#F97316" }}>sutra_mcp_at_...</code>).
           </p>
-
-          <GitWorkflowGraph />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, marginBottom: 20 }}>
+            <div style={{ padding: 16, border: "1px solid #242424", borderRadius: 8, background: "#151515" }}>
+              <div style={{ color: "#3B82F6", fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Absolute TTL: 15 Minutes</div>
+              <p style={{ fontSize: 12, color: "#A3A3A3", margin: 0 }}>Every session expires after 15 minutes unless renewed by active task heartbeats.</p>
+            </div>
+            <div style={{ padding: 16, border: "1px solid #242424", borderRadius: 8, background: "#151515" }}>
+              <div style={{ color: "#F97316", fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Idle TTL: 120 Seconds</div>
+              <p style={{ fontSize: 12, color: "#A3A3A3", margin: 0 }}>Sessions expire immediately if an agent becomes inactive without sending requests.</p>
+            </div>
+            <div style={{ padding: 16, border: "1px solid #242424", borderRadius: 8, background: "#151515" }}>
+              <div style={{ color: "#22C55E", fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Task Binding</div>
+              <p style={{ fontSize: 12, color: "#A3A3A3", margin: 0 }}>Sessions are tightly coupled to the claimed task and repository scope.</p>
+            </div>
+          </div>
+          <div style={{ padding: 16, border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: 8, background: "rgba(239, 68, 68, 0.05)", marginBottom: 16 }}>
+            <div style={{ color: "#EF4444", fontWeight: 700, fontSize: 13, marginBottom: 4 }}>
+              Critical Architecture Rule: Instructions vs. Server-Side Enforcement
+            </div>
+            <p style={{ fontSize: 12, color: "#A3A3A3", lineHeight: 1.6, margin: 0 }}>
+              Instruction files like <code style={{ color: "#F5F5F5" }}>AGENTS.md</code> or <code style={{ color: "#F5F5F5" }}>.cursorrules</code> are prompt guidance for coding models — <strong>they are NOT the security boundary</strong>. SUTRA server-side token authentication, capability checks, commit provenance verification, and human review gates are enforced at the API and control-plane layer. Removing an instruction file does NOT remove or bypass SUTRA governance.
+            </p>
+          </div>
         </section>
 
         {/* Capabilities Matrix */}

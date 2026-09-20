@@ -39,10 +39,10 @@ export function LandingPage() {
       {
         "@type": "Organization",
         "@id": "https://sutra.sudarshanai.com/#organization",
-        "name": "Sudarshan Harness",
-        "url": "https://sudarshanai.com",
+        "name": "AchintAI",
+        "url": "https://sutra.sudarshanai.com",
         "logo": "https://sutra.sudarshanai.com/logo-s.png",
-        "description": "Provider of engineering harness systems and governed autonomous software engineering platforms."
+        "description": "Creator and developer of SUTRA, the AI-native engineering control plane."
       },
       {
         "@type": "SoftwareApplication",
@@ -51,7 +51,7 @@ export function LandingPage() {
         "url": "https://sutra.sudarshanai.com",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "Cloud, Linux, macOS, Windows",
-        "description": "SUTRA is an AI-native engineering control plane for governed autonomous software engineering with bounded authority, real Git workflows, and human review.",
+        "description": "SUTRA is an AI-native engineering control plane by AchintAI for governed autonomous software engineering with bounded authority, real Git workflows, and human review.",
         "creator": {
           "@id": "https://sutra.sudarshanai.com/#organization"
         },
@@ -76,7 +76,7 @@ export function LandingPage() {
         "@id": "https://sutra.sudarshanai.com/#webpage",
         "url": "https://sutra.sudarshanai.com",
         "name": "SUTRA — AI-Native Engineering Control Plane",
-        "description": "SUTRA is an AI-native engineering control plane by Sudarshan Harness for governed autonomous software engineering.",
+        "description": "SUTRA is an AI-native engineering control plane by AchintAI for governed autonomous software engineering.",
         "isPartOf": {
           "@id": "https://sutra.sudarshanai.com/#website"
         }
@@ -90,7 +90,7 @@ export function LandingPage() {
             "name": "What is SUTRA?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "SUTRA is an AI-native engineering control plane built by Sudarshan Harness. It provides governed autonomous software engineering by combining scoped agent identity, cryptographic event verification, real Git lifecycles, and mandatory human review."
+              "text": "SUTRA is an AI-native engineering control plane developed by AchintAI. It provides governed autonomous software engineering by combining scoped agent identity, cryptographic event verification, real Git lifecycles, and mandatory human review."
             }
           },
           {
@@ -98,7 +98,7 @@ export function LandingPage() {
             "name": "Who makes SUTRA?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "SUTRA is developed by Sudarshan Harness (sudarshanai.com) as the control plane for autonomous software engineering."
+              "text": "SUTRA is owned and developed by AchintAI as the control plane for governed autonomous software engineering."
             }
           },
           {
@@ -149,11 +149,11 @@ export function LandingPage() {
   const faqs = [
     {
       q: "What is SUTRA?",
-      a: "SUTRA is an AI-native engineering control plane built by Sudarshan Harness. It enables governed autonomous software engineering with scoped agent identity, real Git workflows, and mandatory human review."
+      a: "SUTRA is an AI-native engineering control plane developed by AchintAI. It enables governed autonomous software engineering with scoped agent identity, real Git workflows, and mandatory human review."
     },
     {
       q: "Who makes SUTRA?",
-      a: "SUTRA is developed by Sudarshan Harness (sudarshanai.com) as the authoritative control plane for autonomous software engineering."
+      a: "SUTRA is owned and developed by AchintAI as the authoritative control plane for autonomous software engineering."
     },
     {
       q: "How is SUTRA different from GitHub?",
@@ -1690,7 +1690,7 @@ export function LandingPage() {
             gap: 12,
           }}
         >
-          <div>© {new Date().getFullYear()} SUTRA. A Sudarshan Harness Product. All rights reserved.</div>
+          <div>© {new Date().getFullYear()} SUTRA. An AchintAI Product. All rights reserved.</div>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <span>Contact us at <a href="mailto:sutra@sudarshanai.com" style={{ color: "#3B82F6", textDecoration: "none" }}>sutra@sudarshanai.com</a></span>
             <span>•</span>

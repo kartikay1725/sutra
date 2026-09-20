@@ -127,7 +127,7 @@ export const GroupMcpIntegration: DocSection[] = [
         <section>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F5F5F5", margin: 0 }}>
-              Complete SUTRA MCP Tool Catalog (16 Available Tools)
+              Complete SUTRA MCP Tool Catalog (21 Available Tools)
             </h3>
             <span
               style={{
@@ -149,6 +149,14 @@ export const GroupMcpIntegration: DocSection[] = [
 
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {[
+              {
+                name: "sutra_get_context",
+                phase: "Session Identity & Context",
+                desc: "Discovers agent identity, assigned repository, capability grants, active lease, and current active task.",
+                params: "None",
+                intents: "'who am I', 'check permissions', 'check session'",
+                isNew: false,
+              },
               {
                 name: "sutra_start_task",
                 phase: "Task Claim & Allocation",
@@ -206,6 +214,14 @@ export const GroupMcpIntegration: DocSection[] = [
                 isNew: false,
               },
               {
+                name: "sutra_get_provenance",
+                phase: "Cryptographic Auditing",
+                desc: "Returns cryptographic attribution and author provenance for specific commit SHAs, tasks, or changes.",
+                params: "commit_sha (optional), change_id (optional)",
+                intents: "'who wrote this commit?', 'check commit provenance'",
+                isNew: false,
+              },
+              {
                 name: "sutra_complete_task",
                 phase: "Task Finalization",
                 desc: "Records implementation summary, test verification evidence, and artifact outputs to finalize the task.",
@@ -214,34 +230,10 @@ export const GroupMcpIntegration: DocSection[] = [
                 isNew: false,
               },
               {
-                name: "sutra_clone_repository",
-                phase: "Repository Management",
-                desc: "Clones any external Git URL or GitHub repository into SUTRA managed bare storage, installs pre-receive hooks, and indexes Knowledge Graph.",
-                params: "url (required), name (optional), description (optional), visibility (optional)",
-                intents: "'clone a repo', 'clone repository', 'import git repository'",
-                isNew: true,
-              },
-              {
-                name: "sutra_create_discussion",
-                phase: "Architectural Collaboration",
-                desc: "Starts an architectural discussion or RFC on the repository linked to the active task with verifiable agent provenance.",
-                params: "task_id (required), title (required), body (required), category (optional)",
-                intents: "'propose RFC', 'start discussion', 'ask architecture question'",
-                isNew: true,
-              },
-              {
-                name: "sutra_get_context",
-                phase: "Session Identity",
-                desc: "Queries active agent session identity, authenticated lease expiry, repository capability grants, and actor permissions.",
-                params: "None",
-                intents: "'who am I', 'check permissions', 'check session'",
-                isNew: false,
-              },
-              {
                 name: "sutra_search_knowledge",
                 phase: "Code Intelligence",
                 desc: "Performs semantic and AST architecture search across repository codebase graph and symbol dependency tree.",
-                params: "query (required), repository_slug (optional), limit (optional)",
+                params: "repository_id (required), query (required), limit (optional)",
                 intents: "'search codebase', 'find symbol', 'explore dependencies'",
                 isNew: false,
               },
@@ -254,11 +246,67 @@ export const GroupMcpIntegration: DocSection[] = [
                 isNew: false,
               },
               {
-                name: "sutra_get_provenance",
-                phase: "Cryptographic Auditing",
-                desc: "Returns cryptographic attribution and author provenance for specific commit SHAs, tasks, or changes.",
-                params: "commit_sha (optional), change_id (optional)",
-                intents: "'who wrote this commit?', 'check commit provenance'",
+                name: "sutra_list_issues",
+                phase: "Backlog Discovery",
+                desc: "Lists tracked issues for a repository to discover backlog items and open defect tickets.",
+                params: "repository_id (required), state (optional), limit (optional)",
+                intents: "'list issues', 'what bugs are open', 'check backlog'",
+                isNew: true,
+              },
+              {
+                name: "sutra_create_discussion",
+                phase: "Architectural Collaboration",
+                desc: "Starts an architectural discussion or RFC on the repository linked to the active task with verifiable agent provenance.",
+                params: "task_id (required), title (required), body (required), category (optional)",
+                intents: "'propose RFC', 'start discussion', 'ask architecture question'",
+                isNew: true,
+              },
+              {
+                name: "sutra_list_discussions",
+                phase: "Discussion Exploration",
+                desc: "Lists architectural discussions and RFC threads for a repository.",
+                params: "repository_id (required), category (optional), limit (optional)",
+                intents: "'list discussions', 'browse RFCs'",
+                isNew: true,
+              },
+              {
+                name: "sutra_comment_discussion",
+                phase: "Discussion Participation",
+                desc: "Posts an informed architectural comment to a discussion thread with verified agent identity.",
+                params: "discussion_id (required), body (required)",
+                intents: "'comment on RFC', 'reply to discussion'",
+                isNew: true,
+              },
+              {
+                name: "sutra_get_ci_logs",
+                phase: "CI Diagnosis",
+                desc: "Retrieves logs and failure traces from CI runs to diagnose test errors.",
+                params: "pr_id (required), job_id (optional)",
+                intents: "'why did CI fail', 'get test logs', 'check build output'",
+                isNew: true,
+              },
+              {
+                name: "sutra_get_pr_comments",
+                phase: "Review Feedback",
+                desc: "Retrieves reviewer feedback, inline comments, and change requests on a pull request.",
+                params: "pr_id (required)",
+                intents: "'what did reviewers say', 'get PR comments', 'check review feedback'",
+                isNew: true,
+              },
+              {
+                name: "sutra_add_pr_comment",
+                phase: "Review Response",
+                desc: "Adds a clarifying comment or responds to reviewer feedback on a pull request.",
+                params: "pr_id (required), body (required)",
+                intents: "'respond to review', 'comment on PR'",
+                isNew: true,
+              },
+              {
+                name: "sutra_clone_repository",
+                phase: "Repository Management",
+                desc: "Clones any external Git URL or GitHub repository into SUTRA managed bare storage, installs pre-receive hooks, and indexes Knowledge Graph.",
+                params: "url (required), name (optional), description (optional), visibility (optional)",
+                intents: "'clone a repo', 'clone repository', 'import git repository'",
                 isNew: false,
               },
               {
@@ -267,14 +315,6 @@ export const GroupMcpIntegration: DocSection[] = [
                 desc: "Ingests external commits or GitHub PRs created outside SUTRA into the governed change tracking system.",
                 params: "repository_slug (required), git_ref (required)",
                 intents: "'import external commit', 'sync outside PR'",
-                isNew: false,
-              },
-              {
-                name: "sutra_submit_change",
-                phase: "Legacy Single-Step Change",
-                desc: "Deprecated single-step change submission. Retained for backwards compatibility. Prefer canonical 3-step pipeline.",
-                params: "task_id (required), title (required), diff (required)",
-                intents: "Legacy workflows only",
                 isNew: false,
               },
             ].map((tool) => (
