@@ -581,14 +581,37 @@ def _render_callback_html(
     is_success: bool = True,
     client_name: Optional[str] = None,
 ) -> str:
-    color = "var(--blue)" if is_success else "var(--accent)"
-    icon = "✓" if is_success else "✕"
-    client_line = f"<p style='margin-bottom: 12px; color: var(--text-primary);'><strong>{html.escape(client_name)}</strong> authorization code issued.</p>" if client_name else ""
+    badge_class = "badge blue" if is_success else "badge"
+    badge_label = "Connected · OAuth 2.1" if is_success else ("Cancelled" if "Denied" in title or "Cancel" in title else "OAuth Error")
+
+    if is_success:
+        icon_svg = """<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>"""
+        icon_bg = "rgba(59, 130, 246, 0.12)"
+        icon_border = "rgba(59, 130, 246, 0.3)"
+    else:
+        icon_svg = """<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="15" y1="9" x2="9" y2="15"></line>
+          <line x1="9" y1="9" x2="15" y2="15"></line>
+        </svg>"""
+        icon_bg = "rgba(249, 115, 22, 0.12)"
+        icon_border = "rgba(249, 115, 22, 0.3)"
+
+    client_chip = (
+        f'<div style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--border); margin-bottom: 16px; font-size: 12.5px; color: var(--text-primary);">'
+        f'<span style="width: 6px; height: 6px; border-radius: 50%; background: #60A5FA;"></span>'
+        f'<span><strong>{html.escape(client_name)}</strong> authorization code issued</span>'
+        f'</div>'
+    ) if client_name else ""
+
     return f"""<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>{html.escape(title)}</title>
+  <title>{html.escape(title)} — SUTRA</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/png" href="/icon.png">
   <link rel="shortcut icon" href="/favicon.ico">
@@ -597,22 +620,33 @@ def _render_callback_html(
 </head>
 <body>
   <div class="card" style="text-align: center;">
-    <div class="auth-brand" style="justify-content: center;">
+    <div class="auth-brand" style="justify-content: center; margin-bottom: 22px;">
       <img src="/icon.png" alt="SUTRA" width="32" height="32" style="width: 32px; height: 32px; object-fit: contain; border-radius: 8px; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);">
       <span>SUTRA</span>
     </div>
-    <div style="width: 52px; height: 52px; border-radius: 50%; background: {color}18; border: 1px solid {color}35; color: {color}; font-size: 24px; font-weight: bold; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto;">
-      {icon}
+
+    <div style="width: 56px; height: 56px; border-radius: 50%; background: {icon_bg}; border: 1px solid {icon_border}; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
+      {icon_svg}
     </div>
-    <h1>{html.escape(title)}</h1>
-    {client_line}
-    <p class="sub">{html.escape(message)}</p>
-    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
-      <p style="font-size: 12px; color: var(--text-muted);">You can now close this browser tab and return to your IDE or terminal.</p>
+
+    <div class="{badge_class}"><span class="badge-dot"></span>{badge_label}</div>
+
+    <h1 style="margin-top: 4px; margin-bottom: 10px;">{html.escape(title)}</h1>
+    {client_chip}
+    <p class="sub" style="margin-bottom: 24px;">{html.escape(message)}</p>
+
+    <div style="padding: 14px 16px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); margin-bottom: 24px; font-size: 12.5px; color: var(--text-secondary); line-height: 1.5;">
+      You can now safely close this browser tab and return to your IDE or terminal.
+    </div>
+
+    <div class="actions">
+      <button type="button" onclick="window.close()" class="btn btn-secondary">Close Tab</button>
+      <a href="https://sutra.sudarshanai.com/" class="btn btn-primary" style="text-decoration: none;">Return to SUTRA</a>
     </div>
   </div>
 </body>
 </html>"""
+
 
 
 # =========================================================================
@@ -668,8 +702,9 @@ async def authorize_endpoint(
     # Validate required OAuth params
     if not client_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing client_id")
+    # Default redirect_uri to canonical production callback if omitted
     if not redirect_uri:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing redirect_uri")
+        redirect_uri = f"{CANONICAL_PRODUCTION_API_URL}/oauth/callback"
     if not code_challenge:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing code_challenge")
     if response_type != "code":
@@ -1107,7 +1142,7 @@ def oauth_callback_endpoint(
             message=desc,
             is_success=False,
         )
-        return HTMLResponse(content=html_content, status_code=400)
+        return HTMLResponse(content=html_content, status_code=200)
 
     if not code:
         html_content = _render_callback_html(

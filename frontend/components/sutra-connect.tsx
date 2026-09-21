@@ -70,7 +70,10 @@ export interface OAuthAuthorizeUrlOptions {
 export function getOAuthAuthorizeUrl(options?: OAuthAuthorizeUrlOptions): string {
   const apiBase = getApiBaseUrl();
   const clientId = options?.clientId || 'sutra-mcp-client';
-  const redirectUri = options?.redirectUri || `${apiBase}/oauth/callback`;
+  const defaultCallback = process.env.NEXT_PUBLIC_API_URL
+    ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '')}/oauth/callback`
+    : CANONICAL_OAUTH_CALLBACK_ENDPOINT;
+  const redirectUri = options?.redirectUri || defaultCallback;
   const responseType = options?.responseType || 'code';
   const scope = options?.scope || 'sutra:agent';
   const state = options?.state || createRandomState();
