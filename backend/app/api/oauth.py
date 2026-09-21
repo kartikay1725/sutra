@@ -408,6 +408,108 @@ input:-webkit-autofill:active {
   border-color: #38414D;
   color: #FFFFFF;
 }
+.conn-diagram {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+.conn-box {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.conn-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.scope-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 10px;
+  transition: all 0.15s ease;
+}
+.scope-card:last-child {
+  margin-bottom: 0;
+}
+.scope-card:hover {
+  border-color: #30363D;
+  background: var(--surface-hover);
+}
+.scope-icon-box {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.scope-icon-blue {
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  color: #60A5FA;
+}
+.scope-icon-orange {
+  background: rgba(249, 115, 22, 0.12);
+  border: 1px solid rgba(249, 115, 22, 0.25);
+  color: #FB923C;
+}
+.pill-tag {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.pill-tag-blue {
+  background: rgba(59, 130, 246, 0.12);
+  color: #60A5FA;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+}
+.pill-tag-orange {
+  background: rgba(249, 115, 22, 0.12);
+  color: #FB923C;
+  border: 1px solid rgba(249, 115, 22, 0.25);
+}
+.pill-tag-muted {
+  background: #21262D;
+  color: #8B949E;
+  border: 1px solid #30363D;
+}
+.security-note {
+  margin-top: 20px;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
 """
 
 
@@ -435,13 +537,15 @@ def _render_login_html(
 </head>
 <body>
   <div class="card">
-    <div class="auth-brand">
+    <div class="auth-brand" style="justify-content: center; margin-bottom: 20px;">
       <img src="/icon.png" alt="SUTRA" width="32" height="32" style="width: 32px; height: 32px; object-fit: contain; border-radius: 8px; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);">
       <span>SUTRA</span>
     </div>
-    <div class="badge"><span class="badge-dot"></span>SUTRA Governance Control Plane</div>
-    <h1>Sign In to Authorize</h1>
-    <p class="sub"><strong>{html.escape(client_name)}</strong> is requesting connection to SUTRA. Please sign in to approve access.</p>
+    <div style="text-align: center;">
+      <div class="badge"><span class="badge-dot"></span>SUTRA Governance Control Plane</div>
+      <h1 style="margin-top: 6px; margin-bottom: 8px;">Sign In to Authorize</h1>
+      <p class="sub"><strong>{html.escape(client_name)}</strong> is requesting connection to SUTRA. Please sign in to approve access.</p>
+    </div>
     {err_html}
     <form method="POST" action="/oauth/authorize">
       <input type="hidden" name="login_action" value="login">
@@ -473,6 +577,13 @@ def _render_login_html(
         <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In & Continue</button>
       </div>
     </form>
+    <div class="security-note">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+      </svg>
+      AchintAI SUTRA · Cryptographic provenance control plane
+    </div>
   </div>
   <script>
     function togglePassword() {{
@@ -503,6 +614,7 @@ def _render_consent_html(
     email: str,
 ) -> str:
     initial = (username[:1] or "U").upper()
+    client_initials = (client_name[:2] if len(client_name) >= 2 else "MC").upper()
     return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -516,42 +628,76 @@ def _render_consent_html(
 </head>
 <body>
   <div class="card">
-    <div class="auth-brand">
-      <img src="/icon.png" alt="SUTRA" width="32" height="32" style="width: 32px; height: 32px; object-fit: contain; border-radius: 8px; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);">
-      <span>SUTRA</span>
-    </div>
-    <div class="badge blue"><span class="badge-dot"></span>Model Context Protocol · OAuth 2.1</div>
-    <h1>Connect {html.escape(client_name)}</h1>
-    <p class="sub">Authorize <strong>{html.escape(client_name)}</strong> to act as an autonomous coding agent governed by your SUTRA control plane.</p>
-
-    <div class="user-badge">
-      <div class="user-avatar">{html.escape(initial)}</div>
-      <div>
-        <div style="font-weight: 700; color: var(--text-primary);">{html.escape(username)}</div>
-        <div style="font-size: 12px; color: var(--text-muted);">{html.escape(email)}</div>
+    <div class="conn-diagram">
+      <div class="conn-box">
+        <img src="/icon.png" alt="SUTRA" width="32" height="32" style="width: 32px; height: 32px; object-fit: contain; border-radius: 6px;">
+      </div>
+      <div class="conn-arrow">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="16 3 21 3 21 8"></polyline>
+          <line x1="4" y1="20" x2="21" y2="3"></line>
+          <polyline points="8 21 3 21 3 16"></polyline>
+          <line x1="20" y1="4" x2="3" y2="21"></line>
+        </svg>
+      </div>
+      <div class="conn-box" style="background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.3); color: #60A5FA; font-weight: 800; font-size: 16px;">
+        {html.escape(client_initials)}
       </div>
     </div>
 
-    <div class="scope-list">
-      <div class="scope-item">
-        <div class="scope-icon">✓</div>
-        <div class="scope-text">
-          <strong>Autonomous Agent Identity</strong>
-          <span>Provisions a lease-bound coding identity strictly owned by your account.</span>
+    <div style="text-align: center;">
+      <div class="badge blue"><span class="badge-dot"></span>Model Context Protocol · OAuth 2.1</div>
+      <h1 style="font-size: 22px; font-weight: 700; margin-top: 6px; margin-bottom: 8px;">Connect {html.escape(client_name)}</h1>
+      <p class="sub" style="margin-bottom: 22px;">Authorize <strong>{html.escape(client_name)}</strong> to act as an autonomous coding agent governed by your SUTRA control plane.</p>
+    </div>
+
+    <div class="user-badge" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 20px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #F97316, #EA580C); color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; box-shadow: 0 2px 8px rgba(249, 115, 22, 0.3);">
+          {html.escape(initial)}
+        </div>
+        <div>
+          <div style="font-weight: 700; font-size: 13.5px; color: var(--text-primary);">{html.escape(username)}</div>
+          <div style="font-size: 12px; color: var(--text-muted);">{html.escape(email)}</div>
         </div>
       </div>
-      <div class="scope-item">
-        <div class="scope-icon">✓</div>
-        <div class="scope-text">
-          <strong>Zero-Access Default Boundary</strong>
-          <span>Starts with 0 repository grants. You must explicitly authorize repositories.</span>
+      <div style="display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: #34D399; background: rgba(52, 211, 153, 0.1); border: 1px solid rgba(52, 211, 153, 0.25); padding: 3px 8px; border-radius: 20px;">
+        <span style="width: 5px; height: 5px; border-radius: 50%; background: #34D399;"></span>
+        Active
+      </div>
+    </div>
+
+    <div style="margin-bottom: 24px;">
+      <div class="scope-card">
+        <div class="scope-icon-box scope-icon-blue">✓</div>
+        <div style="flex: 1;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px;">
+            <strong style="color: var(--text-primary); font-size: 13px; font-weight: 600;">Autonomous Agent Identity</strong>
+            <span class="pill-tag pill-tag-muted">15m Lease</span>
+          </div>
+          <span style="color: var(--text-muted); font-size: 12px; line-height: 1.5; display: block;">Provisions a lease-bound coding identity strictly owned by your account.</span>
         </div>
       </div>
-      <div class="scope-item">
-        <div class="scope-icon">✓</div>
-        <div class="scope-text">
-          <strong>SUTRA 4-Pillar Governance</strong>
-          <span>All terminal pushes, changes, and PRs require cryptographic provenance and human approval.</span>
+
+      <div class="scope-card">
+        <div class="scope-icon-box scope-icon-orange">✓</div>
+        <div style="flex: 1;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px;">
+            <strong style="color: var(--text-primary); font-size: 13px; font-weight: 600;">Zero-Access Default Boundary</strong>
+            <span class="pill-tag pill-tag-orange">Zero Grants</span>
+          </div>
+          <span style="color: var(--text-muted); font-size: 12px; line-height: 1.5; display: block;">Starts with 0 repository grants. You must explicitly authorize repositories.</span>
+        </div>
+      </div>
+
+      <div class="scope-card">
+        <div class="scope-icon-box scope-icon-blue">✓</div>
+        <div style="flex: 1;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px;">
+            <strong style="color: var(--text-primary); font-size: 13px; font-weight: 600;">SUTRA 4-Pillar Governance</strong>
+            <span class="pill-tag pill-tag-blue">Human Gate</span>
+          </div>
+          <span style="color: var(--text-muted); font-size: 12px; line-height: 1.5; display: block;">All terminal pushes, changes, and PRs require cryptographic provenance and human approval.</span>
         </div>
       </div>
     </div>
@@ -567,9 +713,17 @@ def _render_consent_html(
 
       <div class="actions">
         <button type="submit" name="action" value="cancel" class="btn btn-secondary">Cancel</button>
-        <button type="submit" name="action" value="approve" class="btn btn-primary">Approve</button>
+        <button type="submit" name="action" value="approve" class="btn btn-primary" style="box-shadow: 0 4px 14px rgba(249, 115, 22, 0.35);">Approve Connection</button>
       </div>
     </form>
+
+    <div class="security-note">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+      </svg>
+      Governed by AchintAI SUTRA · Bounded authority control plane
+    </div>
   </div>
 </body>
 </html>"""
