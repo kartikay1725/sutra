@@ -1,18 +1,8 @@
 import React from 'react';
 import { DocSection } from './data';
+import { DocsHeading, DocsCodeBlock } from '@/components/docs_components';
 
-export const Group5AgentContract: DocSection[] = [
-  { 
-    id: "agent-contract", 
-    category: "Agent Contract", 
-    title: "Agent Contract", 
-    content: (
-      <div className="flex flex-col gap-10">
-        <section>
-          <h2 className="text-xl font-bold mb-4">SUTRA Agent Contract</h2>
-          <p className="mb-4">This section is intentionally concise and machine-readable for AI agents. It describes the guaranteed workflows within SUTRA.</p>
-          <pre className="bg-[#111111] text-[#A3A3A3] border border-[var(--line)] p-6 rounded-lg overflow-x-auto text-xs font-mono leading-loose">
-{`sutra_agent_contract:
+const AGENT_CONTRACT_YAML = `sutra_agent_contract:
   identity:
     type: "agent"
     auth_methods:
@@ -44,10 +34,27 @@ export const Group5AgentContract: DocSection[] = [
     agent_merge: false
     agent_self_approval: false
     head_sha_invalidation: true
-    merge_authority: "Mandatory human approval on SUTRA control plane."`}
-          </pre>
+    merge_authority: "Mandatory human approval on SUTRA control plane."`;
+
+export const Group5AgentContract: DocSection[] = [
+  { 
+    id: "agent-contract", 
+    category: "Agent Contract", 
+    title: "Agent Contract", 
+    toc: [
+      { id: "contract-spec", label: "SUTRA Agent Contract Specification" },
+    ],
+    content: (
+      <div className="flex flex-col gap-10">
+        <section>
+          <DocsHeading id="contract-spec" level={2}>
+            SUTRA Agent Contract
+          </DocsHeading>
+          <p className="mb-4">This section is intentionally concise and machine-readable for AI agents. It describes the guaranteed workflows and invariants within SUTRA.</p>
+          <DocsCodeBlock code={AGENT_CONTRACT_YAML} language="yaml" filename="sutra_agent_contract.yaml" />
         </section>
       </div>
     ) 
   }
 ];
+

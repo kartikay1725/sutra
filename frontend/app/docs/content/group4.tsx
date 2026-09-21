@@ -1,29 +1,37 @@
 import React from 'react';
 import { DocSection } from './data';
+import { DocsHeading, DocsCallout } from '@/components/docs_components';
 
 export const Group4AgentGuide: DocSection[] = [
   { 
     id: "ai-agent-guide", 
     category: "AI Agent Guide", 
     title: "AI Agent Guide", 
+    toc: [
+      { id: "agent-operating-manual", label: "AI Agent Operating Manual" },
+      { id: "mcp-workflow", label: "Governed Engineering Workflow" },
+      { id: "failure-recovery", label: "Failure & Recovery Matrix" },
+    ],
     content: (
       <div className="flex flex-col gap-10">
         
         {/* Agent Operating Manual */}
         <section>
-          <h2 className="text-xl font-bold mb-4">AI Agent Operating Manual</h2>
+          <DocsHeading id="agent-operating-manual" level={2}>
+            AI Agent Operating Manual
+          </DocsHeading>
           <p className="mb-4">You are an AI engineering agent operating inside SUTRA. This manual defines your identity, credentials, permissions, and limitations.</p>
-          <div className="bg-orange-500/10 border-l-4 border-orange-500 p-4 rounded-r-lg mb-4">
-            <h4 className="font-bold text-sm text-orange-400">CORE GOVERNANCE RULE</h4>
-            <p className="text-xs mt-2 opacity-80">
-              AI agents operate under bounded capability grants and short-lived <code>AgentSession</code> leases. All code modifications pass through SUTRA governance, CI verification, and branch protection requirements. Agents cannot approve their own pull requests or execute merges.
-            </p>
-          </div>
+          
+          <DocsCallout type="security" title="Core Governance Rule">
+            AI agents operate under bounded capability grants and short-lived <code>AgentSession</code> leases. All code modifications pass through SUTRA governance, CI verification, and branch protection requirements. Agents cannot approve their own pull requests or execute merges.
+          </DocsCallout>
         </section>
 
         {/* Real MCP-Driven Workflow */}
         <section>
-          <h3 className="text-lg font-bold mb-4">Governed Engineering Workflow (MCP-Driven)</h3>
+          <DocsHeading id="mcp-workflow" level={2}>
+            Governed Engineering Workflow (MCP-Driven)
+          </DocsHeading>
           <p className="mb-4">Follow this standard execution path when working on SUTRA-governed repositories:</p>
           <div className="flex flex-col gap-3">
             <div className="p-4 border border-[var(--line)] rounded-lg bg-white/5">
@@ -51,7 +59,9 @@ export const Group4AgentGuide: DocSection[] = [
 
         {/* Failure & Recovery */}
         <section>
-          <h3 className="text-lg font-bold mb-4">Agent Failure & Recovery</h3>
+          <DocsHeading id="failure-recovery" level={2}>
+            Agent Failure & Recovery
+          </DocsHeading>
           <p className="mb-4">When a tool or API call fails, use this recovery matrix:</p>
           <table className="table mb-4">
             <thead>
@@ -63,22 +73,22 @@ export const Group4AgentGuide: DocSection[] = [
             </thead>
             <tbody>
               <tr>
-                <td className="font-mono text-red-400">401 Unauthorized / Token Expired</td>
+                <td className="font-mono text-orange-400">401 Unauthorized / Token Expired</td>
                 <td>AgentSession 15-minute lease or idle timeout expired.</td>
                 <td>Re-authenticate via OAuth 2.1 PKCE or request a fresh AgentSession token.</td>
               </tr>
               <tr>
-                <td className="font-mono text-red-400">403 Forbidden</td>
+                <td className="font-mono text-orange-400">403 Forbidden</td>
                 <td>Missing required capability (e.g. <code>repository.write</code> or <code>change.create</code>).</td>
                 <td>Halt operation. The repository owner must grant the capability via SUTRA dashboard.</td>
               </tr>
               <tr>
-                <td className="font-mono text-red-400">Self-Approval Blocked</td>
+                <td className="font-mono text-orange-400">Self-Approval Blocked</td>
                 <td>Agent attempted to approve its own PR or execute a merge.</td>
                 <td>Forbidden by design. Queue PR for human owner review via <code>sutra_request_merge</code>.</td>
               </tr>
               <tr>
-                <td className="font-mono text-red-400">CI Failure</td>
+                <td className="font-mono text-orange-400">CI Failure</td>
                 <td>Automated tests or checks failed on your commit SHA.</td>
                 <td>Fetch logs using <code>sutra_get_ci_logs</code>, fix the issue locally, commit, and push again.</td>
               </tr>

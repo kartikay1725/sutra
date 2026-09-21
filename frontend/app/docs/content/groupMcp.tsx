@@ -3,12 +3,19 @@ import { DocSection } from './data';
 import { SutraAgentInstructions } from '@/components/SutraAgentInstructions';
 import { ShieldCheck, Cpu, Key, Lock, Terminal, Globe2, Book, CheckCircle2, RefreshCw, FolderGit2 } from 'lucide-react';
 import { CANONICAL_MCP_ENDPOINT } from '@/components/sutra-connect';
+import { DocsHeading } from '@/components/docs_components';
 
 export const GroupMcpIntegration: DocSection[] = [
   {
     id: "mcp-integration",
     category: "MCP Integration",
     title: "MCP Integration & Agent Instructions",
+    toc: [
+      { id: "mcp-overview", label: "MCP Protocol & Integration" },
+      { id: "agent-instructions", label: "SUTRA Agent Instructions" },
+      { id: "engineering-boundary", label: "Engineering Boundary: Local Git vs. SUTRA" },
+      { id: "tool-catalog", label: "Complete MCP Tool Catalog (21 Tools)" },
+    ],
     content: (
       <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
         {/* Overview Section */}
@@ -32,9 +39,9 @@ export const GroupMcpIntegration: DocSection[] = [
             <span style={{ fontSize: 13, color: "#737373" }}>RFC 9728 / Streamable HTTP</span>
           </div>
 
-          <h2 style={{ fontSize: 22, fontWeight: 700, color: "#F5F5F5", marginBottom: 12 }}>
+          <DocsHeading id="mcp-overview" level={2}>
             Model Context Protocol (MCP) Integration
-          </h2>
+          </DocsHeading>
           <p style={{ color: "#A3A3A3", lineHeight: 1.7, marginBottom: 16 }}>
             SUTRA exposes an enterprise-grade <strong style={{ color: "#F5F5F5" }}>Model Context Protocol (MCP)</strong> server over Streamable HTTP.
             When connected, coding agents gain direct access to SUTRA governance tools, allowing them to claim tasks, declare changes, push cryptographic commits, and open pull requests.
@@ -52,7 +59,7 @@ export const GroupMcpIntegration: DocSection[] = [
             </div>
 
             <div style={{ padding: 16, border: "1px solid #242424", borderRadius: 8, background: "#151515" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#10B981", fontWeight: 700, marginBottom: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#3B82F6", fontWeight: 700, marginBottom: 6 }}>
                 <ShieldCheck size={16} />
                 OAuth 2.1 PKCE
               </div>
@@ -64,13 +71,15 @@ export const GroupMcpIntegration: DocSection[] = [
         </section>
 
         {/* CANONICAL SUTRA AGENT INSTRUCTIONS SECTION */}
-        <SutraAgentInstructions />
+        <div id="agent-instructions">
+          <SutraAgentInstructions />
+        </div>
 
         {/* Engineering Boundary Definition */}
         <section>
-          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F5F5F5", marginBottom: 12 }}>
+          <DocsHeading id="engineering-boundary" level={2}>
             Engineering Boundary: Local Git vs. SUTRA
-          </h3>
+          </DocsHeading>
           <p style={{ color: "#A3A3A3", lineHeight: 1.7, marginBottom: 16 }}>
             SUTRA does not replace local Git inspection or developer editing tools. SUTRA governs repository changes and code submission:
           </p>
@@ -125,17 +134,17 @@ export const GroupMcpIntegration: DocSection[] = [
 
         {/* Complete SUTRA MCP Tool Catalog */}
         <section>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F5F5F5", margin: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+            <DocsHeading id="tool-catalog" level={2} style={{ margin: 0 }}>
               Complete SUTRA MCP Tool Catalog (21 Available Tools)
-            </h3>
+            </DocsHeading>
             <span
               style={{
                 fontSize: 11,
                 fontWeight: 600,
-                color: "#10B981",
-                background: "rgba(16, 185, 129, 0.1)",
-                border: "1px solid rgba(16, 185, 129, 0.25)",
+                color: "#3B82F6",
+                background: "rgba(59, 130, 246, 0.1)",
+                border: "1px solid rgba(59, 130, 246, 0.25)",
                 padding: "2px 8px",
                 borderRadius: 4,
               }}
@@ -391,7 +400,7 @@ export const GroupMcpIntegration: DocSection[] = [
             </div>
 
             <div style={{ padding: 18, border: "1px solid #242424", borderRadius: 10, background: "#151515" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#10B981", fontWeight: 700, marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#3B82F6", fontWeight: 700, marginBottom: 8 }}>
                 <ShieldCheck size={16} />
                 Repository-Scoped Policy Controls
               </div>
@@ -401,7 +410,7 @@ export const GroupMcpIntegration: DocSection[] = [
             </div>
 
             <div style={{ padding: 18, border: "1px solid #242424", borderRadius: 10, background: "#151515" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#F59E0B", fontWeight: 700, marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#F97316", fontWeight: 700, marginBottom: 8 }}>
                 <Terminal size={16} />
                 Task Lifecycle & Confirmation Guards
               </div>

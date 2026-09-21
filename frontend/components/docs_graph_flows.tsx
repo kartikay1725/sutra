@@ -50,27 +50,27 @@ export function ExecutionLifecycleGraph() {
       type: "Token Broker",
       desc: "Authenticates via Agent Token and receives a short-lived 15-minute AgentSession JWT.",
       icon: Cpu,
-      color: "#6366F1",
+      color: "#3B82F6",
       payload: "{ \"session_token\": \"sat_99a1...\", \"expires_in\": 900, \"capabilities\": [\"repository.write\"] }",
       rule: "Possession of token is bound strictly to target repository."
     },
     {
       id: "git",
       label: "3. Git Engine",
-      actor: "SUTRA Git Gateway",
+      actor: "Git Engine & Substrate",
       type: "Version Control",
-      desc: "Accepts session-bound git-receive-pack over HTTP. Validates token per-request before disk writes.",
+      desc: "Accepts session-bound git push or coordinates branch updates with upstream Git substrate (e.g., GitHub). Validates token per-request.",
       icon: GitBranch,
       color: "#60A5FA",
-      payload: "git push http://sat_99a1...@sutra.dev/repo.git feature/login-otp",
-      rule: "Force-pushing (-f) is rejected by pre-receive hook."
+      payload: "git push http://sat_99a1...@sutra.sudarshanai.com/repo.git feature/xyz",
+      rule: "Direct force-pushes to protected branches are rejected by policy."
     },
     {
       id: "change",
       label: "4. Change Evidence",
       actor: "Evidence Core",
       type: "Audit Chain",
-      desc: "Hooks create an authoritative Change record tracking commit SHA, changed files, and AST diffs.",
+      desc: "System creates an authoritative Change record tracking commit SHA, changed files, and AST diffs.",
       icon: FileCode,
       color: "#3B82F6",
       payload: "{ \"change_id\": \"chg_4e12\", \"additions\": 48, \"deletions\": 12, \"files\": 3 }",
@@ -81,33 +81,33 @@ export function ExecutionLifecycleGraph() {
       label: "5. Automated CI",
       actor: "CI Runner",
       type: "Verification Engine",
-      desc: "Runs automated test suites, linting, and vulnerability scans against the exact commit SHA.",
+      desc: "Executes automated test suites, linting, and policy checks against the exact commit SHA.",
       icon: CheckCircle2,
-      color: "#22C55E",
+      color: "#3B82F6",
       payload: "{ \"ci_status\": \"passed\", \"tests_passed\": 19, \"coverage\": \"94.2%\" }",
-      rule: "100% checks must pass for branch protection clearance."
+      rule: "100% required checks must pass for branch protection clearance."
     },
     {
       id: "review",
       label: "6. Human Sign-off",
       actor: "Human Reviewer",
       type: "Authoritative Review",
-      desc: "Reviews diff evidence, resolves inline threads, and gives authoritative cryptographic approval.",
+      desc: "Human reviews diff evidence, resolves inline threads, and provides authoritative approval.",
       icon: Eye,
-      color: "#F59E0B",
+      color: "#F97316",
       payload: "{ \"review_status\": \"approved\", \"reviewer\": \"human_owner\", \"threads_open\": 0 }",
       rule: "AI Agents CANNOT approve their own Pull Requests."
     },
     {
       id: "merge",
       label: "7. Protected Merge",
-      actor: "Merge Engine",
+      actor: "Merge Controller",
       type: "Completion",
-      desc: "Executes verified merge into target branch, records signed commit, and revokes short-lived session.",
+      desc: "Executes verified merge into target branch via substrate API/gateway after human approval, records commit SHA, and revokes session.",
       icon: CheckCheck,
-      color: "#22C55E",
+      color: "#F97316",
       payload: "{ \"merge_status\": \"merged\", \"target_commit\": \"c81a9f02\", \"session\": \"revoked\" }",
-      rule: "Protected branches only accept verified merges."
+      rule: "Protected branches only accept verified, human-approved merges."
     }
   ];
 
@@ -117,95 +117,109 @@ export function ExecutionLifecycleGraph() {
     if (isPlaying) {
       timer = setInterval(() => {
         setActiveStep((prev) => (prev + 1) % steps.length);
-      }, 2200);
+      }, 2400);
     }
     return () => clearInterval(timer);
   }, [isPlaying, steps.length]);
 
   return (
-    <div style={{ background: "#151515", border: "1px solid #242424", borderRadius: 16, padding: "28px", margin: "24px 0", position: "relative" }}>
+    <div
+      style={{
+        background: "#111418",
+        border: "1px solid #202632",
+        borderRadius: 10,
+        padding: "16px 18px",
+        margin: "18px 0",
+        position: "relative",
+      }}
+      aria-label="SUTRA Execution Lifecycle Flow"
+    >
       {/* Top Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#F97316", boxShadow: "0 0 10px rgba(249, 115, 22, 0.4)" }} />
-            <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#F97316" }}>
-              Interactive Animated Node Flow
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#F97316" }} />
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#F97316" }}>
+              Execution Lifecycle Flow
             </span>
           </div>
-          <div style={{ fontSize: 13, color: "#737373", marginTop: 4 }}>
-            Click nodes or trigger playback to trace live execution packets
+          <div style={{ fontSize: 12, color: "#8B949E", marginTop: 2 }}>
+            Intent Task → Agent Auth → Git Engine → Change Evidence → Automated CI → Human Sign-off → Protected Merge
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button
             onClick={() => setIsPlaying(!isPlaying)}
             className="btn"
             style={{
-              height: 32,
-              padding: "0 12px",
-              fontSize: 12,
+              height: 28,
+              padding: "0 10px",
+              fontSize: 11,
               fontWeight: 600,
-              background: isPlaying ? "rgba(34, 197, 94, 0.15)" : "#1C1C1C",
-              borderColor: isPlaying ? "#22C55E" : "#242424",
-              color: isPlaying ? "#22C55E" : "#F5F5F5",
+              background: isPlaying ? "rgba(249, 115, 22, 0.12)" : "#161B22",
+              borderColor: isPlaying ? "#F97316" : "#2D333B",
+              color: isPlaying ? "#F97316" : "#C9D1D9",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
             }}
           >
             {isPlaying ? (
               <>
-                <Sparkles size={13} />
-                <span>Simulating Execution Flow...</span>
+                <Sparkles size={11} />
+                <span>Simulating...</span>
               </>
             ) : (
               <>
-                <Play size={13} />
-                <span>Simulate Execution Flow</span>
+                <Play size={11} />
+                <span>Simulate Flow</span>
               </>
             )}
           </button>
           <button
             onClick={() => { setIsPlaying(false); setActiveStep(0); }}
             className="btn"
-            style={{ height: 32, padding: "0 10px", fontSize: 12 }}
+            style={{ height: 28, padding: "0 8px", fontSize: 11, background: "#161B22", borderColor: "#2D333B", color: "#8B949E" }}
             title="Reset to Step 1"
+            aria-label="Reset to Step 1"
           >
-            <RotateCcw size={13} />
+            <RotateCcw size={11} />
           </button>
         </div>
       </div>
 
-      {/* SVG Animated Connector Flow */}
+      {/* Compact Interactive Node Stepper */}
       <div
         className="no-scrollbar"
         style={{
           position: "relative",
-          marginBottom: 28,
+          marginBottom: 14,
           overflowX: "auto",
-          paddingBottom: 6,
+          paddingBottom: 4,
           scrollbarWidth: "none",
           msOverflowStyle: "none",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", minWidth: 680, width: "100%", justifyContent: "space-between", position: "relative" }}>
-          {/* Animated Connecting Line */}
+        <div style={{ display: "flex", alignItems: "center", minWidth: 620, width: "100%", justifyContent: "space-between", position: "relative" }}>
+          {/* Track Line */}
           <div
             style={{
               position: "absolute",
-              top: 22,
-              left: 30,
-              right: 30,
+              top: 18,
+              left: 24,
+              right: 24,
               height: 2,
-              background: "rgba(255, 255, 255, 0.08)",
+              background: "#202632",
               zIndex: 1,
             }}
           >
             <div
               style={{
                 height: "100%",
-                background: "linear-gradient(90deg, #3B82F6, #6366F1, #22C55E)",
+                background: "#3B82F6",
                 width: `${(activeStep / (steps.length - 1)) * 100}%`,
-                transition: "width 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+                transition: "width 0.25s ease-out",
               }}
             />
           </div>
@@ -229,32 +243,34 @@ export function ExecutionLifecycleGraph() {
                   border: "none",
                   cursor: "pointer",
                   flex: 1,
-                  minWidth: 80,
+                  minWidth: 72,
+                  padding: 0,
                 }}
+                aria-current={isActive ? "step" : undefined}
+                aria-label={s.label}
               >
                 <div
-                  className={isActive ? "node-pulse-active" : ""}
                   style={{
-                    width: 44,
-                    height: 44,
+                    width: 36,
+                    height: 36,
                     borderRadius: "50%",
-                    background: isActive ? s.color : isPassed ? "#1C1C1C" : "#151515",
-                    border: `2px solid ${isActive ? "#FFFFFF" : isPassed ? s.color : "#242424"}`,
+                    background: isActive ? s.color : isPassed ? "#161B22" : "#0D1117",
+                    border: `2px solid ${isActive ? "#FFFFFF" : isPassed ? s.color : "#30363D"}`,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    color: isActive ? "#FFFFFF" : isPassed ? s.color : "#737373",
-                    transition: "all 0.25s ease",
-                    marginBottom: 8,
+                    color: isActive ? "#FFFFFF" : isPassed ? s.color : "#8B949E",
+                    transition: "all 0.18s ease-out",
+                    marginBottom: 6,
                   }}
                 >
-                  <Icon size={18} />
+                  <Icon size={15} />
                 </div>
                 <div
                   style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: isActive ? "#F5F5F5" : isPassed ? "#A3A3A3" : "#737373",
+                    fontSize: 10,
+                    fontWeight: isActive ? 700 : 500,
+                    color: isActive ? "#F0F6FC" : isPassed ? "#C9D1D9" : "#8B949E",
                     textAlign: "center",
                     whiteSpace: "nowrap",
                   }}
@@ -267,76 +283,98 @@ export function ExecutionLifecycleGraph() {
         </div>
       </div>
 
-      {/* Interactive Node State Inspector Card */}
+      {/* Active Step Details Card */}
       <div
         style={{
-          background: "#1C1C1C",
-          border: "1px solid #242424",
-          borderRadius: 12,
-          padding: "22px 24px",
+          background: "#0D1117",
+          border: "1px solid #21262D",
+          borderRadius: 8,
+          padding: "14px 16px",
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-          gap: 20,
+          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+          gap: 16,
         }}
       >
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
             <span
               style={{
-                fontSize: 11,
+                fontSize: 10,
                 fontWeight: 700,
-                background: `${steps[activeStep].color}18`,
+                background: `${steps[activeStep].color}20`,
                 color: steps[activeStep].color,
-                border: `1px solid ${steps[activeStep].color}35`,
-                padding: "2px 8px",
-                borderRadius: 999,
+                border: `1px solid ${steps[activeStep].color}40`,
+                padding: "1px 6px",
+                borderRadius: 4,
                 textTransform: "uppercase",
               }}
             >
               {steps[activeStep].type}
             </span>
-            <span style={{ fontSize: 12, color: "#737373" }}>
-              Actor: <strong style={{ color: "#F5F5F5" }}>{steps[activeStep].actor}</strong>
+            <span style={{ fontSize: 11, color: "#8B949E" }}>
+              Actor: <strong style={{ color: "#E6EDF3" }}>{steps[activeStep].actor}</strong>
             </span>
           </div>
 
-          <h4 style={{ fontSize: 16, fontWeight: 700, color: "#F5F5F5", marginBottom: 8 }}>
+          <h4 style={{ fontSize: 14, fontWeight: 700, color: "#F0F6FC", margin: "0 0 6px 0" }}>
             {steps[activeStep].label}
           </h4>
 
-          <p style={{ fontSize: 13, lineHeight: 1.6, color: "#A3A3A3", margin: "0 0 12px 0" }}>
+          <p style={{ fontSize: 12, lineHeight: 1.55, color: "#8B949E", margin: "0 0 8px 0" }}>
             {steps[activeStep].desc}
           </p>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#F59E0B" }}>
-            <ShieldCheck size={14} />
-            <strong>Rule:</strong> {steps[activeStep].rule}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#F97316" }}>
+            <ShieldCheck size={13} />
+            <span><strong>Rule:</strong> {steps[activeStep].rule}</span>
           </div>
         </div>
 
-        {/* Live Payload Stream Box */}
+        {/* Payload Box */}
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#737373", marginBottom: 8 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#8B949E", marginBottom: 6 }}>
             Runtime Telemetry & Payload
           </div>
           <div
             style={{
-              background: "#0B0B0B",
-              border: "1px solid #242424",
-              borderRadius: 8,
-              padding: "14px 16px",
-              fontFamily: "JetBrains Mono, monospace",
-              fontSize: 12,
-              color: "#3B82F6",
+              background: "#161B22",
+              border: "1px solid #30363D",
+              borderRadius: 6,
+              padding: "10px 12px",
+              fontFamily: "var(--font-mono, monospace)",
+              fontSize: 11,
+              color: "#58A6FF",
               overflowX: "auto",
               whiteSpace: "pre-wrap",
-              lineHeight: 1.6,
+              lineHeight: 1.5,
             }}
           >
             {steps[activeStep].payload}
           </div>
         </div>
       </div>
+
+      {/* Static Fallback for Search Engines, Bots & Reduced-Motion Users */}
+      <details
+        style={{
+          marginTop: 12,
+          fontSize: 12,
+          color: "#8B949E",
+          borderTop: "1px solid #21262D",
+          paddingTop: 10,
+        }}
+      >
+        <summary style={{ cursor: "pointer", fontWeight: 600, color: "#58A6FF" }}>
+          View all 7 lifecycle steps in static text format
+        </summary>
+        <ol style={{ margin: "8px 0 0 18px", padding: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+          {steps.map((s) => (
+            <li key={s.id} style={{ fontSize: 12, color: "#C9D1D9" }}>
+              <strong style={{ color: "#F0F6FC" }}>{s.label} ({s.actor})</strong>: {s.desc} <em>Rule: {s.rule}</em>
+            </li>
+          ))}
+        </ol>
+      </details>
     </div>
   );
 }
@@ -346,68 +384,68 @@ export function ExecutionLifecycleGraph() {
  */
 export function IdentityAccessFlowGraph() {
   return (
-    <div style={{ background: "#151515", border: "1px solid #242424", borderRadius: 16, padding: "28px", margin: "24px 0" }}>
-      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#F97316", marginBottom: 20 }}>
+    <div style={{ background: "#111418", border: "1px solid #202632", borderRadius: 10, padding: "16px 18px", margin: "18px 0" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#F97316", marginBottom: 14 }}>
         Dual-Identity Security Boundary Architecture
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
         {/* Human Actor */}
-        <div style={{ background: "#1C1C1C", border: "1px solid #242424", borderRadius: 12, padding: "20px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(59, 130, 246, 0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "#3B82F6" }}>
-              <ShieldCheck size={20} />
+        <div style={{ background: "#161B22", border: "1px solid #2D333B", borderRadius: 8, padding: "14px 16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(59, 130, 246, 0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "#3B82F6" }}>
+              <ShieldCheck size={18} />
             </div>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#F5F5F5" }}>Human Owner Actor</div>
-              <div style={{ fontSize: 11, color: "#737373" }}>Session JWT • Governance Authority</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#F0F6FC" }}>Human Owner Actor</div>
+              <div style={{ fontSize: 11, color: "#8B949E" }}>Session JWT • Governance Authority</div>
             </div>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13, color: "#A3A3A3" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12, color: "#C9D1D9" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ color: "#22C55E", fontWeight: 700 }}>✓</span> Full repository administration
+              <span style={{ color: "#3B82F6", fontWeight: 700 }}>✓</span> Full repository administration
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ color: "#22C55E", fontWeight: 700 }}>✓</span> Agent registration & scope approval
+              <span style={{ color: "#3B82F6", fontWeight: 700 }}>✓</span> Agent registration & scope approval
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ color: "#22C55E", fontWeight: 700 }}>✓</span> Authoritative Pull Request approval & merge
+              <span style={{ color: "#3B82F6", fontWeight: 700 }}>✓</span> Authoritative Pull Request approval & merge
             </div>
           </div>
         </div>
 
         {/* AI Agent Actor */}
-        <div style={{ background: "#1C1C1C", border: "1px solid #242424", borderRadius: 12, padding: "20px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(249, 115, 22, 0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "#F97316" }}>
-              <Cpu size={20} />
+        <div style={{ background: "#161B22", border: "1px solid #2D333B", borderRadius: 8, padding: "14px 16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(249, 115, 22, 0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "#F97316" }}>
+              <Cpu size={18} />
             </div>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#F5F5F5" }}>AI Agent Actor</div>
-              <div style={{ fontSize: 11, color: "#737373" }}>AgentSession • Capability Bounded</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#F0F6FC" }}>AI Agent Actor</div>
+              <div style={{ fontSize: 11, color: "#8B949E" }}>AgentSession • Capability Bounded</div>
             </div>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13, color: "#A3A3A3" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12, color: "#C9D1D9" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ color: "#22C55E", fontWeight: 700 }}>✓</span> Bounded Git clone & push to feature branch
+              <span style={{ color: "#3B82F6", fontWeight: 700 }}>✓</span> Bounded Git operations & push to feature branch
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ color: "#EF4444", fontWeight: 700 }}>✕</span> Cannot self-approve changes or merge
+              <span style={{ color: "#8B949E", fontWeight: 700 }}>✕</span> Cannot self-approve changes or merge
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ color: "#EF4444", fontWeight: 700 }}>✕</span> Access immediately blocked upon token expiration
+              <span style={{ color: "#8B949E", fontWeight: 700 }}>✕</span> Access blocked upon token expiration
             </div>
           </div>
         </div>
       </div>
 
       {/* Gateway bar */}
-      <div style={{ marginTop: 20, padding: "14px 18px", background: "rgba(249, 115, 22, 0.08)", border: "1px solid rgba(249, 115, 22, 0.25)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#F5F5F5", fontWeight: 700 }}>
-          <Lock size={16} style={{ color: "#F97316" }} />
+      <div style={{ marginTop: 14, padding: "10px 14px", background: "rgba(249, 115, 22, 0.06)", border: "1px solid rgba(249, 115, 22, 0.2)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#F0F6FC", fontWeight: 600 }}>
+          <Lock size={14} style={{ color: "#F97316" }} />
           SUTRA HTTP Git & API Gateway
         </div>
-        <div style={{ fontSize: 12, color: "#A3A3A3" }}>
+        <div style={{ fontSize: 11, color: "#8B949E" }}>
           Validates capability tokens per HTTP request before disk or git-receive-pack execution
         </div>
       </div>
@@ -420,24 +458,24 @@ export function IdentityAccessFlowGraph() {
  */
 export function GitWorkflowGraph() {
   return (
-    <div style={{ background: "#151515", border: "1px solid #242424", borderRadius: 16, padding: "28px", margin: "24px 0" }}>
-      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#22C55E", marginBottom: 20 }}>
+    <div style={{ background: "#111418", border: "1px solid #202632", borderRadius: 10, padding: "16px 18px", margin: "18px 0" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#F97316", marginBottom: 14 }}>
         Session-Bound Git Protocol Flow
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
         {[
           { step: "1. Token Issue", cmd: "POST /v1/agents/sessions", note: "Yields scoped JWT session" },
-          { step: "2. Git Clone", cmd: "git clone https://github.com/owner/repo.git", note: "Authenticates via GitHub credentials / PAT" },
+          { step: "2. Git Clone", cmd: "git clone https://github.com/owner/repo.git", note: "Authenticates via Git substrate / PAT" },
           { step: "3. Branch & Commit", cmd: "git checkout -b feature/xyz", note: "Real signed git commits" },
-          { step: "4. Git Push Hook", cmd: "git push origin feature/xyz", note: "Hooks create Change evidence" },
+          { step: "4. Git Push Hook", cmd: "git push origin feature/xyz", note: "Gateway records Change evidence" },
         ].map((item) => (
-          <div key={item.step} style={{ background: "#1C1C1C", border: "1px solid #242424", borderRadius: 10, padding: "16px" }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#F5F5F5", marginBottom: 8 }}>{item.step}</div>
-            <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 12, color: "#3B82F6", background: "#0B0B0B", padding: "8px 10px", borderRadius: 6, marginBottom: 8, wordBreak: "break-all" }}>
+          <div key={item.step} style={{ background: "#161B22", border: "1px solid #2D333B", borderRadius: 8, padding: "12px 14px" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#F0F6FC", marginBottom: 6 }}>{item.step}</div>
+            <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 11, color: "#58A6FF", background: "#0D1117", padding: "6px 8px", borderRadius: 4, marginBottom: 6, wordBreak: "break-all" }}>
               {item.cmd}
             </div>
-            <div style={{ fontSize: 12, color: "#737373" }}>{item.note}</div>
+            <div style={{ fontSize: 11, color: "#8B949E" }}>{item.note}</div>
           </div>
         ))}
       </div>
@@ -450,12 +488,12 @@ export function GitWorkflowGraph() {
  */
 export function KnowledgeGraphFlow() {
   return (
-    <div style={{ background: "#151515", border: "1px solid #242424", borderRadius: 16, padding: "28px", margin: "24px 0" }}>
-      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#F97316", marginBottom: 20 }}>
+    <div style={{ background: "#111418", border: "1px solid #202632", borderRadius: 10, padding: "16px 18px", margin: "18px 0" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#F97316", marginBottom: 14 }}>
         Knowledge Graph AST & Impact Pipeline
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         {[
           { title: "Source Files", desc: "AST Tree Parsing", icon: FolderGit2 },
           { title: "Symbol Nodes", desc: "Classes & Functions", icon: Layers },
@@ -465,16 +503,16 @@ export function KnowledgeGraphFlow() {
           const Icon = node.icon;
           return (
             <React.Fragment key={node.title}>
-              <div style={{ flex: 1, minWidth: 150, background: "#1C1C1C", border: "1px solid #242424", borderRadius: 12, padding: "18px", textAlign: "center" }}>
-                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(249, 115, 22, 0.12)", border: "1px solid rgba(249, 115, 22, 0.3)", display: "flex", alignItems: "center", justifyContent: "center", color: "#F97316", margin: "0 auto 10px" }}>
-                  <Icon size={18} />
+              <div style={{ flex: 1, minWidth: 130, background: "#161B22", border: "1px solid #2D333B", borderRadius: 8, padding: "14px 12px", textAlign: "center" }}>
+                <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(249, 115, 22, 0.12)", border: "1px solid rgba(249, 115, 22, 0.3)", display: "flex", alignItems: "center", justifyContent: "center", color: "#F97316", margin: "0 auto 8px" }}>
+                  <Icon size={16} />
                 </div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>{node.title}</div>
-                <div style={{ fontSize: 12, color: "#737373", marginTop: 4 }}>{node.desc}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#F0F6FC" }}>{node.title}</div>
+                <div style={{ fontSize: 11, color: "#8B949E", marginTop: 2 }}>{node.desc}</div>
               </div>
               {i < arr.length - 1 && (
-                <div style={{ color: "#737373", display: "flex", alignItems: "center" }}>
-                  <ArrowRight size={16} />
+                <div style={{ color: "#484F58", display: "flex", alignItems: "center" }}>
+                  <ArrowRight size={14} />
                 </div>
               )}
             </React.Fragment>
@@ -490,31 +528,31 @@ export function KnowledgeGraphFlow() {
  */
 export function CIPipelineGraph() {
   return (
-    <div style={{ background: "#151515", border: "1px solid #242424", borderRadius: 16, padding: "28px", margin: "24px 0" }}>
-      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#F97316", marginBottom: 20 }}>
+    <div style={{ background: "#111418", border: "1px solid #202632", borderRadius: 10, padding: "16px 18px", margin: "18px 0" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#F97316", marginBottom: 14 }}>
         Automated CI & Branch Gatekeeper Pipeline
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
         {[
           { title: "1. Push Hook", status: "Triggered", icon: GitBranch, color: "#F97316", desc: "Receives commit SHA" },
-          { title: "2. Test Runner", status: "Automated", icon: CheckCircle2, color: "#22C55E", desc: "Runs unit & integration suites" },
+          { title: "2. Test Runner", status: "Automated", icon: CheckCircle2, color: "#3B82F6", desc: "Runs unit & integration suites" },
           { title: "3. Lint & Audit", status: "Verified", icon: FileCode, color: "#3B82F6", desc: "Static analysis & vulnerability scan" },
-          { title: "4. Policy Gate", status: "Enforced", icon: ShieldCheck, color: "#F59E0B", desc: "Requires 100% checks passing" },
+          { title: "4. Policy Gate", status: "Enforced", icon: ShieldCheck, color: "#F97316", desc: "Requires 100% checks passing" },
         ].map((stage) => {
           const Icon = stage.icon;
           return (
-            <div key={stage.title} style={{ background: "#1C1C1C", border: "1px solid #242424", borderRadius: 10, padding: "18px" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: `${stage.color}18`, display: "flex", alignItems: "center", justifyContent: "center", color: stage.color }}>
-                  <Icon size={17} />
+            <div key={stage.title} style={{ background: "#161B22", border: "1px solid #2D333B", borderRadius: 8, padding: "14px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 6, background: `${stage.color}18`, display: "flex", alignItems: "center", justifyContent: "center", color: stage.color }}>
+                  <Icon size={15} />
                 </div>
-                <span style={{ fontSize: 11, background: `${stage.color}15`, color: stage.color, border: `1px solid ${stage.color}30`, padding: "2px 8px", borderRadius: 999, fontWeight: 700 }}>
+                <span style={{ fontSize: 10, background: `${stage.color}15`, color: stage.color, border: `1px solid ${stage.color}30`, padding: "1px 6px", borderRadius: 4, fontWeight: 700 }}>
                   {stage.status}
                 </span>
               </div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>{stage.title}</div>
-              <div style={{ fontSize: 12, color: "#A3A3A3", marginTop: 4 }}>{stage.desc}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#F0F6FC" }}>{stage.title}</div>
+              <div style={{ fontSize: 11, color: "#8B949E", marginTop: 2 }}>{stage.desc}</div>
             </div>
           );
         })}
@@ -528,26 +566,26 @@ export function CIPipelineGraph() {
  */
 export function PRReviewStateGraph() {
   return (
-    <div style={{ background: "#151515", border: "1px solid #242424", borderRadius: 16, padding: "28px", margin: "24px 0" }}>
-      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#F97316", marginBottom: 20 }}>
+    <div style={{ background: "#111418", border: "1px solid #202632", borderRadius: 10, padding: "16px 18px", margin: "18px 0" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#F97316", marginBottom: 14 }}>
         Authoritative Pull Request & Review State Machine
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
         {[
           { state: "Open PR", desc: "Change proposed", color: "#3B82F6" },
-          { state: "Active Threads", desc: "Inline comments open", color: "#F59E0B" },
+          { state: "Active Threads", desc: "Inline comments open", color: "#F97316" },
           { state: "Threads Resolved", desc: "All discussions closed", color: "#3B82F6" },
-          { state: "Human Approval", desc: "Sign-off recorded", color: "#22C55E" },
-          { state: "Merged", desc: "Fast-forward into main", color: "#22C55E" },
+          { state: "Human Approval", desc: "Sign-off recorded", color: "#F97316" },
+          { state: "Merged", desc: "Fast-forward into main", color: "#3B82F6" },
         ].map((node, i, arr) => (
           <React.Fragment key={node.state}>
-            <div style={{ flex: 1, minWidth: 140, background: "#1C1C1C", border: "1px solid #242424", borderRadius: 10, padding: "14px 16px", textAlign: "center" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: node.color }}>{node.state}</div>
-              <div style={{ fontSize: 11, color: "#737373", marginTop: 4 }}>{node.desc}</div>
+            <div style={{ flex: 1, minWidth: 120, background: "#161B22", border: "1px solid #2D333B", borderRadius: 8, padding: "10px 12px", textAlign: "center" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: node.color }}>{node.state}</div>
+              <div style={{ fontSize: 10, color: "#8B949E", marginTop: 2 }}>{node.desc}</div>
             </div>
             {i < arr.length - 1 && (
-              <span style={{ color: "#737373", fontSize: 14 }}>→</span>
+              <span style={{ color: "#484F58", fontSize: 12 }}>→</span>
             )}
           </React.Fragment>
         ))}
@@ -555,3 +593,4 @@ export function PRReviewStateGraph() {
     </div>
   );
 }
+

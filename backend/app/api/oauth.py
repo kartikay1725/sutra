@@ -13,12 +13,13 @@ import html
 import hashlib
 import json
 import logging
+import os
 import secrets
 from typing import Any, Dict, Optional
 from urllib.parse import parse_qs, urlencode, urlparse
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, Response, status
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
@@ -95,6 +96,7 @@ def get_oauth_authorization_server_metadata(request: Request) -> Dict[str, Any]:
         "code_challenge_methods_supported": ["S256"],
         "scopes_supported": ["sutra:agent", "repo:read", "repo:write"],
         "service_documentation": f"{base_url}/docs",
+        "logo_uri": f"{base_url}/icon.png",
         "client_id_metadata_document_supported": True,
         "authorization_response_iss_parameter_supported": True,
     }
@@ -112,6 +114,8 @@ def get_oauth_protected_resource_metadata(request: Request) -> Dict[str, Any]:
         "scopes_supported": ["sutra:agent"],
         "bearer_methods_supported": ["header"],
         "resource_documentation": f"{base_url}/docs",
+        "logo_uri": f"{base_url}/icon.png",
+        "resource_icon": f"{base_url}/icon.png",
     }
 
 
@@ -147,6 +151,33 @@ async def register_client_endpoint(request: Request) -> JSONResponse:
     return JSONResponse(content=client_info, status_code=status.HTTP_201_CREATED)
 
 
+@router.get("/favicon.ico", include_in_schema=False)
+def get_sutra_favicon():
+    """Serve official SUTRA favicon.ico for browser tabs and clients."""
+    static_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "static", "favicon.ico"))
+    if os.path.exists(static_path):
+        return FileResponse(static_path, media_type="image/x-icon")
+    frontend_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend", "public", "favicon.ico"))
+    if os.path.exists(frontend_path):
+        return FileResponse(frontend_path, media_type="image/x-icon")
+    return Response(status_code=404)
+
+
+@router.get("/icon.png", include_in_schema=False)
+@router.get("/static/icon.png", include_in_schema=False)
+@router.get("/apple-touch-icon.png", include_in_schema=False)
+@router.get("/logo-s.png", include_in_schema=False)
+def get_sutra_icon():
+    """Serve official SUTRA icon for OAuth login, consent, and metadata pages."""
+    static_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "static", "icon.png"))
+    if os.path.exists(static_path):
+        return FileResponse(static_path, media_type="image/png")
+    frontend_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend", "public", "icon.png"))
+    if os.path.exists(frontend_path):
+        return FileResponse(frontend_path, media_type="image/png")
+    return Response(status_code=404)
+
+
 # =========================================================================
 # HTML UI TEMPLATES (LOGIN, CONSENT, CALLBACK)
 # =========================================================================
@@ -154,131 +185,229 @@ async def register_client_endpoint(request: Request) -> JSONResponse:
 _BASE_CSS = """
 :root {
   --bg: #0B0B0F;
-  --surface: #121218;
-  --surface-2: #1A1A24;
-  --border: rgba(255, 255, 255, 0.08);
-  --border-focus: rgba(6, 182, 212, 0.5);
-  --text: #F8FAFC;
-  --text-muted: #94A3B8;
-  --cyan: #06B6D4;
-  --cyan-hover: #0891B2;
-  --green: #10B981;
-  --red: #EF4444;
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Inter", sans-serif;
+  --surface-1: #111418;
+  --surface-2: #161B22;
+  --surface-hover: #1C2128;
+  --border: #202632;
+  --border-subtle: #2D333B;
+  --border-focus: #F97316;
+  --text-primary: #F0F6FC;
+  --text-secondary: #C9D1D9;
+  --text-muted: #8B949E;
+  --accent: #F97316;
+  --accent-hover: #FB8C24;
+  --accent-active: #EA580C;
+  --blue: #3B82F6;
+  --blue-subtle: rgba(59, 130, 246, 0.12);
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-  background: var(--bg);
-  color: var(--text);
+  background: #0B0B0F radial-gradient(circle at 50% 25%, #181E28 0%, #0B0B0F 80%);
+  color: var(--text-primary);
   font-family: var(--font);
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 24px 16px;
 }
 .card {
   width: 100%;
-  max-width: 480px;
-  background: var(--surface);
+  max-width: 450px;
+  background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 32px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px -10px rgba(6, 182, 212, 0.1);
+  border-radius: 16px;
+  padding: 34px 30px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin-bottom: 20px;
 }
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  background: rgba(6, 182, 212, 0.12);
-  color: var(--cyan);
+  letter-spacing: 0.06em;
+  background: rgba(249, 115, 22, 0.1);
+  border: 1px solid rgba(249, 115, 22, 0.25);
+  color: var(--accent);
   margin-bottom: 12px;
 }
-h1 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
-p.sub { font-size: 14px; color: var(--text-muted); line-height: 1.5; margin-bottom: 24px; }
+.badge.blue {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  color: #60A5FA;
+}
+.badge-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+h1 { font-size: 21px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; letter-spacing: -0.02em; }
+p.sub { font-size: 13px; color: var(--text-muted); line-height: 1.55; margin-bottom: 22px; }
+p.sub strong { color: var(--text-primary); font-weight: 600; }
 .field { margin-bottom: 16px; }
-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
 input {
   width: 100%;
-  height: 44px;
+  height: 42px;
   background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
   padding: 0 14px;
-  color: var(--text);
-  font-size: 14px;
+  color: var(--text-primary);
+  font-size: 13.5px;
+  font-family: inherit;
   outline: none;
-  transition: all 0.2s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-input:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15); }
+input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2);
+}
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: #F0F6FC !important;
+  -webkit-box-shadow: 0 0 0px 1000px #161B22 inset !important;
+  box-shadow: 0 0 0px 1000px #161B22 inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+.password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.password-wrapper input {
+  padding-right: 40px;
+}
+.toggle-pw-btn {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 4px;
+  transition: color 0.15s ease;
+}
+.toggle-pw-btn:hover {
+  color: var(--text-primary);
+}
 .error-box {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #FCA5A5;
-  font-size: 13px;
+  background: rgba(249, 115, 22, 0.08);
+  border: 1px solid rgba(249, 115, 22, 0.3);
+  color: #FB923C;
+  font-size: 12.5px;
   padding: 10px 14px;
   border-radius: 8px;
   margin-bottom: 18px;
+  line-height: 1.5;
 }
 .scope-list {
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: 10px;
+  padding: 16px 18px;
   margin-bottom: 24px;
 }
-.scope-item { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; font-size: 13px; }
+.scope-item { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; font-size: 13px; }
 .scope-item:last-child { margin-bottom: 0; }
-.scope-icon { color: var(--cyan); font-weight: bold; margin-top: 1px; }
-.scope-text strong { color: var(--text); display: block; margin-bottom: 2px; }
-.scope-text span { color: var(--text-muted); font-size: 12px; line-height: 1.4; display: block; }
+.scope-icon { color: var(--blue); font-weight: bold; margin-top: 1px; flex-shrink: 0; font-size: 14px; }
+.scope-text strong { color: var(--text-primary); display: block; margin-bottom: 3px; font-size: 13px; font-weight: 600; }
+.scope-text span { color: var(--text-muted); font-size: 12px; line-height: 1.5; display: block; }
 .user-badge {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.03);
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  margin-bottom: 24px;
+  border-radius: 8px;
+  margin-bottom: 20px;
   font-size: 13px;
 }
 .user-avatar {
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  background: rgba(6, 182, 212, 0.2);
-  color: var(--cyan);
+  background: rgba(249, 115, 22, 0.12);
+  border: 1px solid rgba(249, 115, 22, 0.28);
+  color: var(--accent);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 13px;
+  flex-shrink: 0;
 }
 .actions { display: flex; gap: 12px; }
 .btn {
   flex: 1;
-  height: 44px;
-  border-radius: 10px;
-  font-size: 14px;
+  height: 42px;
+  border-radius: 8px;
+  font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   transition: all 0.15s ease;
-  border: none;
+  user-select: none;
+  text-decoration: none;
 }
-.btn-primary { background: linear-gradient(135deg, #06B6D4 0%, #0284C7 100%); color: white; }
-.btn-primary:hover { opacity: 0.95; transform: translateY(-1px); }
-.btn-secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
-.btn-secondary:hover { background: rgba(255, 255, 255, 0.06); }
+.btn-primary {
+  background: var(--accent);
+  color: #FFFFFF;
+  border: 1px solid var(--accent-active);
+  box-shadow: 0 2px 10px rgba(249, 115, 22, 0.25);
+}
+.btn-primary:hover {
+  background: var(--accent-hover);
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.35);
+  transform: translateY(-1px);
+}
+.btn-primary:active {
+  transform: scale(0.99);
+  background: var(--accent-active);
+}
+.btn-secondary {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+.btn-secondary:hover {
+  background: var(--surface-hover);
+  border-color: #38414D;
+  color: #FFFFFF;
+}
 """
 
 
@@ -299,11 +428,18 @@ def _render_login_html(
   <meta charset="utf-8">
   <title>Sign in to SUTRA</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/png" href="/icon.png">
+  <link rel="shortcut icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icon.png">
   <style>{_BASE_CSS}</style>
 </head>
 <body>
   <div class="card">
-    <div class="badge">SUTRA Governance Control Plane</div>
+    <div class="auth-brand">
+      <img src="/icon.png" alt="SUTRA" width="32" height="32" style="width: 32px; height: 32px; object-fit: contain; border-radius: 8px; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);">
+      <span>SUTRA</span>
+    </div>
+    <div class="badge"><span class="badge-dot"></span>SUTRA Governance Control Plane</div>
     <h1>Sign In to Authorize</h1>
     <p class="sub"><strong>{html.escape(client_name)}</strong> is requesting connection to SUTRA. Please sign in to approve access.</p>
     {err_html}
@@ -323,13 +459,34 @@ def _render_login_html(
       </div>
       <div class="field">
         <label>Password</label>
-        <input type="password" name="password" required autocomplete="current-password" placeholder="••••••••••••">
+        <div class="password-wrapper">
+          <input type="password" id="password-input" name="password" required autocomplete="current-password" placeholder="••••••••••••">
+          <button type="button" class="toggle-pw-btn" onclick="togglePassword()" aria-label="Toggle password visibility">
+            <svg id="eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </button>
+        </div>
       </div>
       <div style="margin-top: 24px;">
         <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In & Continue</button>
       </div>
     </form>
   </div>
+  <script>
+    function togglePassword() {{
+      var input = document.getElementById('password-input');
+      var icon = document.getElementById('eye-icon');
+      if (input.type === 'password') {{
+        input.type = 'text';
+        icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
+      }} else {{
+        input.type = 'password';
+        icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+      }}
+    }}
+  </script>
 </body>
 </html>"""
 
@@ -352,18 +509,25 @@ def _render_consent_html(
   <meta charset="utf-8">
   <title>Connect {html.escape(client_name)} to SUTRA</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/png" href="/icon.png">
+  <link rel="shortcut icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icon.png">
   <style>{_BASE_CSS}</style>
 </head>
 <body>
   <div class="card">
-    <div class="badge">Model Context Protocol · OAuth 2.1</div>
+    <div class="auth-brand">
+      <img src="/icon.png" alt="SUTRA" width="32" height="32" style="width: 32px; height: 32px; object-fit: contain; border-radius: 8px; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);">
+      <span>SUTRA</span>
+    </div>
+    <div class="badge blue"><span class="badge-dot"></span>Model Context Protocol · OAuth 2.1</div>
     <h1>Connect {html.escape(client_name)}</h1>
     <p class="sub">Authorize <strong>{html.escape(client_name)}</strong> to act as an autonomous coding agent governed by your SUTRA control plane.</p>
 
     <div class="user-badge">
       <div class="user-avatar">{html.escape(initial)}</div>
       <div>
-        <div style="font-weight: 600;">{html.escape(username)}</div>
+        <div style="font-weight: 700; color: var(--text-primary);">{html.escape(username)}</div>
         <div style="font-size: 12px; color: var(--text-muted);">{html.escape(email)}</div>
       </div>
     </div>
@@ -417,26 +581,33 @@ def _render_callback_html(
     is_success: bool = True,
     client_name: Optional[str] = None,
 ) -> str:
-    color = "var(--green)" if is_success else "var(--red)"
+    color = "var(--blue)" if is_success else "var(--accent)"
     icon = "✓" if is_success else "✕"
-    client_line = f"<p style='margin-bottom: 12px; color: var(--text);'><strong>{html.escape(client_name)}</strong> authorization code issued.</p>" if client_name else ""
+    client_line = f"<p style='margin-bottom: 12px; color: var(--text-primary);'><strong>{html.escape(client_name)}</strong> authorization code issued.</p>" if client_name else ""
     return f"""<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <title>{html.escape(title)}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/png" href="/icon.png">
+  <link rel="shortcut icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icon.png">
   <style>{_BASE_CSS}</style>
 </head>
 <body>
   <div class="card" style="text-align: center;">
-    <div style="width: 56px; height: 56px; border-radius: 50%; background: {color}22; color: {color}; font-size: 28px; font-weight: bold; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto;">
+    <div class="auth-brand" style="justify-content: center;">
+      <img src="/icon.png" alt="SUTRA" width="32" height="32" style="width: 32px; height: 32px; object-fit: contain; border-radius: 8px; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);">
+      <span>SUTRA</span>
+    </div>
+    <div style="width: 52px; height: 52px; border-radius: 50%; background: {color}18; border: 1px solid {color}35; color: {color}; font-size: 24px; font-weight: bold; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto;">
       {icon}
     </div>
     <h1>{html.escape(title)}</h1>
     {client_line}
     <p class="sub">{html.escape(message)}</p>
-    <div style="margin-top: 16px;">
+    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
       <p style="font-size: 12px; color: var(--text-muted);">You can now close this browser tab and return to your IDE or terminal.</p>
     </div>
   </div>

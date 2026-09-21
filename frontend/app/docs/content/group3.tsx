@@ -2,19 +2,26 @@ import React from 'react';
 import { DocSection } from './data';
 import { PRReviewStateGraph, CIPipelineGraph } from '@/components/docs_graph_flows';
 import { ShieldCheck, GitPullRequest, Eye, CheckCircle2, GitBranch } from 'lucide-react';
+import { DocsHeading, DocsCallout } from '@/components/docs_components';
 
 export const Group3HumanGuide: DocSection[] = [
   { 
     id: "human-guide", 
-    category: "Human Guide", 
+    category: "Engineering Workflow", 
     title: "Repositories, Changes & Reviews", 
+    toc: [
+      { id: "human-governance", label: "Human Governance & Ownership" },
+      { id: "pr-lifecycle", label: "Pull Request Lifecycle & State Machine" },
+      { id: "ci-pipeline", label: "Automated CI & Gatekeeper Pipeline" },
+      { id: "branch-policies", label: "Branch Protection & Governance Policies" },
+    ],
     content: (
       <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
         {/* Human Guide Overview */}
         <section>
-          <h2 style={{ fontSize: 20, fontWeight: 700, color: "#F5F5F5", marginBottom: 12 }}>
+          <DocsHeading id="human-governance" level={2}>
             Human User Governance & Ownership
-          </h2>
+          </DocsHeading>
           <p style={{ color: "#A3A3A3", lineHeight: 1.7, marginBottom: 16 }}>
             As a human user in SUTRA, you possess ownership privileges. You act as the ultimate policy-maker, reviewer, and merger.
           </p>
@@ -33,19 +40,19 @@ export const Group3HumanGuide: DocSection[] = [
                 <td style={{ fontWeight: 700, color: "#F5F5F5" }}>Owner</td>
                 <td>Full governance, deletion & agent delegation</td>
                 <td>Create, review, approve, resolve threads</td>
-                <td style={{ color: "#22C55E", fontWeight: 700 }}>✓ Allowed</td>
+                <td style={{ color: "#3B82F6", fontWeight: 700 }}>✓ Allowed</td>
               </tr>
               <tr>
                 <td style={{ fontWeight: 700, color: "#3B82F6" }}>Collaborator</td>
                 <td>Read, branch & push</td>
                 <td>Create, comment & review</td>
-                <td style={{ color: "#22C55E", fontWeight: 700 }}>✓ When authorized</td>
+                <td style={{ color: "#3B82F6", fontWeight: 700 }}>✓ When authorized</td>
               </tr>
               <tr>
                 <td style={{ fontWeight: 700, color: "#F97316" }}>AI Agent</td>
                 <td>Bounded clone & push to feature branch</td>
                 <td>Create PR & submit findings</td>
-                <td style={{ color: "#EF4444", fontWeight: 700 }}>✕ Blocked</td>
+                <td style={{ color: "#8B949E", fontWeight: 700 }}>✕ Blocked</td>
               </tr>
             </tbody>
           </table>
@@ -53,9 +60,9 @@ export const Group3HumanGuide: DocSection[] = [
 
         {/* Changes vs PRs */}
         <section>
-          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F5F5F5", marginBottom: 12 }}>
+          <DocsHeading id="pr-lifecycle" level={2}>
             Pull Request Lifecycle & State Machine
-          </h3>
+          </DocsHeading>
           <p style={{ color: "#A3A3A3", lineHeight: 1.7, marginBottom: 16 }}>
             SUTRA tracks changes through an authoritative review state machine. Merging is strictly locked until all active review threads are resolved and branch protections are satisfied.
           </p>
@@ -92,9 +99,9 @@ export const Group3HumanGuide: DocSection[] = [
 
         {/* CI & Branch Protection */}
         <section>
-          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F5F5F5", marginBottom: 12 }}>
+          <DocsHeading id="ci-pipeline" level={2}>
             Automated CI & Gatekeeper Pipeline
-          </h3>
+          </DocsHeading>
           <p style={{ color: "#A3A3A3", lineHeight: 1.7, marginBottom: 16 }}>
             CI jobs run against the specific commit SHA of the Change. Branch Protection acts as the ultimate gatekeeper for merges.
           </p>
@@ -104,9 +111,9 @@ export const Group3HumanGuide: DocSection[] = [
 
         {/* Repository Settings & Branch Protection Policies */}
         <section>
-          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F5F5F5", marginBottom: 12 }}>
+          <DocsHeading id="branch-policies" level={2}>
             Repository Branch Protection & Governance Policies
-          </h3>
+          </DocsHeading>
           <p style={{ color: "#A3A3A3", lineHeight: 1.7, marginBottom: 16 }}>
             Repository policies are configured per-repository under <code style={{ color: "#F97316" }}>/repositories/[name]/settings</code>.
             Governance rules enforce organizational engineering standards:
@@ -124,7 +131,7 @@ export const Group3HumanGuide: DocSection[] = [
             </div>
 
             <div style={{ padding: 16, border: "1px solid #242424", borderRadius: 10, background: "#151515" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#22C55E", fontWeight: 700, marginBottom: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#3B82F6", fontWeight: 700, marginBottom: 6 }}>
                 <GitPullRequest size={16} />
                 Human Merge Hand-off
               </div>
@@ -134,7 +141,7 @@ export const Group3HumanGuide: DocSection[] = [
             </div>
 
             <div style={{ padding: 16, border: "1px solid #242424", borderRadius: 10, background: "#151515" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#F59E0B", fontWeight: 700, marginBottom: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#F97316", fontWeight: 700, marginBottom: 6 }}>
                 <GitBranch size={16} />
                 Universal GitHub Synchronization
               </div>

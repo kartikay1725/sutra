@@ -1,15 +1,24 @@
 import React from 'react';
 import { DocSection } from './data';
+import { DocsHeading } from '@/components/docs_components';
 
 export const Group8Reference: DocSection[] = [
   { 
     id: "reference", 
     category: "Reference", 
     title: "Reference", 
+    toc: [
+      { id: "lifecycle-states", label: "Engineering Lifecycle & States" },
+      { id: "terminology", label: "Terminology & Concepts" },
+      { id: "troubleshooting", label: "Troubleshooting & Common Issues" },
+      { id: "limitations", label: "Current Implementation Limits" },
+    ],
     content: (
       <div className="flex flex-col gap-10">
         <section>
-          <h2 className="text-xl font-bold mb-4">Engineering Lifecycle & States</h2>
+          <DocsHeading id="lifecycle-states" level={2}>
+            Engineering Lifecycle & States
+          </DocsHeading>
           <table className="table mt-4">
             <thead>
               <tr>
@@ -39,7 +48,9 @@ export const Group8Reference: DocSection[] = [
         </section>
 
         <section>
-          <h3 className="text-lg font-bold mb-4">Terminology</h3>
+          <DocsHeading id="terminology" level={2}>
+            Terminology
+          </DocsHeading>
           <div className="flex flex-col gap-4">
             <div>
               <h4 className="font-bold text-[var(--accent)]">Actor vs User</h4>
@@ -53,7 +64,9 @@ export const Group8Reference: DocSection[] = [
         </section>
 
         <section>
-          <h3 className="text-lg font-bold mb-4">Troubleshooting & Common Issues</h3>
+          <DocsHeading id="troubleshooting" level={2}>
+            Troubleshooting & Common Issues
+          </DocsHeading>
           <table className="table mt-4">
             <thead>
               <tr>
@@ -83,7 +96,9 @@ export const Group8Reference: DocSection[] = [
         </section>
 
         <section>
-          <h3 className="text-lg font-bold mb-4">Current Limitations</h3>
+          <DocsHeading id="limitations" level={2}>
+            Current Limitations
+          </DocsHeading>
           <p className="mb-4">This section outlines verified limitations in the current implementation to maintain transparency.</p>
           <table className="table mt-4">
             <thead>
@@ -95,12 +110,12 @@ export const Group8Reference: DocSection[] = [
             </thead>
             <tbody>
               <tr>
-                <td className="font-mono text-xs text-yellow-300">Agent Token Rotation</td>
+                <td className="font-mono text-xs text-orange-400">Agent Token Rotation</td>
                 <td>API ONLY</td>
                 <td>No UI currently exists in the dashboard to rotate tokens. You must use the API.</td>
               </tr>
               <tr>
-                <td className="font-mono text-xs text-yellow-300">Substrate Support</td>
+                <td className="font-mono text-xs text-orange-400">Substrate Support</td>
                 <td>GITHUB NATIVE</td>
                 <td>GitHub is the primary production substrate. GitLab and Bitbucket adapters are in development.</td>
               </tr>

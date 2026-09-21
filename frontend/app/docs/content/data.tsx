@@ -14,6 +14,7 @@ export interface DocSection {
   category: string;
   title: string;
   content: React.ReactNode;
+  toc?: { id: string; label: string }[];
 }
 
 export const sections: DocSection[] = [

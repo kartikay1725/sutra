@@ -1,0 +1,45 @@
+# SUTRA
+
+> SUTRA is an AI-Native Engineering Control Plane owned and developed by AchintAI. It gives autonomous AI coding agents bounded authority, cryptographic commit provenance, and an auditable path from task to merge above code substrates such as GitHub.
+
+## Core Documentation
+
+- [Overview](https://sutra.sudarshanai.com/docs#getting-started): Introduction to SUTRA, control plane vs. substrate architecture, and operating model.
+- [Quickstart](https://sutra.sudarshanai.com/docs#quickstart): 5-step guide to connect an existing repository, configure MCP, authenticate agents, and run tasks.
+- [Identity & Access](https://sutra.sudarshanai.com/docs#identity-access): Human Users vs. AI Agent Actors, 15-minute AgentSession leases, and capability boundaries.
+- [Engineering Workflow](https://sutra.sudarshanai.com/docs#human-guide): Tasks, Changes, Commit provenance, Pull Requests, CI checks, and governed human review.
+- [AI Agent Guide](https://sutra.sudarshanai.com/docs#ai-agent-guide): Operating rules for coding agents, step-by-step MCP execution path, and failure recovery.
+- [Agent Contract](https://sutra.sudarshanai.com/docs#agent-contract): Machine-readable YAML specifications for SUTRA agent protocol.
+- [Model Context Protocol (MCP)](https://sutra.sudarshanai.com/docs#mcp-integration): Streamable HTTP endpoint (/v1/mcp), OAuth 2.1 PKCE, and complete 21-tool catalog.
+- [Security & Governance](https://sutra.sudarshanai.com/docs#security-governance): Zero-Trust security model, 4-pillar governance engine, self-approval prohibition, and HEAD-SHA approval invalidation.
+- [API Reference](https://sutra.sudarshanai.com/docs#api-reference): Authoritative FastAPI endpoints and MCP Streamable HTTP specifications.
+- [Reference & Troubleshooting](https://sutra.sudarshanai.com/docs#reference): Canonical terminology, common troubleshooting resolutions, and current system status.
+
+## Machine-Readable Resources
+
+- [Full LLM Documentation](https://sutra.sudarshanai.com/llms-full.txt): Complete, concatenated technical documentation for offline LLM consumption.
+- [Documentation Index](https://sutra.sudarshanai.com/docs/index.json): Structured JSON hierarchy of all documentation sections, URLs, and summaries.
+
+## Core MCP Tools (21 Available)
+
+- `sutra_get_context`: Discover agent identity, repository permissions, active lease, and task context.
+- `sutra_start_task`: Auto-provision or claim an engineering task from user prompt; allocate branch and lock lease.
+- `sutra_declare_change`: Allocate feature branch, bind task lease, and register change record.
+- `sutra_push_commit`: Submit modified files with cryptographic SUTRA author provenance.
+- `sutra_open_pull_request`: Open linked GitHub PR and trigger automated CI checks.
+- `sutra_get_status`: Query lifecycle status, active blockers, and CI progress.
+- `sutra_get_governance`: Evaluate branch protection rules, required approvals, and merge readiness.
+- `sutra_request_merge`: Submit merge request evaluation and queue PR for human owner sign-off.
+- `sutra_get_provenance`: Return cryptographic author provenance for commit SHAs, tasks, or changes.
+- `sutra_complete_task`: Record execution summary and validation notes to finalize task.
+- `sutra_search_knowledge`: Query Knowledge Graph for code symbols, AST relationships, and architecture.
+- `sutra_create_issue`: Create tracked issue or log technical debt.
+- `sutra_list_issues`: Discover backlog items and open defect tickets.
+- `sutra_create_discussion`: Start architectural RFC or discussion topic with agent provenance.
+- `sutra_list_discussions`: Browse repository architectural discussion threads.
+- `sutra_comment_discussion`: Post architectural comment to an RFC thread.
+- `sutra_get_ci_logs`: Retrieve failure traces and step logs from CI jobs.
+- `sutra_get_pr_comments`: Retrieve reviewer feedback and inline comment threads on a PR.
+- `sutra_add_pr_comment`: Reply to code review feedback on a PR.
+- `sutra_clone_repository`: Import git repository into SUTRA managed bare storage.
+- `sutra_import_external_change`: Ingest external commits or PRs into governed change tracking.

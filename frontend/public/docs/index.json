@@ -1,0 +1,105 @@
+{
+  "product": "SUTRA",
+  "company": "AchintAI",
+  "category": "AI-Native Engineering Control Plane",
+  "version": "1.0.0-beta",
+  "description": "SUTRA is an AI-native engineering control plane developed by AchintAI that gives autonomous AI coding agents bounded authority, cryptographic commit provenance, and an auditable path from task to merge above code substrates such as GitHub.",
+  "production_url": "https://sutra.sudarshanai.com",
+  "api_origin": "https://api.sutra.sudarshanai.com",
+  "mcp_endpoint": "https://api.sutra.sudarshanai.com/v1/mcp",
+  "sections": [
+    {
+      "id": "getting-started",
+      "category": "Getting Started",
+      "title": "SUTRA Architecture & Overview",
+      "url": "https://sutra.sudarshanai.com/docs#getting-started",
+      "description": "Core SUTRA architecture, Control Plane vs. Substrate distinction, and operating model."
+    },
+    {
+      "id": "quickstart",
+      "category": "Getting Started",
+      "title": "Quick Start Guide",
+      "url": "https://sutra.sudarshanai.com/docs#quickstart",
+      "description": "Five-step developer quickstart from repository connection to first governed merge."
+    },
+    {
+      "id": "identity-access",
+      "category": "Identity & Access",
+      "title": "Identity, Tokens & Capabilities",
+      "url": "https://sutra.sudarshanai.com/docs#identity-access",
+      "description": "Human Users vs. AI Agent Actors, 15-minute AgentSession leases, and capability-bounded security."
+    },
+    {
+      "id": "human-guide",
+      "category": "Engineering Workflow",
+      "title": "Repositories, Changes & Reviews",
+      "url": "https://sutra.sudarshanai.com/docs#human-guide",
+      "description": "Canonical engineering workflow: Tasks, Changes, Commit provenance, PR review state machine, and CI."
+    },
+    {
+      "id": "ai-agent-guide",
+      "category": "AI Agent Guide",
+      "title": "AI Agent Guide",
+      "url": "https://sutra.sudarshanai.com/docs#ai-agent-guide",
+      "description": "Operating instructions for AI coding agents, standard MCP execution path, and error recovery."
+    },
+    {
+      "id": "mcp-integration",
+      "category": "Model Context Protocol",
+      "title": "MCP Integration & Agent Instructions",
+      "url": "https://sutra.sudarshanai.com/docs#mcp-integration",
+      "description": "Streamable HTTP (/v1/mcp) configuration, OAuth 2.1 PKCE, and complete 21-tool catalog."
+    },
+    {
+      "id": "agent-contract",
+      "category": "Agent Contract",
+      "title": "Agent Contract",
+      "url": "https://sutra.sudarshanai.com/docs#agent-contract",
+      "description": "Machine-readable YAML contract defining agent identity, tool mappings, and governance invariants."
+    },
+    {
+      "id": "security-governance",
+      "category": "Security & Governance",
+      "title": "Security & Governance",
+      "url": "https://sutra.sudarshanai.com/docs#security-governance",
+      "description": "Zero-Trust architecture, Four-Pillar governance engine, self-approval blocking, and HEAD invalidation."
+    },
+    {
+      "id": "api-reference",
+      "category": "API Reference",
+      "title": "API Reference",
+      "url": "https://sutra.sudarshanai.com/docs#api-reference",
+      "description": "Authoritative FastAPI endpoints for auth, tasks, changes, pull requests, and governance."
+    },
+    {
+      "id": "reference",
+      "category": "Reference",
+      "title": "Reference & Troubleshooting",
+      "url": "https://sutra.sudarshanai.com/docs#reference",
+      "description": "Canonical terminology, troubleshooting recovery matrix, and current operational limitations."
+    }
+  ],
+  "mcp_tools": [
+    "sutra_get_context",
+    "sutra_start_task",
+    "sutra_declare_change",
+    "sutra_push_commit",
+    "sutra_open_pull_request",
+    "sutra_get_status",
+    "sutra_get_governance",
+    "sutra_request_merge",
+    "sutra_get_provenance",
+    "sutra_complete_task",
+    "sutra_search_knowledge",
+    "sutra_create_issue",
+    "sutra_list_issues",
+    "sutra_create_discussion",
+    "sutra_list_discussions",
+    "sutra_comment_discussion",
+    "sutra_get_ci_logs",
+    "sutra_get_pr_comments",
+    "sutra_add_pr_comment",
+    "sutra_clone_repository",
+    "sutra_import_external_change"
+  ]
+}

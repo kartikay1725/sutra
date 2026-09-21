@@ -1,0 +1,155 @@
+# SUTRA Full Technical Documentation (LLM Edition)
+
+Product: SUTRA  
+Owner / Developer: AchintAI  
+Production URL: https://sutra.sudarshanai.com  
+API Origin: https://api.sutra.sudarshanai.com  
+Version: v1.0 (Beta)  
+
+---
+
+## 1. Executive Overview & Mission
+
+SUTRA is an AI-Native Engineering Control Plane developed by AchintAI. It orchestrates autonomous coding agents, enforces cryptographic commit provenance, provides deterministic policy and review governance, and controls pull request lifecycles above external code substrates such as GitHub.
+
+### Control Plane vs. Substrate Model
+- SUTRA is the sovereign Control Plane: it manages human identity, agent registry, 15-minute AgentSession leases, task dispatch, change ledgers, commit provenance, multi-pillar governance, human review gates, and merge authorization.
+- GitHub is the Code Substrate: it provides Git bare object storage, branches, PR diff rendering, and CI/CD runner infrastructure (GitHub Actions).
+- Agents interact with SUTRA primarily through the Model Context Protocol (MCP) over Streamable HTTP (`/v1/mcp`).
+
+---
+
+## 2. Canonical Engineering Lifecycle
+
+Every SUTRA-governed task progresses through this deterministic lifecycle:
+
+1. Task: Created via SUTRA UI or prompt; captures engineering objective.
+2. AgentSession: Scoped 15-minute lease token (`sutra_session_...` or OAuth `sutra_mcp_at_...`) issued with idle timeout.
+3. Change: Agent declares intent and registers a tracked Change entity.
+4. Commit & Provenance: Code submitted via `sutra_push_commit`, binding Task + AgentSession + Commit SHA.
+5. Pull Request: Linked GitHub PR opened; triggers automated CI checks.
+6. CI Verification: SUTRA ingests HMAC-verified check runs from GitHub Actions.
+7. Governance: 4-pillar evaluation (CI, Provenance, Branch Protection, Reviews).
+8. Human Review Gate: Human owner inspects diffs and issues cryptographic approval. Self-approval is blocked; HEAD updates invalidate prior approval.
+9. Governed Merge: Authorized human owner initiates merge; SUTRA calls GitHub Merge API.
+10. Task Completion: SUTRA archives the session, records validation evidence, and marks the task complete.
+
+---
+
+## 3. Actor & Identity Architecture
+
+SUTRA enforces the Actor Model, strictly separating human ownership from agent runtime execution:
+
+- Human User: Authenticates via JWT. Has full administrative authority, PR review rights, and merge execution authorization.
+- AI Agent: Authenticates via short-lived AgentSession lease tokens or OAuth 2.1 PKCE. Permissions bounded by explicit capability grants. Cannot self-approve changes or execute merges.
+- System: Internal service actor executing background workers and webhook ingestion.
+
+### AgentSession Lease Parameters
+- Absolute TTL: 15 minutes (900 seconds).
+- Idle TTL: 120 seconds without an authenticated request.
+- Heartbeat Extension: `POST /v1/agent/tasks/{id}/heartbeat` extends the lease.
+- Repository Binding: Scoped strictly to the authorized repository.
+
+### Capabilities Matrix
+- `repository.read`: Clone, fetch, inspect files and commit trees.
+- `repository.write`: Push commits to feature branches.
+- `change.create`: Declare intent and register Change entities.
+- `change.commit`: Record commit SHAs under active session lease.
+- `knowledge_graph.read`: Query semantic symbols, functions, and architecture.
+- `discussion.create`: Propose architectural RFCs.
+- `discussion.comment`: Participate in technical discussions.
+
+### Critical Rule: Instructions vs. Server Enforcement
+`AGENTS.md` and workspace instruction files provide prompt-level guidance to coding models. They are NOT the security boundary. SUTRA server-side token checks, capability verification, commit provenance, and human review gates enforce governance at the API and control-plane layer. Removing an instruction file does not bypass SUTRA governance.
+
+---
+
+## 4. Model Context Protocol (MCP) Interface
+
+- Endpoint URL: `https://api.sutra.sudarshanai.com/v1/mcp`
+- Protocol Standard: Streamable HTTP (RFC 9728)
+- Authentication: OAuth 2.1 PKCE or Bearer token (`sutra_session_...` / `sutra_mcp_at_...`)
+
+### Complete Catalog of 21 Registered Tools
+
+1. `sutra_get_context`: Returns agent session identity, permissions, repository context, and active task.
+2. `sutra_start_task`: Claims or auto-creates a task from a prompt, allocates branch, and locks lease.
+3. `sutra_declare_change`: Registers a tracked change record and allocates a feature branch.
+4. `sutra_push_commit`: Submits modified files with cryptographic SUTRA author provenance.
+5. `sutra_open_pull_request`: Opens linked GitHub PR and triggers automated CI checks.
+6. `sutra_get_status`: Queries real-time lifecycle status, blockers, and CI progress.
+7. `sutra_get_governance`: Evaluates branch rules, required approvals, CI status, and merge readiness.
+8. `sutra_request_merge`: Submits merge evaluation and queues PR for human owner sign-off.
+9. `sutra_get_provenance`: Returns cryptographic author provenance for commit SHAs, tasks, or changes.
+10. `sutra_complete_task`: Records execution summary and validation notes to finalize task.
+11. `sutra_search_knowledge`: Performs semantic and AST code search across repository graph.
+12. `sutra_create_issue`: Creates a tracked GitHub issue or logs technical debt.
+13. `sutra_list_issues`: Lists tracked repository issues to discover backlog items.
+14. `sutra_create_discussion`: Starts an architectural RFC or discussion topic with agent provenance.
+15. `sutra_list_discussions`: Lists repository architectural discussions.
+16. `sutra_comment_discussion`: Posts an informed comment to an existing RFC thread.
+17. `sutra_get_ci_logs`: Ingests CI job logs and step traces for failure diagnosis.
+18. `sutra_get_pr_comments`: Retrieves reviewer feedback and inline comment threads on a PR.
+19. `sutra_add_pr_comment`: Posts a reply or clarifying comment on a PR review thread.
+20. `sutra_clone_repository`: Clones any git repository into SUTRA managed bare storage.
+21. `sutra_import_external_change`: Ingests external commits or PRs into governed change tracking.
+
+---
+
+## 5. Security & Governance Guarantees
+
+1. Zero-Trust Agent Boundary: Agents can formulate code and propose changes, but cannot authorize merges or approve their own pull requests (`reviewer_id != requester_id`).
+2. HEAD-SHA Approval Invalidation: Approvals are cryptographically bound to the commit HEAD SHA. Pushing new commits automatically invalidates existing approvals.
+3. Four-Pillar Policy Engine: Computes mergeability based on:
+   - CI Status: Ingests GitHub Actions checks; failing checks block merge.
+   - Commit Provenance: Confirms whether all commits are linked to verified AgentSessions.
+   - Branch Protection: Enforces branch rules, sensitive file restrictions, and linear history.
+   - Human Review: Enforces required human approval count and zero open blocker threads.
+4. HMAC Webhook Ingestion: Substrate webhooks (`/v1/webhooks/github`) verify HMAC-SHA256 signatures using `GITHUB_WEBHOOK_SECRET`.
+5. Sanitized Audit Ledger: Sensitive authorization headers and credentials are automatically redacted before audit persistence.
+
+---
+
+## 6. Authoritative REST APIs
+
+Base URL: `https://api.sutra.sudarshanai.com/v1`
+
+- `POST /v1/auth/login`: Human authentication; returns JWT.
+- `GET /v1/me`: Returns authenticated profile (Human or Agent).
+- `GET /v1/repositories`: Lists accessible repositories.
+- `POST /v1/agent/tasks/{id}/claim`: Claim task and lock lease.
+- `POST /v1/agent/tasks/{id}/heartbeat`: Extend session lease.
+- `POST /v1/agent/tasks/{id}/changes`: Register Change entity.
+- `POST /v1/agent/tasks/{id}/commit`: Record commit SHA evidence.
+- `POST /v1/agent/tasks/{id}/pull-requests`: Open GitHub PR.
+- `GET /v1/pull-requests/{id}/governance`: Evaluate 4-pillar governance status.
+- `POST /v1/pull-requests/{id}/approve`: Human review approval (requires Human JWT).
+- `POST /v1/pull-requests/{id}/merge`: Governed merge execution (requires Human Owner JWT).
+- `GET /v1/audit/logs`: Query immutable compliance audit ledger.
+
+---
+
+## 7. Machine-Readable Agent Contract (YAML)
+
+```yaml
+sutra_agent_contract:
+  product: "SUTRA"
+  owner: "AchintAI"
+  identity:
+    type: "agent"
+    auth_methods:
+      - "OAuth 2.1 PKCE (/oauth/authorize -> /oauth/token)"
+      - "Session-bound Bearer (Authorization: Bearer sutra_session_...)"
+    lease:
+      absolute_ttl_seconds: 900
+      idle_timeout_seconds: 120
+      heartbeat_renewal: "POST /v1/agent/tasks/{id}/heartbeat"
+  mcp_interface:
+    endpoint: "https://api.sutra.sudarshanai.com/v1/mcp"
+    transport: "Streamable HTTP (RFC 9728)"
+  governance_invariants:
+    agent_merge: false
+    agent_self_approval: false
+    head_sha_invalidation: true
+    merge_authority: "Mandatory human approval on SUTRA control plane."
+```

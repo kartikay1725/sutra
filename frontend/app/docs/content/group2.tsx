@@ -1,20 +1,25 @@
 import React from 'react';
 import { DocSection } from './data';
-import { IdentityAccessFlowGraph, GitWorkflowGraph } from '@/components/docs_graph_flows';
-import { ShieldCheck, Cpu, Key, Lock, Terminal } from 'lucide-react';
+import { IdentityAccessFlowGraph } from '@/components/docs_graph_flows';
+import { DocsHeading, DocsCallout } from '@/components/docs_components';
 
 export const Group2IdentityAccess: DocSection[] = [
   {
     id: "identity-access",
     category: "Identity & Access",
     title: "Identity, Tokens & Capabilities",
+    toc: [
+      { id: "actor-model", label: "Identity & Actor Model" },
+      { id: "agent-sessions", label: "AgentSession Architecture & Leases" },
+      { id: "capabilities-matrix", label: "Capabilities Matrix" },
+    ],
     content: (
       <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
         {/* Identity & Actor Model */}
         <section>
-          <h2 style={{ fontSize: 20, fontWeight: 700, color: "#F5F5F5", marginBottom: 12 }}>
+          <DocsHeading id="actor-model" level={2}>
             Identity & Actor Model
-          </h2>
+          </DocsHeading>
           <p style={{ color: "#A3A3A3", lineHeight: 1.7, marginBottom: 16 }}>
             SUTRA strictly separates human ownership identities from runtime security identities using the <strong style={{ color: "#F5F5F5" }}>Actor Model</strong>.
           </p>
@@ -55,9 +60,9 @@ export const Group2IdentityAccess: DocSection[] = [
 
         {/* AgentSession Leases & Token Architecture */}
         <section>
-          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F5F5F5", marginBottom: 12 }}>
+          <DocsHeading id="agent-sessions" level={2}>
             AgentSession Architecture & Leases
-          </h3>
+          </DocsHeading>
           <p style={{ color: "#A3A3A3", lineHeight: 1.7, marginBottom: 16 }}>
             Agents authenticate using short-lived <strong style={{ color: "#F5F5F5" }}>AgentSession</strong> leases (<code style={{ color: "#F97316" }}>sutra_session_...</code>) or OAuth 2.1 access tokens (<code style={{ color: "#F97316" }}>sutra_mcp_at_...</code>).
           </p>
@@ -71,25 +76,21 @@ export const Group2IdentityAccess: DocSection[] = [
               <p style={{ fontSize: 12, color: "#A3A3A3", margin: 0 }}>Sessions expire immediately if an agent becomes inactive without sending requests.</p>
             </div>
             <div style={{ padding: 16, border: "1px solid #242424", borderRadius: 8, background: "#151515" }}>
-              <div style={{ color: "#22C55E", fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Task Binding</div>
+              <div style={{ color: "#3B82F6", fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Task Binding</div>
               <p style={{ fontSize: 12, color: "#A3A3A3", margin: 0 }}>Sessions are tightly coupled to the claimed task and repository scope.</p>
             </div>
           </div>
-          <div style={{ padding: 16, border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: 8, background: "rgba(239, 68, 68, 0.05)", marginBottom: 16 }}>
-            <div style={{ color: "#EF4444", fontWeight: 700, fontSize: 13, marginBottom: 4 }}>
-              Critical Architecture Rule: Instructions vs. Server-Side Enforcement
-            </div>
-            <p style={{ fontSize: 12, color: "#A3A3A3", lineHeight: 1.6, margin: 0 }}>
-              Instruction files like <code style={{ color: "#F5F5F5" }}>AGENTS.md</code> or <code style={{ color: "#F5F5F5" }}>.cursorrules</code> are prompt guidance for coding models — <strong>they are NOT the security boundary</strong>. SUTRA server-side token authentication, capability checks, commit provenance verification, and human review gates are enforced at the API and control-plane layer. Removing an instruction file does NOT remove or bypass SUTRA governance.
-            </p>
-          </div>
+
+          <DocsCallout type="security" title="Critical Architecture Rule: Instructions vs. Server-Side Enforcement">
+            Instruction files like <code style={{ color: "#F5F5F5" }}>AGENTS.md</code> or <code style={{ color: "#F5F5F5" }}>.cursorrules</code> are prompt guidance for coding models — <strong>they are NOT the security boundary</strong>. SUTRA server-side token authentication, capability checks, commit provenance verification, and human review gates are enforced at the API and control-plane layer. Removing an instruction file does NOT remove or bypass SUTRA governance.
+          </DocsCallout>
         </section>
 
         {/* Capabilities Matrix */}
         <section>
-          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#F5F5F5", marginBottom: 12 }}>
+          <DocsHeading id="capabilities-matrix" level={2}>
             Capabilities Matrix
-          </h3>
+          </DocsHeading>
           <p style={{ color: "#A3A3A3", lineHeight: 1.7, marginBottom: 16 }}>
             Every Agent Actor has an explicit list of capabilities. If a capability is missing or revoked, the action is blocked immediately.
           </p>

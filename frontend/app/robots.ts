@@ -18,6 +18,9 @@ export default function robots(): MetadataRoute.Robots {
         "/icon.png",
         "/logo-s.png",
         "/logo.svg",
+        "/llms.txt",
+        "/llms-full.txt",
+        "/docs/index.json",
       ],
       disallow: [
         "/v1/",

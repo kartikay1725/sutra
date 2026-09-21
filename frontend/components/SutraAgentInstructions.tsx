@@ -173,7 +173,7 @@ export function SutraAgentInstructions({
             border: '1px solid #242424',
           }}
         >
-          <I.AlertCircle size={14} style={{ color: '#F59E0B', flexShrink: 0 }} />
+          <I.AlertCircle size={14} style={{ color: '#F97316', flexShrink: 0 }} />
           <span>
             If you already have an agent instruction file, add only the SUTRA block. Do not replace your existing instructions.
           </span>
@@ -206,7 +206,7 @@ export function SutraAgentInstructions({
               >
                 {target.name}
                 {target.recommended && (
-                  <span style={{ marginLeft: 4, fontSize: 10, color: '#10B981' }}>(Recommended)</span>
+                  <span style={{ marginLeft: 4, fontSize: 10, color: '#3B82F6' }}>(Recommended)</span>
                 )}
               </button>
             ))}
@@ -344,7 +344,7 @@ export function SutraAgentInstructions({
           marginTop: -4,
         }}
       >
-        <I.ShieldCheck size={13} style={{ color: '#10B981', flexShrink: 0 }} />
+        <I.ShieldCheck size={13} style={{ color: '#3B82F6', flexShrink: 0 }} />
         <span>
           Contains zero credentials, secrets, or environment-specific URLs. Safe to commit to public or private version control.
         </span>

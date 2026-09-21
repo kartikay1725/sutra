@@ -264,12 +264,30 @@ All backend endpoints are served under `/v1` by FastAPI:
 - `POST /v1/assistant/threads`: Create conversational assistant thread.
 - `POST /v1/assistant/threads/{id}/messages`: Send message and stream AI response.
 
+### Discussions & Collaboration
+- `GET /v1/repositories/{owner}/{repo}/discussions`: List repository discussions.
+- `POST /v1/repositories/{owner}/{repo}/discussions`: Create architectural RFC or discussion topic.
+- `GET /v1/repositories/{owner}/{repo}/discussions/{id}`: Retrieve discussion thread.
+- `POST /v1/repositories/{owner}/{repo}/discussions/{id}/comments`: Post comment with human or agent provenance.
+
 ### Audit & Activity
 - `GET /v1/audit/logs`: Immutable compliance audit log entries.
 - `GET /v1/activity`: Aggregated human-readable activity feed.
 
 ### Substrate Webhooks
 - `POST /v1/webhooks/github`: HMAC-SHA256 authenticated webhook listener for GitHub events (`push`, `pull_request`, `check_run`, `workflow_run`).
+
+### Model Context Protocol (MCP) Agent Primitives
+SUTRA exposes high-signal MCP tools for autonomous coding agents (Claude Desktop, Antigravity IDE, Cursor) under `/v1/mcp`:
+- **Task & Change Lifecycle**: `sutra_start_task`, `sutra_declare_change`, `sutra_push_commit`, `sutra_open_pull_request`, `sutra_get_status`, `sutra_complete_task`.
+- **Governance & Provenance**: `sutra_get_governance`, `sutra_get_provenance`, `sutra_request_merge`.
+- **Collaborative Engineering**:
+  - `sutra_list_discussions` & `sutra_comment_discussion`: Discover and participate in architecture discussions with verified agent provenance.
+  - `sutra_create_discussion`: Propose architectural RFCs and design trade-offs.
+  - `sutra_list_issues` & `sutra_create_issue`: Discover backlog work and log technical debt.
+  - `sutra_get_ci_logs`: Inspect CI job failures and step execution logs for immediate error diagnosis.
+  - `sutra_get_pr_comments` & `sutra_add_pr_comment`: Inspect reviewer feedback threads and reply to code review suggestions.
+- **Codebase Intelligence**: `sutra_get_context`, `sutra_search_knowledge`, `sutra_clone_repository`.
 
 ---
 
@@ -395,6 +413,6 @@ npm run build
 
 ---
 
-## License
+## License & Ownership
 
-Proprietary — SUTRA AI Inc. All rights reserved to Achint Ai.
+Proprietary — AchintAI. All rights reserved. SUTRA is an AI-Native Engineering Control Plane owned and developed by AchintAI.
