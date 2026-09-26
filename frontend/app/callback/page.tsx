@@ -3,7 +3,7 @@
 import React, { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle2, XCircle, ArrowLeft, ShieldAlert } from "lucide-react";
+import { CheckCircle2, XCircle, ArrowLeft, ShieldAlert, Laptop } from "lucide-react";
 
 function CallbackContent() {
   const searchParams = useSearchParams();
@@ -17,7 +17,7 @@ function CallbackContent() {
   const isSuccess = Boolean(code);
 
   let title = "Authorization Callback";
-  let message = "Processing authorization callback...";
+  let message = "Processing sovereign authorization callback...";
   let statusBadge = "MCP · OAuth 2.1";
 
   if (isCancelled) {
@@ -29,8 +29,8 @@ function CallbackContent() {
     message = errorDescription || `OAuth error: ${error}`;
     statusBadge = "Error";
   } else if (isSuccess) {
-    title = "Authorization Granted";
-    message = "An authorization code was successfully granted. Your MCP coding client will now complete the connection.";
+    title = "Authorization Attested";
+    message = "An authorization code was securely granted. Your MCP coding client has established sovereign session authority.";
     statusBadge = "Connected";
   }
 
@@ -38,211 +38,200 @@ function CallbackContent() {
     <div
       style={{
         minHeight: "100vh",
-        background: "#0B0B0F radial-gradient(circle at 50% 25%, #181E28 0%, #0B0B0F 80%)",
+        background: "radial-gradient(ellipse at 50% 20%, rgba(249, 115, 22, 0.08) 0%, #0B0B0B 75%)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         padding: "24px",
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif',
-        color: "#F0F6FC",
+        color: "var(--text-primary)",
       }}
     >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "460px",
-          background: "#111418",
-          border: "1px solid #202632",
-          borderRadius: "16px",
-          padding: "36px 32px",
-          boxShadow: "0 24px 64px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.04)",
-          textAlign: "center",
-        }}
-      >
-        {/* Brand Header */}
+      <div className="bezel-shell" style={{ width: "100%", maxWidth: "480px" }}>
         <div
+          className="bezel-core"
           style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "10px",
-            marginBottom: "20px",
-            fontSize: "18px",
-            fontWeight: 800,
-            letterSpacing: "-0.02em",
+            padding: "40px 32px",
+            textAlign: "center",
+            background: "linear-gradient(180deg, #131317 0%, #0D0D10 100%)",
+            boxShadow: "0 24px 64px rgba(0, 0, 0, 0.7)",
           }}
         >
-          <img
-            src="/icon.png"
-            alt="SUTRA"
-            width={32}
-            height={32}
+          {/* Brand Header */}
+          <div
             style={{
-              width: "32px",
-              height: "32px",
-              objectFit: "contain",
-              borderRadius: "8px",
-              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.4)",
-            }}
-          />
-          <span style={{ color: "#F0F6FC" }}>SUTRA</span>
-        </div>
-
-        {/* Status Icon */}
-        <div
-          style={{
-            width: "56px",
-            height: "56px",
-            borderRadius: "50%",
-            background: isError
-              ? "rgba(249, 115, 22, 0.12)"
-              : "rgba(59, 130, 246, 0.12)",
-            border: `1px solid ${
-              isError ? "rgba(249, 115, 22, 0.3)" : "rgba(59, 130, 246, 0.3)"
-            }`,
-            color: isError ? "#F97316" : "#60A5FA",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            margin: "0 auto 20px auto",
-          }}
-        >
-          {isCancelled ? (
-            <XCircle size={28} />
-          ) : isError ? (
-            <ShieldAlert size={28} />
-          ) : (
-            <CheckCircle2 size={28} />
-          )}
-        </div>
-
-        {/* Badge */}
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "6px",
-            padding: "3px 10px",
-            borderRadius: "4px",
-            fontSize: "11px",
-            fontWeight: 700,
-            textTransform: "uppercase",
-            letterSpacing: "0.06em",
-            marginBottom: "12px",
-            background: isError
-              ? "rgba(249, 115, 22, 0.1)"
-              : "rgba(59, 130, 246, 0.1)",
-            border: `1px solid ${
-              isError ? "rgba(249, 115, 22, 0.25)" : "rgba(59, 130, 246, 0.25)"
-            }`,
-            color: isError ? "#FB923C" : "#60A5FA",
-          }}
-        >
-          <span
-            style={{
-              width: "5px",
-              height: "5px",
-              borderRadius: "50%",
-              backgroundColor: "currentColor",
-            }}
-          />
-          {statusBadge}
-        </div>
-
-        {/* Title */}
-        <h1
-          style={{
-            fontSize: "22px",
-            fontWeight: 700,
-            marginBottom: "10px",
-            letterSpacing: "-0.02em",
-            color: "#F0F6FC",
-          }}
-        >
-          {title}
-        </h1>
-
-        {/* Message */}
-        <p
-          style={{
-            fontSize: "13.5px",
-            color: "#8B949E",
-            lineHeight: 1.6,
-            marginBottom: "28px",
-          }}
-        >
-          {message}
-        </p>
-
-        {/* Next step guidance */}
-        <div
-          style={{
-            padding: "16px",
-            borderRadius: "8px",
-            background: "#161B22",
-            border: "1px solid #202632",
-            marginBottom: "24px",
-            fontSize: "12.5px",
-            color: "#C9D1D9",
-            lineHeight: 1.5,
-          }}
-        >
-          You can now safely close this browser tab and return to your IDE or terminal.
-        </div>
-
-        {/* Actions */}
-        <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
-          <button
-            type="button"
-            onClick={() => window.close()}
-            style={{
-              padding: "9px 20px",
-              borderRadius: "8px",
-              fontSize: "13px",
-              fontWeight: 600,
-              background: "#161B22",
-              border: "1px solid #2D333B",
-              color: "#C9D1D9",
-              cursor: "pointer",
-              transition: "all 0.15s ease",
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.borderColor = "#38414D";
-              e.currentTarget.style.color = "#FFFFFF";
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.borderColor = "#2D333B";
-              e.currentTarget.style.color = "#C9D1D9";
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "10px",
+              marginBottom: "24px",
+              fontSize: "18px",
+              fontWeight: 800,
+              letterSpacing: "0.04em",
             }}
           >
-            Close Tab
-          </button>
-          <Link
-            href="/"
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                overflow: "hidden",
+                background: "rgba(255, 255, 255, 0.05)",
+                border: "1px solid rgba(255, 255, 255, 0.1)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <img
+                src="/icon.png"
+                alt="SUTRA"
+                width={24}
+                height={24}
+                style={{ width: "24px", height: "24px", objectFit: "contain" }}
+              />
+            </div>
+            <span style={{ color: "#FFFFFF" }}>SUTRA</span>
+          </div>
+
+          {/* Status Icon with Ambient Halo */}
+          <div
+            style={{
+              width: "64px",
+              height: "64px",
+              borderRadius: "20px",
+              background: isError
+                ? "rgba(239, 68, 68, 0.12)"
+                : "rgba(249, 115, 22, 0.12)",
+              border: `1px solid ${
+                isError ? "rgba(239, 68, 68, 0.3)" : "rgba(249, 115, 22, 0.3)"
+              }`,
+              color: isError ? "#EF4444" : "var(--accent)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 20px auto",
+              boxShadow: isError
+                ? "0 0 24px rgba(239, 68, 68, 0.2)"
+                : "0 0 24px rgba(249, 115, 22, 0.2)",
+            }}
+          >
+            {isCancelled ? (
+              <XCircle size={30} />
+            ) : isError ? (
+              <ShieldAlert size={30} />
+            ) : (
+              <CheckCircle2 size={30} />
+            )}
+          </div>
+
+          {/* Status Chip */}
+          <div
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: "6px",
-              padding: "9px 20px",
-              borderRadius: "8px",
-              fontSize: "13px",
+              gap: "7px",
+              padding: "3px 10px",
+              borderRadius: "5px",
+              fontSize: "11px",
+              fontFamily: "var(--font-mono, monospace)",
               fontWeight: 600,
-              background: "#F97316",
-              border: "1px solid #EA580C",
-              color: "#FFFFFF",
-              textDecoration: "none",
-              boxShadow: "0 2px 8px rgba(249, 115, 22, 0.25)",
-              transition: "all 0.15s ease",
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.background = "#FB8C24";
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.background = "#F97316";
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              marginBottom: "16px",
+              background: isError
+                ? "rgba(239, 68, 68, 0.08)"
+                : "rgba(249, 115, 22, 0.08)",
+              border: `1px solid ${
+                isError ? "rgba(239, 68, 68, 0.22)" : "rgba(249, 115, 22, 0.22)"
+              }`,
+              color: isError ? "#EF4444" : "var(--accent)",
             }}
           >
-            <ArrowLeft size={14} /> Return to SUTRA
-          </Link>
+            <span
+              style={{
+                width: "6px",
+                height: "6px",
+                borderRadius: "50%",
+                backgroundColor: "currentColor",
+                boxShadow: isError ? "0 0 6px #EF4444" : "0 0 6px var(--accent)",
+              }}
+            />
+            {statusBadge}
+          </div>
+
+          {/* Title */}
+          <h1
+            style={{
+              fontSize: "24px",
+              fontWeight: 700,
+              marginBottom: "10px",
+              letterSpacing: "-0.02em",
+              color: "#FFFFFF",
+            }}
+          >
+            {title}
+          </h1>
+
+          {/* Message */}
+          <p
+            style={{
+              fontSize: "14px",
+              color: "var(--text-secondary)",
+              lineHeight: 1.6,
+              marginBottom: "28px",
+            }}
+          >
+            {message}
+          </p>
+
+          {/* Next step guidance */}
+          <div
+            className="input-recessed"
+            style={{
+              padding: "16px",
+              marginBottom: "24px",
+              fontSize: "13px",
+              color: "var(--text-secondary)",
+              lineHeight: 1.5,
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              textAlign: "left",
+            }}
+          >
+            <Laptop size={18} style={{ color: "var(--accent)", flexShrink: 0 }} />
+            <span>You can now safely return to your IDE or terminal. Session authority is active.</span>
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => window.close()}
+              className="btn-island-ghost"
+              style={{
+                padding: "10px 20px",
+                fontSize: "13px",
+                fontWeight: 600,
+              }}
+            >
+              Close Tab
+            </button>
+            <Link
+              href="/"
+              className="btn-island"
+              style={{
+                padding: "10px 18px",
+                fontSize: "13px",
+                fontWeight: 600,
+              }}
+            >
+              <span>Return to SUTRA</span>
+              <span className="icon-pill">
+                <ArrowLeft size={12} />
+              </span>
+            </Link>
+          </div>
         </div>
       </div>
     </div>
@@ -256,14 +245,14 @@ export default function CallbackPage() {
         <div
           style={{
             minHeight: "100vh",
-            background: "#0B0B0F",
+            background: "#0B0B0B",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            color: "#8B949E",
+            color: "var(--text-muted)",
           }}
         >
-          Loading...
+          <div className="spinner" style={{ margin: "0 auto" }}></div>
         </div>
       }
     >
@@ -271,3 +260,4 @@ export default function CallbackPage() {
     </Suspense>
   );
 }
+

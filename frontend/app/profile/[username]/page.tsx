@@ -249,9 +249,6 @@ export default async function PublicProfile({
             </div>
 
             <div className="profile-actions">
-              <FollowButton
-                username={profile.username}
-              />
 
               <ShareProfileButton
                 username={profile.username}

@@ -294,8 +294,8 @@ export function LandingPage() {
                 className="btn primary"
                 onClick={() => trackEvent("click_cta", "navigation", "nav_open_dashboard")}
                 style={{
-                  padding: "8px 20px",
-                  borderRadius: 999,
+                  padding: "8px 18px",
+                  borderRadius: 8,
                   fontSize: 13,
                   fontWeight: 600,
                   textDecoration: "none",
@@ -324,17 +324,17 @@ export function LandingPage() {
                 </Link>
                 <Link
                   href="/register"
-                  className="btn primary"
+                  className="btn-island"
                   onClick={() => trackEvent("click_cta", "navigation", "nav_get_started")}
                   style={{
-                    padding: "8px 20px",
-                    borderRadius: 999,
                     fontSize: 13,
                     fontWeight: 600,
-                    textDecoration: "none",
                   }}
                 >
-                  Get Started
+                  <span>Get Started</span>
+                  <span className="icon-pill">
+                    <ArrowRight size={12} />
+                  </span>
                 </Link>
               </>
             )}
@@ -461,43 +461,66 @@ export function LandingPage() {
             zIndex: 10,
           }}
         >
+          {/* Engineering context kicker (understated monospace typography without AI pill badge) */}
           <div
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: 8,
-              padding: "6px 14px",
-              borderRadius: 999,
-              background: "rgba(249, 115, 22, 0.1)",
-              border: "1px solid rgba(249, 115, 22, 0.28)",
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: "0.14em",
+              gap: 10,
+              marginBottom: 20,
+              fontSize: 12,
+              fontWeight: 600,
+              color: "#94A3B8",
+              letterSpacing: "0.06em",
               textTransform: "uppercase",
-              color: "#F97316",
-              marginBottom: 24,
+              fontFamily: "var(--font-mono, ui-monospace, monospace)",
             }}
           >
-            AN ENVIRONMENT THAT ACTUALLY MAKES YOUR CODE SAFE FOR AGENTS
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: "var(--accent, #F97316)",
+                boxShadow: "0 0 8px rgba(249, 115, 22, 0.6)",
+                display: "inline-block",
+              }}
+            />
+            <span>Autonomous Engineering Control Plane</span>
           </div>
 
           <h1
             style={{
-              fontSize: "clamp(32px, 5.5vw, 56px)",
+              fontSize: "clamp(34px, 5.8vw, 58px)",
               fontWeight: 800,
               lineHeight: 1.12,
               letterSpacing: "-0.03em",
-              maxWidth: 920,
-              margin: "0 auto 24px",
+              maxWidth: 940,
+              margin: "0 auto 20px",
               color: "#F2F5F8",
             }}
           >
             AI agents that can actually ship software.
           </h1>
 
+          {/* Core premise preserved with editorial authority */}
           <p
             style={{
-              fontSize: "clamp(16px, 2vw, 19px)",
+              fontSize: "clamp(18px, 2.2vw, 22px)",
+              fontWeight: 500,
+              lineHeight: 1.45,
+              color: "#E2E8F0",
+              maxWidth: 820,
+              margin: "0 auto 16px",
+              letterSpacing: "-0.01em",
+            }}
+          >
+            An environment that actually makes your code safe for agents.
+          </p>
+
+          <p
+            style={{
+              fontSize: "clamp(15px, 1.8vw, 17px)",
               lineHeight: 1.6,
               color: "#A8B1BD",
               maxWidth: 780,
@@ -519,164 +542,132 @@ export function LandingPage() {
           >
             <Link
               href="/register"
-              style={{ textDecoration: "none" }}
+              className="btn-island"
               onClick={() => trackEvent("click_cta", "marketing", "hero_get_started")}
+              style={{ padding: "12px 26px 12px 28px", fontSize: 15 }}
             >
-              <button
-                className="btn primary"
-                style={{
-                  padding: "14px 34px",
-                  fontSize: 15,
-                  fontWeight: 600,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  background: "#F97316",
-                  boxShadow: "0 4px 16px rgba(249, 115, 22, 0.25)",
-                  borderRadius: 10,
-                  color: "#ffffff",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                Get Started
-                <ArrowRight size={16} />
-              </button>
+              <span>Get Started</span>
+              <span className="icon-pill" style={{ width: 28, height: 28 }}>
+                <ArrowRight size={14} />
+              </span>
             </Link>
 
             <a
               href="#how-it-works"
-              className="btn"
+              className="btn-island-ghost"
               onClick={() => trackEvent("click_anchor", "marketing", "hero_how_it_works")}
-              style={{
-                padding: "14px 28px",
-                borderRadius: 999,
-                fontSize: 15,
-                fontWeight: 500,
-                textDecoration: "none",
-                color: "#F5F5F5",
-                background: "#151515",
-                border: "1px solid #242424",
-              }}
+              style={{ padding: "12px 24px", fontSize: 15 }}
             >
               See How SUTRA Works
             </a>
 
             <Link
               href="/docs"
-              className="btn guide"
+              className="btn-island-ghost"
               onClick={() => trackEvent("click_docs", "marketing", "hero_docs")}
-              style={{
-                padding: "14px 22px",
-                borderRadius: 999,
-                fontSize: 14,
-                height: "auto",
-                textDecoration: "none",
-              }}
+              style={{ padding: "12px 24px", fontSize: 15, display: "inline-flex", alignItems: "center", gap: 8 }}
             >
-              <BookOpen size={15} />
+              <BookOpen size={16} />
               Read Documentation
             </Link>
           </div>
 
           {/* Hero Visual: Task -> Agent -> Code -> Git -> CI -> Review -> Merge */}
-          <div
-            style={{
-              maxWidth: 1020,
-              margin: "0 auto",
-              background: "#111111",
-              border: "1px solid #242424",
-              borderRadius: 16,
-              padding: "32px 24px",
-              boxShadow: "0 24px 60px rgba(0, 0, 0, 0.6)",
-            }}
-          >
+          <div className="bezel-shell" style={{ maxWidth: 1040, margin: "0 auto" }}>
             <div
+              className="bezel-core"
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 20,
-                flexWrap: "wrap",
-                gap: 10,
+                padding: "32px 24px",
+                background: "linear-gradient(180deg, #131317 0%, #0D0D10 100%)",
               }}
             >
               <div
                 style={{
-                  fontSize: 12,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.12em",
-                  color: "#F97316",
-                  fontWeight: 700,
-                }}
-              >
-                Controlled Engineering Execution Pipeline
-              </div>
-              <Link
-                href="/docs#git-http-agent-workflow"
-                style={{
-                  fontSize: 12,
-                  color: "#C4C4C4",
-                  display: "inline-flex",
+                  display: "flex",
                   alignItems: "center",
-                  gap: 4,
+                  justifyContent: "space-between",
+                  marginBottom: 20,
+                  flexWrap: "wrap",
+                  gap: 10,
                 }}
               >
-                Workflow Guide <ArrowRight size={12} />
-              </Link>
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(115px, 1fr))",
-                gap: 12,
-                alignItems: "center",
-              }}
-            >
-              {[
-                { title: "Task", icon: Terminal, desc: "Intent Defined", color: "#F97316" },
-                { title: "Agent", icon: Cpu, desc: "Scoped Session", color: "#F97316" },
-                { title: "Code", icon: FileCode, desc: "Files Changed", color: "#3B82F6" },
-                { title: "Git", icon: GitBranch, desc: "Real Commits", color: "#3B82F6" },
-                { title: "CI", icon: CheckCircle2, desc: "Automated Checks", color: "#22C55E" },
-                { title: "Review", icon: Eye, desc: "Human Sign-off", color: "#F59E0B" },
-                { title: "Merge", icon: CheckCheck, desc: "Verified Commit", color: "#22C55E" },
-              ].map((step) => (
                 <div
-                  key={step.title}
                   style={{
-                    background: "#151515",
-                    border: "1px solid #242424",
-                    borderRadius: 10,
-                    padding: "16px 10px",
-                    textAlign: "center",
-                    position: "relative",
-                    transition: "border-color 0.18s",
+                    fontSize: 11,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.14em",
+                    color: "var(--accent)",
+                    fontWeight: 700,
                   }}
                 >
+                  Controlled Engineering Execution Pipeline
+                </div>
+                <Link
+                  href="/docs#git-http-agent-workflow"
+                  style={{
+                    fontSize: 12,
+                    color: "var(--text-muted)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                >
+                  Workflow Guide <ArrowRight size={12} />
+                </Link>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(115px, 1fr))",
+                  gap: 12,
+                  alignItems: "center",
+                }}
+              >
+                {[
+                  { title: "Task", icon: Terminal, desc: "Intent Defined", color: "#F97316" },
+                  { title: "Agent", icon: Cpu, desc: "Scoped Session", color: "#F97316" },
+                  { title: "Code", icon: FileCode, desc: "Files Changed", color: "#3B82F6" },
+                  { title: "Git", icon: GitBranch, desc: "Real Commits", color: "#3B82F6" },
+                  { title: "CI", icon: CheckCircle2, desc: "Automated Checks", color: "#22C55E" },
+                  { title: "Review", icon: Eye, desc: "Human Sign-off", color: "#F59E0B" },
+                  { title: "Merge", icon: CheckCheck, desc: "Verified Commit", color: "#22C55E" },
+                ].map((step) => (
                   <div
+                    key={step.title}
+                    className="card-haptic"
                     style={{
-                      width: 34,
-                      height: 34,
-                      borderRadius: "50%",
-                      background: "rgba(255, 255, 255, 0.04)",
-                      border: `1px solid ${step.color}50`,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      margin: "0 auto 10px",
-                      color: step.color,
+                      background: "rgba(255, 255, 255, 0.02)",
+                      border: "1px solid rgba(255, 255, 255, 0.06)",
+                      borderRadius: 12,
+                      padding: "18px 10px",
+                      textAlign: "center",
+                      position: "relative",
                     }}
                   >
-                    <step.icon size={16} />
+                    <div
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: "50%",
+                        background: "rgba(255, 255, 255, 0.04)",
+                        border: `1px solid ${step.color}50`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        margin: "0 auto 10px",
+                        color: step.color,
+                      }}
+                    >
+                      <step.icon size={16} />
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#F5F5F5", marginBottom: 2 }}>
+                      {step.title}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{step.desc}</div>
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#F5F5F5", marginBottom: 2 }}>
-                    {step.title}
-                  </div>
-                  <div style={{ fontSize: 11, color: "#8A8A8A" }}>{step.desc}</div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </section>
@@ -736,167 +727,168 @@ export function LandingPage() {
           }}
         >
           {/* COLUMN 1: WHAT GITHUB DOES */}
-          <div
-            style={{
-              background: "#151515",
-              border: "1px solid #242424",
-              borderRadius: 16,
-              padding: "32px 28px",
-              display: "flex",
-              flexDirection: "column",
-              gap: 20,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 12, borderBottom: "1px solid #242424", paddingBottom: 18 }}>
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 10,
-                  background: "rgba(255, 255, 255, 0.05)",
-                  border: "1px solid #2A2A2A",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#F5F5F5",
-                }}
-              >
-                <GitBranch size={20} />
-              </div>
-              <div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: "#F5F5F5" }}>What GitHub Does</div>
-                <div style={{ fontSize: 12, color: "#737373" }}>The Source Code &amp; Team Collaboration Hub</div>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 16, flex: 1 }}>
-              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                <div style={{ color: "#737373", marginTop: 2 }}><CheckCircle2 size={16} /></div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Stores Git Repositories</div>
-                  <div style={{ fontSize: 13, color: "#A3A3A3", marginTop: 2 }}>Hosts your main branches, commit history, releases, and repository tree.</div>
-                </div>
-              </div>
-
-              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                <div style={{ color: "#737373", marginTop: 2 }}><CheckCircle2 size={16} /></div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Hosts Pull Requests &amp; Issues</div>
-                  <div style={{ fontSize: 13, color: "#A3A3A3", marginTop: 2 }}>Provides issue boards, discussion threads, and team code review comments.</div>
-                </div>
-              </div>
-
-              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                <div style={{ color: "#737373", marginTop: 2 }}><CheckCircle2 size={16} /></div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Runs GitHub Actions &amp; Webhooks</div>
-                  <div style={{ fontSize: 13, color: "#A3A3A3", marginTop: 2 }}>Triggers basic CI runners, deployment webhooks, and status checks on push.</div>
-                </div>
-              </div>
-
-              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                <div style={{ color: "#737373", marginTop: 2 }}><CheckCircle2 size={16} /></div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Manages Human Permissions</div>
-                  <div style={{ fontSize: 13, color: "#A3A3A3", marginTop: 2 }}>Controls team read/write access and organization memberships.</div>
-                </div>
-              </div>
-            </div>
-
+          <div className="bezel-shell">
             <div
+              className="bezel-core"
               style={{
-                background: "#0B0B0B",
-                border: "1px solid #242424",
-                borderRadius: 10,
-                padding: "12px 16px",
-                fontSize: 12,
-                color: "#737373",
+                padding: "32px 28px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 20,
+                height: "100%",
               }}
             >
-              <strong style={{ color: "#A3A3A3" }}>Limitation:</strong> GitHub treats AI agents like generic users with static tokens. It cannot bound agent execution, inspect task intent, or prevent silent rogue changes.
+              <div style={{ display: "flex", alignItems: "center", gap: 12, borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: 18 }}>
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    background: "rgba(255, 255, 255, 0.05)",
+                    border: "1px solid rgba(255, 255, 255, 0.08)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#F5F5F5",
+                  }}
+                >
+                  <GitBranch size={20} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#F5F5F5" }}>What GitHub Does</div>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>The Source Code &amp; Team Collaboration Hub</div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 16, flex: 1 }}>
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <div style={{ color: "var(--text-muted)", marginTop: 2 }}><CheckCircle2 size={16} /></div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Stores Git Repositories</div>
+                    <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>Hosts your main branches, commit history, releases, and repository tree.</div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <div style={{ color: "var(--text-muted)", marginTop: 2 }}><CheckCircle2 size={16} /></div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Hosts Pull Requests &amp; Issues</div>
+                    <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>Provides issue boards, discussion threads, and team code review comments.</div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <div style={{ color: "var(--text-muted)", marginTop: 2 }}><CheckCircle2 size={16} /></div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Runs GitHub Actions &amp; Webhooks</div>
+                    <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>Triggers basic CI runners, deployment webhooks, and status checks on push.</div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <div style={{ color: "var(--text-muted)", marginTop: 2 }}><CheckCircle2 size={16} /></div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Manages Human Permissions</div>
+                    <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>Controls team read/write access and organization memberships.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                className="input-recessed"
+                style={{
+                  padding: "12px 16px",
+                  fontSize: 12,
+                  color: "var(--text-muted)",
+                }}
+              >
+                <strong style={{ color: "var(--text-secondary)" }}>Limitation:</strong> GitHub treats AI agents like generic users with static tokens. It cannot bound agent execution, inspect task intent, or prevent silent rogue changes.
+              </div>
             </div>
           </div>
 
           {/* COLUMN 2: WHAT SUTRA DOES */}
-          <div
-            style={{
-              background: "#151515",
-              border: "1px solid rgba(249, 115, 22, 0.4)",
-              borderRadius: 16,
-              padding: "32px 28px",
-              display: "flex",
-              flexDirection: "column",
-              gap: 20,
-              boxShadow: "0 8px 32px rgba(249, 115, 22, 0.08)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 12, borderBottom: "1px solid #242424", paddingBottom: 18 }}>
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 10,
-                  background: "rgba(249, 115, 22, 0.12)",
-                  border: "1px solid rgba(249, 115, 22, 0.3)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#F97316",
-                }}
-              >
-                <ShieldCheck size={20} />
-              </div>
-              <div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: "#F5F5F5" }}>What SUTRA Does</div>
-                <div style={{ fontSize: 12, color: "#F97316", fontWeight: 600 }}>The Safe Autonomous Engineering Control Plane</div>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 16, flex: 1 }}>
-              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                <div style={{ color: "#F97316", marginTop: 2 }}><CheckCircle2 size={16} /></div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Zero Direct Access to Main Branches</div>
-                  <div style={{ fontSize: 13, color: "#A3A3A3", marginTop: 2 }}>Agents are constrained to ephemeral, isolated workspaces with short-lived credentials.</div>
-                </div>
-              </div>
-
-              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                <div style={{ color: "#F97316", marginTop: 2 }}><CheckCircle2 size={16} /></div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Living Architecture Knowledge Graph</div>
-                  <div style={{ fontSize: 13, color: "#A3A3A3", marginTop: 2 }}>Agents consult codebase dependencies first, eliminating blind guesswork and cross-file regressions.</div>
-                </div>
-              </div>
-
-              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                <div style={{ color: "#F97316", marginTop: 2 }}><CheckCircle2 size={16} /></div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Cryptographic Code Provenance</div>
-                  <div style={{ fontSize: 13, color: "#A3A3A3", marginTop: 2 }}>Every commit is digitally stamped with complete history: which agent wrote it, why, and what tests ran.</div>
-                </div>
-              </div>
-
-              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                <div style={{ color: "#F97316", marginTop: 2 }}><CheckCircle2 size={16} /></div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Mandatory Human Approval Gate</div>
-                  <div style={{ fontSize: 13, color: "#A3A3A3", marginTop: 2 }}>Agents are programmatically blocked from self-merging. A verified human must review and approve.</div>
-                </div>
-              </div>
-            </div>
-
+          <div className="bezel-shell" style={{ borderColor: "rgba(249, 115, 22, 0.3)" }}>
             <div
+              className="bezel-core"
               style={{
-                background: "rgba(249, 115, 22, 0.08)",
-                border: "1px solid rgba(249, 115, 22, 0.25)",
-                borderRadius: 10,
-                padding: "12px 16px",
-                fontSize: 12,
-                color: "#F5F5F5",
+                padding: "32px 28px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 20,
+                height: "100%",
+                background: "linear-gradient(180deg, rgba(249, 115, 22, 0.05) 0%, #111114 100%)",
+                boxShadow: "0 8px 32px rgba(249, 115, 22, 0.08)",
               }}
             >
-              <strong style={{ color: "#F97316" }}>SUTRA Advantage:</strong> Works alongside your existing GitHub repositories without replacing your source code host.
+              <div style={{ display: "flex", alignItems: "center", gap: 12, borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: 18 }}>
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    background: "rgba(249, 115, 22, 0.12)",
+                    border: "1px solid rgba(249, 115, 22, 0.3)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "var(--accent)",
+                  }}
+                >
+                  <ShieldCheck size={20} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#F5F5F5" }}>What SUTRA Does</div>
+                  <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600 }}>The Safe Autonomous Engineering Control Plane</div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 16, flex: 1 }}>
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <div style={{ color: "var(--accent)", marginTop: 2 }}><CheckCircle2 size={16} /></div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Zero Direct Access to Main Branches</div>
+                    <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>Agents are constrained to ephemeral, isolated workspaces with short-lived credentials.</div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <div style={{ color: "var(--accent)", marginTop: 2 }}><CheckCircle2 size={16} /></div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Living Architecture Knowledge Graph</div>
+                    <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>Agents consult codebase dependencies first, eliminating blind guesswork and cross-file regressions.</div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <div style={{ color: "var(--accent)", marginTop: 2 }}><CheckCircle2 size={16} /></div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Cryptographic Code Provenance</div>
+                    <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>Every commit is digitally stamped with complete history: which agent wrote it, why, and what tests ran.</div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <div style={{ color: "var(--accent)", marginTop: 2 }}><CheckCircle2 size={16} /></div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F5" }}>Mandatory Human Approval Gate</div>
+                    <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>Agents are programmatically blocked from self-merging. A verified human must review and approve.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: "rgba(249, 115, 22, 0.08)",
+                  border: "1px solid rgba(249, 115, 22, 0.25)",
+                  borderRadius: 10,
+                  padding: "12px 16px",
+                  fontSize: 12,
+                  color: "#F5F5F5",
+                }}
+              >
+                <strong style={{ color: "var(--accent)" }}>SUTRA Advantage:</strong> Works alongside your existing GitHub repositories without replacing your source code host.
+              </div>
             </div>
           </div>
         </div>
@@ -1598,8 +1590,8 @@ export function LandingPage() {
             href="/register"
             className="btn primary"
             style={{
-              padding: "14px 36px",
-              borderRadius: 999,
+              padding: "14px 34px",
+              borderRadius: 10,
               fontSize: 15,
               fontWeight: 600,
               textDecoration: "none",
@@ -1659,9 +1651,6 @@ export function LandingPage() {
             </Link>
             <Link href="/docs" style={{ color: "#3B82F6", textDecoration: "none", fontWeight: 600 }}>
               Docs
-            </Link>
-            <Link href="/security" style={{ color: "#C4C4C4", textDecoration: "none" }}>
-              Security
             </Link>
             <Link href="/login" style={{ color: "#C4C4C4", textDecoration: "none" }}>
               Sign In

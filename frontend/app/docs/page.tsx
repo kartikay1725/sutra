@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Search, ArrowLeft, Menu, X, ChevronRight, Hash } from "lucide-react";
-import { sections, DocSection } from "./content/data";
+import { Search, ArrowLeft, Menu, X, ChevronDown, Check, BookOpen, ExternalLink, ArrowRight } from "lucide-react";
+import { sections } from "./content/data";
 import { useRouter } from "next/navigation";
 import { authService } from "@/lib/auth";
+import Link from "next/link";
 
 const HASH_ALIASES: Record<string, string> = {
   "sutra-overview": "getting-started",
@@ -27,6 +28,7 @@ export default function DocsPage() {
   const [activeSubheading, setActiveSubheading] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [targetFilter, setTargetFilter] = useState<"all" | "agents" | "humans">("all");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
@@ -79,211 +81,383 @@ export default function DocsPage() {
     }
   };
 
+  const categories = Array.from(new Set(sections.map((s) => s.category)));
+
   return (
     <div className="docs-page">
-      {/* Compact Top Header */}
-      <header className="docs-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--border-default)", background: "var(--surface-1)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      {/* 1. Top Navigation Bar (Reddit-style clean light top navigation) */}
+      <header className="docs-header">
+        <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+          <Link 
+            href="/" 
+            style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              gap: 10, 
+              textDecoration: "none", 
+              color: "#0F172A" 
+            }}
+          >
+            <div 
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: "rgba(249, 115, 22, 0.12)",
+                border: "1px solid rgba(249, 115, 22, 0.35)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <img src="/icon.png" alt="SUTRA" style={{ width: 20, height: 20, objectFit: "contain" }} />
+            </div>
+            <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em", color: "#0F172A" }}>SUTRA</span>
+          </Link>
+        </div>
+
+        {/* Center Links */}
+        <nav style={{ display: "none", alignItems: "center", gap: 24 }} className="desktop-nav">
+          <Link href="/docs" style={{ fontSize: 13.5, fontWeight: 700, color: "#EA580C", textDecoration: "none" }}>
+            Documentation &amp; Rules
+          </Link>
+          <Link href="/support" style={{ fontSize: 13.5, fontWeight: 500, color: "#475569", textDecoration: "none" }}>
+            Support
+          </Link>
+        </nav>
+
+        {/* Right CTA Button (Reddit-style bold rounded button) */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button
             onClick={() => setMobileSidebarOpen((prev) => !prev)}
             className="docs-mobile-menu-btn"
+            style={{ display: "none" }}
             aria-label="Toggle navigation menu"
           >
-            {mobileSidebarOpen ? <X size={14} /> : <Menu size={14} />}
-            <span>Menu</span>
+            {mobileSidebarOpen ? <X size={16} /> : <Menu size={16} />}
           </button>
 
-          <button
-            onClick={() => {
-              if (authService.isAuthenticated()) {
-                router.push("/home");
-              } else {
-                router.push("/");
-              }
-            }}
+          <Link
+            href="/login"
             style={{
               display: "inline-flex",
               alignItems: "center",
               gap: 6,
-              background: "transparent",
-              border: "none",
-              color: "#F0F6FC",
-              fontSize: 14,
-              fontWeight: 600,
-              padding: "4px 8px",
-              cursor: "pointer",
-              borderRadius: 6,
-              transition: "color 0.15s ease",
+              background: "#FF4500",
+              color: "#FFFFFF",
+              fontSize: 13,
+              fontWeight: 700,
+              padding: "8px 22px",
+              borderRadius: 999,
+              textDecoration: "none",
+              boxShadow: "0 2px 8px rgba(255, 69, 0, 0.35)",
+              transition: "transform 150ms ease, background 150ms ease",
             }}
-            title="Return to SUTRA app"
+            className="btn-primary-hover"
           >
-            <ArrowLeft size={14} style={{ color: "#8B949E" }} />
-            <span>SUTRA Docs</span>
-          </button>
+            Launch Console
+          </Link>
         </div>
-
-        <nav style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <a
-            href="/"
-            style={{
-              fontSize: 13,
-              color: "#8B949E",
-              textDecoration: "none",
-              transition: "color 0.15s ease",
-            }}
-            className="hover:text-white"
-          >
-            Home
-          </a>
-          <a
-            href="/about"
-            style={{
-              fontSize: 13,
-              color: "#8B949E",
-              textDecoration: "none",
-              transition: "color 0.15s ease",
-            }}
-            className="hover:text-white"
-          >
-            About
-          </a>
-        </nav>
       </header>
 
-      <div className="docs-body">
-        {/* Mobile Backdrop */}
-        <div
-          className={`docs-sidebar-backdrop ${mobileSidebarOpen ? "open" : ""}`}
-          onClick={() => setMobileSidebarOpen(false)}
-        />
+      {/* 2. Bold Branded Hero Banner (Exact Reddit Rules Format with Mascot Card) */}
+      <section className="docs-hero-banner">
+        <div 
+          style={{ 
+            maxWidth: 1320, 
+            margin: "0 auto", 
+            display: "flex", 
+            alignItems: "center", 
+            gap: 26,
+            flexWrap: "wrap"
+          }}
+        >
+          {/* Mascot / Logo Card (White squircle container matching Reddit mascot card) */}
+          <div 
+            style={{
+              width: 76,
+              height: 76,
+              borderRadius: 22,
+              background: "#FFFFFF",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 12px 30px rgba(0, 0, 0, 0.22)",
+              flexShrink: 0,
+            }}
+          >
+            <img 
+              src="/icon.png" 
+              alt="SUTRA" 
+              style={{ width: 48, height: 48, objectFit: "contain" }} 
+            />
+          </div>
 
-        {/* Left Navigation Sidebar (240-270px) */}
-        <aside className={`docs-sidebar ${mobileSidebarOpen ? "open" : ""}`}>
-          <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--border-default)" }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                background: "#0D1117",
-                border: "1px solid #30363D",
-                borderRadius: 6,
-                padding: "6px 10px",
+          <div>
+            <h1 
+              style={{ 
+                fontSize: "clamp(28px, 4.2vw, 44px)", 
+                fontWeight: 900, 
+                color: "#FFFFFF", 
+                letterSpacing: "-0.03em", 
+                margin: 0,
+                lineHeight: 1.15
               }}
             >
-              <Search size={13} style={{ color: "#8B949E", flexShrink: 0 }} />
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Search guides & API..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+              SUTRA Rules &amp; Governance
+            </h1>
+            <p 
+              style={{ 
+                margin: "8px 0 0", 
+                fontSize: "clamp(14px, 1.8vw, 16px)", 
+                color: "rgba(255, 255, 255, 0.95)", 
+                fontWeight: 500,
+                maxWidth: 720
+              }}
+            >
+              Official specifications, agent boundary contracts, and engineering control plane documentation.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. Selector Pills Strip (Reddit Rules Filter Pills Format) */}
+      <div className="docs-filter-bar">
+        <div 
+          style={{ 
+            maxWidth: 1320, 
+            margin: "0 auto", 
+            display: "flex", 
+            alignItems: "center", 
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 14
+          }}
+        >
+          {/* Filter Pills */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            {/* Category / Section Dropdown Pill */}
+            <div style={{ position: "relative" }}>
+              <select
+                value={activeSection}
+                onChange={(e) => setActiveSection(e.target.value)}
                 style={{
-                  background: "none",
-                  border: "none",
-                  color: "#F0F6FC",
-                  fontSize: 12.5,
-                  width: "100%",
+                  appearance: "none",
+                  background: "#FFFFFF",
+                  border: "1px solid #D1D5DB",
+                  color: "#0F172A",
+                  padding: "8px 36px 8px 18px",
+                  borderRadius: 999,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
                   outline: "none",
+                  boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
                 }}
+              >
+                {sections.map((sec) => (
+                  <option key={sec.id} value={sec.id} style={{ background: "#FFFFFF", color: "#0F172A" }}>
+                    {sec.category}: {sec.title}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown 
+                size={14} 
+                style={{ 
+                  position: "absolute", 
+                  right: 14, 
+                  top: "50%", 
+                  transform: "translateY(-50%)", 
+                  pointerEvents: "none",
+                  color: "#64748B"
+                }} 
               />
-              <kbd className="docs-kbd">⌘K</kbd>
+            </div>
+
+            {/* Target Audience Pill */}
+            <div style={{ position: "relative" }}>
+              <select
+                value={targetFilter}
+                onChange={(e: any) => setTargetFilter(e.target.value)}
+                style={{
+                  appearance: "none",
+                  background: "#FFFFFF",
+                  border: "1px solid #D1D5DB",
+                  color: "#0F172A",
+                  padding: "8px 36px 8px 18px",
+                  borderRadius: 999,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  outline: "none",
+                  boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
+                }}
+              >
+                <option value="all">Target: All Developers &amp; Agents</option>
+                <option value="agents">Target: AI Autonomous Agents (MCP)</option>
+                <option value="humans">Target: Human Reviewers &amp; Owners</option>
+              </select>
+              <ChevronDown 
+                size={14} 
+                style={{ 
+                  position: "absolute", 
+                  right: 14, 
+                  top: "50%", 
+                  transform: "translateY(-50%)", 
+                  pointerEvents: "none",
+                  color: "#64748B"
+                }} 
+              />
             </div>
           </div>
 
-          <div style={{ flex: 1, overflowY: "auto", padding: "12px 8px" }}>
-            {/* Grouped Categories */}
-            {Array.from(new Set(filteredSections.map((s) => s.category))).map((cat) => (
-              <div key={cat} style={{ marginBottom: 16 }}>
-                <div
-                  style={{
-                    fontSize: 10.5,
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    padding: "0 10px",
-                    color: "#8B949E",
-                    letterSpacing: "0.06em",
-                    marginBottom: 4,
-                  }}
-                >
-                  {cat}
+          {/* Quick Search Input */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "0 14px",
+              height: 38,
+              width: 320,
+              maxWidth: "100%",
+              background: "#FFFFFF",
+              border: "1px solid #D1D5DB",
+              borderRadius: 999,
+              boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
+            }}
+          >
+            <Search size={14} style={{ color: "#64748B", flexShrink: 0 }} />
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Search guides &amp; rules..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#0F172A",
+                fontSize: 13,
+                width: "100%",
+                outline: "none",
+              }}
+            />
+            <kbd style={{ background: "#F1F5F9", border: "1px solid #E2E8F0", borderRadius: 4, padding: "2px 6px", fontSize: 10, color: "#64748B" }}>
+              ⌘K
+            </kbd>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Main Body: Reddit Rules Two-Column Layout */}
+      <div className="docs-body">
+        {/* Left Navigation (Reddit Rules Style Sidebar: Clean, spacious list with active orange accent) */}
+        <aside className="docs-sidebar">
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            {categories.map((cat) => {
+              const catSections = filteredSections.filter((s) => s.category === cat);
+              if (catSections.length === 0) return null;
+
+              return (
+                <div key={cat}>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "#64748B",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                      marginBottom: 8,
+                      paddingLeft: 6,
+                    }}
+                  >
+                    {cat}
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                    {catSections.map((sec) => {
+                      const isActive = activeSection === sec.id;
+                      return (
+                        <button
+                          key={sec.id}
+                          onClick={() => {
+                            setActiveSection(sec.id);
+                            setMobileSidebarOpen(false);
+                          }}
+                          style={{
+                            background: isActive ? "rgba(255, 69, 0, 0.08)" : "transparent",
+                            border: "none",
+                            padding: "8px 12px 8px 10px",
+                            textAlign: "left",
+                            cursor: "pointer",
+                            fontSize: isActive ? 14.5 : 14,
+                            fontWeight: isActive ? 700 : 500,
+                            color: isActive ? "#EA580C" : "#475569",
+                            borderLeft: `3px solid ${isActive ? "#EA580C" : "transparent"}`,
+                            borderRadius: "0 6px 6px 0",
+                            transition: "all 120ms ease",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {sec.title}
+                          </span>
+                          {isActive && (
+                            <ArrowRight size={13} style={{ color: "#EA580C", flexShrink: 0 }} />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                {filteredSections
-                  .filter((s) => s.category === cat)
-                  .map((sec) => {
-                    const isActive = activeSection === sec.id;
-                    return (
-                      <button
-                        key={sec.id}
-                        onClick={() => {
-                          setActiveSection(sec.id);
-                          setMobileSidebarOpen(false);
-                        }}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          width: "100%",
-                          border: "none",
-                          borderRadius: 6,
-                          padding: "7px 10px",
-                          fontSize: 12.5,
-                          textAlign: "left",
-                          cursor: "pointer",
-                          background: isActive ? "rgba(249, 115, 22, 0.08)" : "transparent",
-                          color: isActive ? "#F0F6FC" : "#8B949E",
-                          fontWeight: isActive ? 600 : 400,
-                          transition: "all 0.12s ease",
-                          marginBottom: 2,
-                        }}
-                      >
-                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {sec.title}
-                        </span>
-                        {isActive && (
-                          <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#F97316", flexShrink: 0 }} />
-                        )}
-                      </button>
-                    );
-                  })}
-              </div>
-            ))}
-            {filteredSections.length === 0 && (
-              <div style={{ padding: "16px 12px", fontSize: 12, color: "#8B949E", textAlign: "center" }}>
-                No guide found matching &quot;{searchQuery}&quot;.
-              </div>
-            )}
+              );
+            })}
           </div>
         </aside>
 
-        {/* Content Pane (Center Reading Column + Sticky Right TOC) */}
+        {/* Right Reading Pane: Clean Light High-Contrast Editorial Article */}
         <main className="docs-content-pane">
           <div className="docs-content-layout">
-            {/* Center Article (760-900px max width) */}
             <article className="docs-article">
-              <div style={{ borderBottom: "1px solid var(--border-default)", paddingBottom: 16, marginBottom: 24 }}>
+              {/* Category Breadcrumb & Title */}
+              <div style={{ borderBottom: "1px solid #E5E7EB", paddingBottom: 20, marginBottom: 28 }}>
                 <div
                   style={{
-                    fontSize: 11,
-                    color: "#F97316",
+                    fontSize: 11.5,
+                    color: "#EA580C",
                     textTransform: "uppercase",
                     fontWeight: 700,
-                    letterSpacing: "0.06em",
+                    letterSpacing: "0.08em",
+                    fontFamily: "var(--font-mono, monospace)",
+                    marginBottom: 8,
                   }}
                 >
-                  {activeDoc.category}
+                  {activeDoc.category} // POLICY SPECIFICATION
                 </div>
-                <h1 style={{ fontSize: 26, fontWeight: 700, marginTop: 6, color: "#F0F6FC", letterSpacing: "-0.02em", wordBreak: "break-word" }}>
+                <h2 
+                  style={{ 
+                    fontSize: "clamp(26px, 3.2vw, 36px)", 
+                    fontWeight: 800, 
+                    color: "#0F172A", 
+                    letterSpacing: "-0.025em", 
+                    margin: 0,
+                    lineHeight: 1.2
+                  }}
+                >
                   {activeDoc.title}
-                </h1>
+                </h2>
               </div>
 
-              {/* Direct Canvas Text - Minimal Container Overload */}
+              {/* Documentation Content Canvas */}
               <div
+                className="docs-prose"
                 style={{
-                  fontSize: 13.5,
-                  lineHeight: 1.7,
-                  color: "#C9D1D9",
+                  fontSize: 15,
+                  lineHeight: 1.75,
+                  color: "#334155",
                   width: "100%",
                 }}
               >
@@ -293,29 +467,29 @@ export default function DocsPage() {
               {/* Documentation Footer */}
               <footer
                 style={{
-                  borderTop: "1px solid var(--border-default)",
+                  borderTop: "1px solid #E5E7EB",
                   marginTop: 64,
-                  paddingTop: 24,
-                  paddingBottom: 24,
-                  fontSize: 11.5,
-                  color: "#8B949E",
+                  paddingTop: 28,
+                  paddingBottom: 28,
+                  fontSize: 12.5,
+                  color: "#64748B",
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
                   flexWrap: "wrap",
-                  gap: 12,
+                  gap: 16,
                 }}
               >
                 <div>© {new Date().getFullYear()} SUTRA. An AchintAI Product. All rights reserved.</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <span>Contact: <a href="mailto:sutra@sudarshanai.com" style={{ color: "#58A6FF", textDecoration: "none" }}>sutra@sudarshanai.com</a></span>
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <span>Questions? <a href="mailto:sutra@sudarshanai.com" style={{ color: "#EA580C", textDecoration: "none", fontWeight: 600 }}>sutra@sudarshanai.com</a></span>
                   <span>•</span>
                   <span>AI-Native Engineering Control Plane</span>
                 </div>
               </footer>
             </article>
 
-            {/* Right-Side "On this page" TOC (180-220px) */}
+            {/* Right-Side "On this page" TOC */}
             {activeDoc.toc && activeDoc.toc.length > 1 && (
               <aside className="docs-toc" aria-label="On this page navigation">
                 <div
@@ -323,14 +497,14 @@ export default function DocsPage() {
                     fontSize: 11,
                     fontWeight: 700,
                     textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    color: "#8B949E",
-                    marginBottom: 12,
+                    letterSpacing: "0.08em",
+                    color: "#64748B",
+                    marginBottom: 14,
                   }}
                 >
                   On this page
                 </div>
-                <nav style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <nav style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {activeDoc.toc.map((item) => {
                     const isCurrent = activeSubheading === item.id;
                     return (
@@ -340,13 +514,13 @@ export default function DocsPage() {
                         style={{
                           background: "none",
                           border: "none",
-                          padding: "4px 0",
-                          fontSize: 12,
+                          padding: "3px 0",
+                          fontSize: 12.5,
                           textAlign: "left",
                           cursor: "pointer",
-                          color: isCurrent ? "#F97316" : "#8B949E",
-                          fontWeight: isCurrent ? 600 : 400,
-                          lineHeight: 1.4,
+                          color: isCurrent ? "#EA580C" : "#64748B",
+                          fontWeight: isCurrent ? 700 : 400,
+                          lineHeight: 1.45,
                           transition: "color 0.12s ease",
                         }}
                       >
@@ -363,4 +537,3 @@ export default function DocsPage() {
     </div>
   );
 }
-

@@ -11,7 +11,6 @@ export default function robots(): MetadataRoute.Robots {
         "/about",
         "/docs",
         "/enterprise",
-        "/security",
         "/robots.txt",
         "/sitemap.xml",
         "/favicon.ico",

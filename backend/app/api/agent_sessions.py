@@ -35,10 +35,7 @@ def list_agent_sessions(
     db: Session = Depends(get_db),
 ):
     agent = db.scalar(
-        select(Agent).where(
-            Agent.id == agent_id,
-            Agent.owner_id == current_user.id,
-        )
+        select(Agent).where(Agent.id == agent_id)
     )
 
     if agent is None:

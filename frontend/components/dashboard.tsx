@@ -41,7 +41,7 @@ function RepositoryCard({ repo }: { repo: Repository }) {
   return (
     <Link
       href={`/repositories/${encodeURIComponent(repo.name)}`}
-      className="card repo-card"
+      className="card repo-card card-haptic"
     >
       <div className="row">
         <div className="repo-name">{repo.name}</div>
@@ -127,14 +127,17 @@ export function Dashboard() {
             : `${data?.repository_count ?? repositories.length} repositories in your workspace.`
         }
         action={
-          <>
-            <Link href="/changes">
-              <Btn>Changes</Btn>
+          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+            <Link href="/changes" className="btn-island-ghost">
+              Changes
             </Link>
-            <Link href="/repositories">
-              <Btn>Repositories</Btn>
+            <Link href="/repositories" className="btn-island">
+              <span>Repositories</span>
+              <span className="icon-pill">
+                &rarr;
+              </span>
             </Link>
-          </>
+          </div>
         }
       />
 
@@ -153,48 +156,51 @@ export function Dashboard() {
         </Card>
       )}
 
-      {/* Actionable Engineering Attention Strip */}
+      {/* Actionable Engineering Attention Strip with Double-Bezel */}
       {!loading && !error && (
-        <Card style={{ marginBottom: 16 }}>
-          <div className="card-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <div className="h2" style={{ fontSize: 16 }}>Attention Needed</div>
-              <div className="sub">Actionable signals requiring engineering or governance intervention</div>
+        <div className="bezel-shell" style={{ marginBottom: 20 }}>
+          <div className="bezel-core">
+            <div className="card-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>Attention Matrix</div>
+                <div className="sub" style={{ fontSize: 12, marginTop: 2 }}>Actionable signals requiring engineering or governance intervention</div>
+              </div>
+              {((data?.blocked_changes ?? 0) > 0 || (data?.changes_needing_review ?? 0) > 0 || (data?.failed_ci_jobs ?? 0) > 0 || (data?.blocked_tasks ?? 0) > 0) ? (
+                <Badge tone="amber">Action required</Badge>
+              ) : (
+                <Badge tone="green">All clear</Badge>
+              )}
             </div>
-            {((data?.blocked_changes ?? 0) > 0 || (data?.changes_needing_review ?? 0) > 0 || (data?.failed_ci_jobs ?? 0) > 0 || (data?.blocked_tasks ?? 0) > 0) ? (
-              <Badge tone="amber">Action required</Badge>
-            ) : (
-              <Badge tone="green">All clear</Badge>
-            )}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10, padding: 14 }}>
+              <Link href="/changes" className="btn outline card-haptic" style={{ justifyContent: "space-between", display: "flex", padding: "12px 14px", textDecoration: "none", borderRadius: 10, background: "rgba(255,255,255,0.02)" }}>
+                <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Changes needing review</span>
+                <span className="badge" style={{ color: (data?.changes_needing_review ?? 0) > 0 ? "var(--accent)" : "var(--text-muted)", fontWeight: 600 }}>
+                  {data?.changes_needing_review ?? 0}
+                </span>
+              </Link>
+              <Link href="/changes" className="btn outline card-haptic" style={{ justifyContent: "space-between", display: "flex", padding: "12px 14px", textDecoration: "none", borderRadius: 10, background: "rgba(255,255,255,0.02)" }}>
+                <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Blocked changes</span>
+                <span className="badge" style={{ color: (data?.blocked_changes ?? 0) > 0 ? "var(--red, #ef4444)" : "var(--text-muted)", fontWeight: 600 }}>
+                  {data?.blocked_changes ?? 0}
+                </span>
+              </Link>
+              <Link href="/ci" className="btn outline card-haptic" style={{ justifyContent: "space-between", display: "flex", padding: "12px 14px", textDecoration: "none", borderRadius: 10, background: "rgba(255,255,255,0.02)" }}>
+                <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Failing CI jobs</span>
+                <span className="badge" style={{ color: (data?.failed_ci_jobs ?? 0) > 0 ? "var(--red, #ef4444)" : "var(--text-muted)", fontWeight: 600 }}>
+                  {data?.failed_ci_jobs ?? 0}
+                </span>
+              </Link>
+              <Link href="/tasks" className="btn outline card-haptic" style={{ justifyContent: "space-between", display: "flex", padding: "12px 14px", textDecoration: "none", borderRadius: 10, background: "rgba(255,255,255,0.02)" }}>
+                <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Blocked / failed tasks</span>
+                <span className="badge" style={{ color: (data?.blocked_tasks ?? 0) > 0 ? "var(--amber, #f59e0b)" : "var(--text-muted)", fontWeight: 600 }}>
+                  {data?.blocked_tasks ?? 0}
+                </span>
+              </Link>
+            </div>
           </div>
-          <div className="card-pad" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
-            <Link href="/changes" className="btn outline" style={{ justifyContent: "space-between", display: "flex", padding: "10px 14px", textDecoration: "none" }}>
-              <span>Changes needing review</span>
-              <span className="badge" style={{ color: (data?.changes_needing_review ?? 0) > 0 ? "var(--cyan)" : "inherit" }}>
-                {data?.changes_needing_review ?? 0}
-              </span>
-            </Link>
-            <Link href="/changes" className="btn outline" style={{ justifyContent: "space-between", display: "flex", padding: "10px 14px", textDecoration: "none" }}>
-              <span>Blocked changes</span>
-              <span className="badge" style={{ color: (data?.blocked_changes ?? 0) > 0 ? "var(--red, #ef4444)" : "inherit" }}>
-                {data?.blocked_changes ?? 0}
-              </span>
-            </Link>
-            <Link href="/ci" className="btn outline" style={{ justifyContent: "space-between", display: "flex", padding: "10px 14px", textDecoration: "none" }}>
-              <span>Failing CI jobs</span>
-              <span className="badge" style={{ color: (data?.failed_ci_jobs ?? 0) > 0 ? "var(--red, #ef4444)" : "inherit" }}>
-                {data?.failed_ci_jobs ?? 0}
-              </span>
-            </Link>
-            <Link href="/tasks" className="btn outline" style={{ justifyContent: "space-between", display: "flex", padding: "10px 14px", textDecoration: "none" }}>
-              <span>Blocked / failed tasks</span>
-              <span className="badge" style={{ color: (data?.blocked_tasks ?? 0) > 0 ? "var(--amber, #f59e0b)" : "inherit" }}>
-                {data?.blocked_tasks ?? 0}
-              </span>
-            </Link>
-          </div>
-        </Card>
+        </div>
       )}
+
 
       <div className="kpi-strip">
         <Link href="/changes" style={{ textDecoration: "none", color: "inherit", display: "block" }}>

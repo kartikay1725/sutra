@@ -349,12 +349,12 @@ export default function RepositoryIssuesPage({
               <span
                 style={{
                   fontSize: 12,
-                  padding: "4px 8px",
-                  borderRadius: 999,
+                  padding: "3px 8px",
+                  borderRadius: 4,
                   background: "var(--bg-subtle)",
                   border: "1px solid var(--line)",
                   color: "var(--muted)",
-                  fontFamily: "monospace",
+                  fontFamily: "var(--font-mono, monospace)",
                 }}
               >
                 {repoName}

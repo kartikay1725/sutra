@@ -389,10 +389,9 @@ export function AppShell({children, isPublic = false}:{children:React.ReactNode,
                 className="iconbtn"
                 title="Account"
                 onClick={() => setDropdownOpen(o => !o)}
-                style={{ display: "flex", alignItems: "center", gap: 4, paddingRight: 6 }}
               >
                 <UserRound size={15}/>
-                <ChevronDown size={11} style={{ opacity: 0.5, transition: "transform 200ms", transform: dropdownOpen ? "rotate(180deg)" : "none" }}/>
+                
               </button>
 
               {dropdownOpen && (

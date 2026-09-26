@@ -31,40 +31,45 @@ interface DocsCalloutProps {
 
 const CALLOUT_CONFIG: Record<
   CalloutType,
-  { border: string; bg: string; iconColor: string; defaultTitle: string; icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }> }
+  { border: string; bg: string; iconColor: string; textColor: string; defaultTitle: string; icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }> }
 > = {
   note: {
-    border: 'rgba(59, 130, 246, 0.25)',
-    bg: 'rgba(59, 130, 246, 0.05)',
-    iconColor: '#60A5FA',
+    border: '#BFDBFE',
+    bg: '#EFF6FF',
+    iconColor: '#2563EB',
+    textColor: '#1E40AF',
     defaultTitle: 'Note',
     icon: Info,
   },
   important: {
-    border: 'rgba(59, 130, 246, 0.25)',
-    bg: 'rgba(59, 130, 246, 0.05)',
-    iconColor: '#60A5FA',
+    border: '#BBF7D0',
+    bg: '#F0FDF4',
+    iconColor: '#16A34A',
+    textColor: '#166534',
     defaultTitle: 'Important',
     icon: Sparkles,
   },
   warning: {
-    border: 'rgba(249, 115, 22, 0.32)',
-    bg: 'rgba(249, 115, 22, 0.06)',
-    iconColor: '#F97316',
+    border: '#FED7AA',
+    bg: '#FFF7ED',
+    iconColor: '#EA580C',
+    textColor: '#9A3412',
     defaultTitle: 'Warning',
     icon: AlertTriangle,
   },
   security: {
-    border: 'rgba(249, 115, 22, 0.32)',
-    bg: 'rgba(249, 115, 22, 0.06)',
-    iconColor: '#F97316',
+    border: '#FECDD3',
+    bg: '#FFF1F2',
+    iconColor: '#E11D48',
+    textColor: '#9F1239',
     defaultTitle: 'Security Boundary',
     icon: ShieldAlert,
   },
   example: {
-    border: 'rgba(59, 130, 246, 0.25)',
-    bg: 'rgba(59, 130, 246, 0.05)',
-    iconColor: '#60A5FA',
+    border: '#E2E8F0',
+    bg: '#F8FAFC',
+    iconColor: '#475569',
+    textColor: '#334155',
     defaultTitle: 'Example',
     icon: HelpCircle,
   },
@@ -88,9 +93,9 @@ export function DocsCallout({
         borderRadius: 8,
         padding: '14px 16px',
         margin: '16px 0',
-        fontSize: 13,
-        lineHeight: 1.6,
-        color: '#D4D4D8',
+        fontSize: 13.5,
+        lineHeight: 1.65,
+        color: config.textColor,
         ...style,
       }}
     >
@@ -99,18 +104,18 @@ export function DocsCallout({
           display: 'flex',
           alignItems: 'center',
           gap: 8,
-          fontWeight: 600,
+          fontWeight: 700,
           color: config.iconColor,
           marginBottom: 6,
           fontSize: 12,
-          letterSpacing: '0.02em',
+          letterSpacing: '0.04em',
           textTransform: 'uppercase',
         }}
       >
         <Icon size={14} style={{ flexShrink: 0 }} />
         <span>{displayTitle}</span>
       </div>
-      <div style={{ color: '#A1A1AA' }}>{children}</div>
+      <div style={{ color: config.textColor }}>{children}</div>
     </div>
   );
 }
@@ -235,9 +240,9 @@ export function DocsHeading({
   const [hovered, setHovered] = useState(false);
 
   const headingStyle: React.CSSProperties = {
-    color: '#FAFAFA',
-    fontWeight: 700,
-    letterSpacing: '-0.02em',
+    color: '#0F172A',
+    fontWeight: level === 2 ? 800 : 700,
+    letterSpacing: '-0.025em',
     position: 'relative',
     display: 'flex',
     alignItems: 'center',
@@ -245,7 +250,8 @@ export function DocsHeading({
     scrollMarginTop: 80,
     marginTop: level === 2 ? 32 : 24,
     marginBottom: 12,
-    fontSize: level === 2 ? 20 : 16,
+    fontSize: level === 2 ? 21 : 16.5,
+    lineHeight: 1.3,
     ...style,
   };
 
@@ -263,7 +269,7 @@ export function DocsHeading({
         style={{
           opacity: hovered ? 1 : 0,
           transition: 'opacity 0.15s ease',
-          color: '#F97316',
+          color: '#EA580C',
           display: 'inline-flex',
           alignItems: 'center',
           textDecoration: 'none',
@@ -291,7 +297,9 @@ export function DocsTable({ children, style }: DocsTableProps) {
         maxWidth: '100%',
         margin: '16px 0',
         borderRadius: 8,
-        border: '1px solid #222226',
+        border: '1px solid #E2E8F0',
+        background: '#FFFFFF',
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
         ...style,
       }}
     >
@@ -329,12 +337,12 @@ export interface ApiEndpointCardProps {
 }
 
 const METHOD_THEMES: Record<HttpMethod, { bg: string; border: string; text: string }> = {
-  GET: { bg: 'rgba(59, 130, 246, 0.12)', border: 'rgba(59, 130, 246, 0.35)', text: '#60A5FA' },
-  POST: { bg: 'rgba(249, 115, 22, 0.12)', border: 'rgba(249, 115, 22, 0.35)', text: '#F97316' },
-  PUT: { bg: 'rgba(59, 130, 246, 0.12)', border: 'rgba(59, 130, 246, 0.35)', text: '#58A6FF' },
-  PATCH: { bg: 'rgba(249, 115, 22, 0.12)', border: 'rgba(249, 115, 22, 0.35)', text: '#FB923C' },
-  DELETE: { bg: 'rgba(255, 255, 255, 0.06)', border: 'rgba(255, 255, 255, 0.25)', text: '#F0F6FC' },
-  'STREAMABLE HTTP': { bg: 'rgba(249, 115, 22, 0.12)', border: 'rgba(249, 115, 22, 0.35)', text: '#FB923C' },
+  GET: { bg: '#EFF6FF', border: '#BFDBFE', text: '#1D4ED8' },
+  POST: { bg: '#FFF7ED', border: '#FED7AA', text: '#C2410C' },
+  PUT: { bg: '#F0FDF4', border: '#BBF7D0', text: '#15803D' },
+  PATCH: { bg: '#FAF5FF', border: '#E9D5FF', text: '#7E22CE' },
+  DELETE: { bg: '#FEF2F2', border: '#FECACA', text: '#B91C1C' },
+  'STREAMABLE HTTP': { bg: '#FFF7ED', border: '#FED7AA', text: '#C2410C' },
 };
 
 export function ApiEndpointCard({
@@ -379,14 +387,14 @@ export function ApiEndpointCard({
   return (
     <div
       style={{
-        background: '#111418',
-        border: '1px solid #202632',
+        background: '#FFFFFF',
+        border: '1px solid #E2E8F0',
         borderRadius: 10,
         overflow: 'hidden',
         margin: '14px 0',
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
         transition: 'border-color 0.15s ease',
       }}
-      className="hover:border-[#30363D]"
     >
       {/* Endpoint Header Bar */}
       <div
@@ -397,8 +405,8 @@ export function ApiEndpointCard({
           justifyContent: 'space-between',
           padding: '12px 16px',
           cursor: hasDetails ? 'pointer' : 'default',
-          background: isOpen ? '#141820' : '#111418',
-          borderBottom: isOpen ? '1px solid #202632' : 'none',
+          background: isOpen ? '#F8FAFC' : '#FFFFFF',
+          borderBottom: isOpen ? '1px solid #E2E8F0' : 'none',
           userSelect: 'none',
           flexWrap: 'wrap',
           gap: 10,
@@ -429,7 +437,7 @@ export function ApiEndpointCard({
               fontSize: 13,
               fontFamily: 'var(--font-mono, monospace)',
               fontWeight: 600,
-              color: '#F0F6FC',
+              color: '#0F172A',
               wordBreak: 'break-all',
             }}
           >
@@ -443,7 +451,7 @@ export function ApiEndpointCard({
             style={{
               background: 'none',
               border: 'none',
-              color: copied ? '#F97316' : '#8B949E',
+              color: copied ? '#EA580C' : '#64748B',
               cursor: 'pointer',
               padding: 2,
               display: 'inline-flex',
@@ -459,7 +467,7 @@ export function ApiEndpointCard({
 
         {/* Right side summary & auth */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 12, color: '#8B949E', display: 'none', minWidth: 0 }} className="md:inline">
+          <span style={{ fontSize: 12, color: '#64748B', display: 'none', minWidth: 0 }} className="md:inline">
             {summary}
           </span>
 
@@ -470,21 +478,21 @@ export function ApiEndpointCard({
               fontWeight: 500,
               padding: '2px 8px',
               borderRadius: 4,
-              background: '#161B22',
-              border: '1px solid #30363D',
-              color: '#C9D1D9',
+              background: '#F1F5F9',
+              border: '1px solid #E2E8F0',
+              color: '#475569',
               display: 'inline-flex',
               alignItems: 'center',
               gap: 5,
               whiteSpace: 'nowrap',
             }}
           >
-            <Lock size={10} style={{ color: '#8B949E' }} />
+            <Lock size={10} style={{ color: '#64748B' }} />
             <span>{auth}</span>
           </span>
 
           {hasDetails && (
-            <span style={{ color: '#8B949E', display: 'flex', alignItems: 'center' }}>
+            <span style={{ color: '#64748B', display: 'flex', alignItems: 'center' }}>
               {isOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
             </span>
           )}
@@ -493,9 +501,9 @@ export function ApiEndpointCard({
 
       {/* Expanded Details Body */}
       {isOpen && (
-        <div style={{ padding: '16px 18px', background: '#0D1117' }}>
+        <div style={{ padding: '16px 18px', background: '#FAFAFA' }}>
           {description && (
-            <p style={{ fontSize: 13, color: '#C9D1D9', lineHeight: 1.6, margin: '0 0 14px 0' }}>
+            <p style={{ fontSize: 13, color: '#334155', lineHeight: 1.6, margin: '0 0 14px 0' }}>
               {description}
             </p>
           )}
@@ -507,11 +515,11 @@ export function ApiEndpointCard({
                 alignItems: 'center',
                 gap: 8,
                 padding: '8px 12px',
-                background: 'rgba(249, 115, 22, 0.08)',
-                border: '1px solid rgba(249, 115, 22, 0.25)',
+                background: 'rgba(234, 88, 12, 0.08)',
+                border: '1px solid rgba(234, 88, 12, 0.25)',
                 borderRadius: 6,
                 fontSize: 12,
-                color: '#F97316',
+                color: '#EA580C',
                 marginBottom: 16,
               }}
             >
@@ -521,7 +529,7 @@ export function ApiEndpointCard({
           )}
 
           {/* Tab Navigation for Parameters, Request & Response */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid #21262D', marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid #E2E8F0', marginBottom: 14 }}>
             {parameters && parameters.length > 0 && (
               <button
                 type="button"
@@ -529,11 +537,11 @@ export function ApiEndpointCard({
                 style={{
                   background: 'none',
                   border: 'none',
-                  borderBottom: activeTab === 'params' ? '2px solid #F97316' : '2px solid transparent',
+                  borderBottom: activeTab === 'params' ? '2px solid #EA580C' : '2px solid transparent',
                   padding: '6px 10px',
                   fontSize: 12,
                   fontWeight: 600,
-                  color: activeTab === 'params' ? '#F0F6FC' : '#8B949E',
+                  color: activeTab === 'params' ? '#0F172A' : '#64748B',
                   cursor: 'pointer',
                   marginBottom: -1,
                 }}
@@ -549,11 +557,11 @@ export function ApiEndpointCard({
                 style={{
                   background: 'none',
                   border: 'none',
-                  borderBottom: activeTab === 'request' ? '2px solid #F97316' : '2px solid transparent',
+                  borderBottom: activeTab === 'request' ? '2px solid #EA580C' : '2px solid transparent',
                   padding: '6px 10px',
                   fontSize: 12,
                   fontWeight: 600,
-                  color: activeTab === 'request' ? '#F0F6FC' : '#8B949E',
+                  color: activeTab === 'request' ? '#0F172A' : '#64748B',
                   cursor: 'pointer',
                   marginBottom: -1,
                 }}
@@ -569,11 +577,11 @@ export function ApiEndpointCard({
                 style={{
                   background: 'none',
                   border: 'none',
-                  borderBottom: activeTab === 'response' ? '2px solid #F97316' : '2px solid transparent',
+                  borderBottom: activeTab === 'response' ? '2px solid #EA580C' : '2px solid transparent',
                   padding: '6px 10px',
                   fontSize: 12,
                   fontWeight: 600,
-                  color: activeTab === 'response' ? '#F0F6FC' : '#8B949E',
+                  color: activeTab === 'response' ? '#0F172A' : '#64748B',
                   cursor: 'pointer',
                   marginBottom: -1,
                 }}
@@ -588,7 +596,7 @@ export function ApiEndpointCard({
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, textAlign: 'left' }}>
                 <thead>
-                  <tr style={{ borderBottom: '1px solid #21262D', color: '#8B949E', textTransform: 'uppercase', fontSize: 10, letterSpacing: '0.05em' }}>
+                  <tr style={{ borderBottom: '1px solid #E2E8F0', color: '#64748B', textTransform: 'uppercase', fontSize: 10, letterSpacing: '0.05em' }}>
                     <th style={{ padding: '6px 10px' }}>Name</th>
                     <th style={{ padding: '6px 10px' }}>Type</th>
                     <th style={{ padding: '6px 10px' }}>In</th>
@@ -598,26 +606,26 @@ export function ApiEndpointCard({
                 </thead>
                 <tbody>
                   {parameters.map((p) => (
-                    <tr key={p.name} style={{ borderBottom: '1px solid #161B22' }}>
-                      <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono, monospace)', fontWeight: 600, color: '#58A6FF' }}>
+                    <tr key={p.name} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                      <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono, monospace)', fontWeight: 600, color: '#0284C7' }}>
                         {p.name}
                       </td>
-                      <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono, monospace)', color: '#8B949E', fontSize: 11 }}>
+                      <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono, monospace)', color: '#64748B', fontSize: 11 }}>
                         {p.type}
                       </td>
                       <td style={{ padding: '8px 10px' }}>
-                        <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 3, background: '#161B22', color: '#C9D1D9', textTransform: 'uppercase' }}>
+                        <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 3, background: '#F1F5F9', color: '#475569', textTransform: 'uppercase' }}>
                           {p.in}
                         </span>
                       </td>
                       <td style={{ padding: '8px 10px' }}>
                         {p.required ? (
-                          <span style={{ fontSize: 10, color: '#F97316', fontWeight: 700 }}>yes</span>
+                          <span style={{ fontSize: 10, color: '#EA580C', fontWeight: 700 }}>yes</span>
                         ) : (
-                          <span style={{ fontSize: 10, color: '#8B949E' }}>optional</span>
+                          <span style={{ fontSize: 10, color: '#94A3B8' }}>optional</span>
                         )}
                       </td>
-                      <td style={{ padding: '8px 10px', color: '#C9D1D9', lineHeight: 1.4 }}>
+                      <td style={{ padding: '8px 10px', color: '#334155', lineHeight: 1.4 }}>
                         {p.description}
                       </td>
                     </tr>

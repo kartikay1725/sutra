@@ -23,34 +23,34 @@ export const Group6APIReference: DocSection[] = [
           <DocsHeading id="api-overview" level={2}>
             API Overview & Global Conventions
           </DocsHeading>
-          <p style={{ color: "#A3A3A3", lineHeight: 1.7, marginBottom: 16 }}>
+          <p style={{ color: "#334155", lineHeight: 1.7, marginBottom: 16 }}>
             The SUTRA REST API is built on FastAPI and exposes authoritative boundaries for human account management, autonomous agent dispatch, change tracking, and multi-pillar pull request governance.
           </p>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, marginBottom: 20 }}>
-            <div style={{ padding: 14, border: "1px solid #202632", borderRadius: 8, background: "#111418" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#8B949E", marginBottom: 4 }}>
+            <div style={{ padding: 16, border: "1px solid #E2E8F0", borderRadius: 8, background: "#FFFFFF", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04)" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#64748B", marginBottom: 4 }}>
                 Production Base URL
               </div>
-              <code style={{ fontSize: 13, color: "#58A6FF", fontFamily: "var(--font-mono, monospace)" }}>
+              <code style={{ fontSize: 13, color: "#0284C7", fontFamily: "var(--font-mono, monospace)" }}>
                 https://api.sutra.sudarshanai.com
               </code>
             </div>
 
-            <div style={{ padding: 14, border: "1px solid #202632", borderRadius: 8, background: "#111418" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#8B949E", marginBottom: 4 }}>
+            <div style={{ padding: 16, border: "1px solid #E2E8F0", borderRadius: 8, background: "#FFFFFF", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04)" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#64748B", marginBottom: 4 }}>
                 Content Negotiation
               </div>
-              <code style={{ fontSize: 13, color: "#58A6FF", fontFamily: "var(--font-mono, monospace)" }}>
+              <code style={{ fontSize: 13, color: "#0284C7", fontFamily: "var(--font-mono, monospace)" }}>
                 application/json
               </code>
             </div>
 
-            <div style={{ padding: 14, border: "1px solid #202632", borderRadius: 8, background: "#111418" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#8B949E", marginBottom: 4 }}>
+            <div style={{ padding: 16, border: "1px solid #E2E8F0", borderRadius: 8, background: "#FFFFFF", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04)" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#64748B", marginBottom: 4 }}>
                 Error Format
               </div>
-              <span style={{ fontSize: 12, color: "#C9D1D9" }}>
+              <span style={{ fontSize: 12.5, color: "#334155", fontWeight: 600 }}>
                 RFC 7807 Problem Details Schema
               </span>
             </div>

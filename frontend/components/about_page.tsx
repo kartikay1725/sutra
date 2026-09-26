@@ -132,28 +132,23 @@ export function AboutPage() {
           <div style={{ display: "none", alignItems: "center", gap: 14 }} className="desktop-nav">
             <Link
               href="/login"
+              className="btn-island-ghost"
               style={{
                 fontSize: 13,
                 fontWeight: 600,
-                color: "#F5F5F5",
-                textDecoration: "none",
-                padding: "8px 14px",
+                padding: "8px 16px",
               }}
             >
               Sign In
             </Link>
             <Link
               href="/register"
-              className="btn primary"
-              style={{
-                padding: "8px 20px",
-                borderRadius: 999,
-                fontSize: 13,
-                fontWeight: 600,
-                textDecoration: "none",
-              }}
+              className="btn-island"
             >
-              Get Started
+              <span>Get Started</span>
+              <span className="icon-pill">
+                <ArrowRight size={12} />
+              </span>
             </Link>
           </div>
 
@@ -257,20 +252,27 @@ export function AboutPage() {
           style={{
             display: "inline-flex",
             alignItems: "center",
-            gap: 8,
-            padding: "6px 14px",
-            borderRadius: 999,
-            background: "rgba(249, 115, 22, 0.1)",
-            border: "1px solid rgba(249, 115, 22, 0.28)",
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: "0.14em",
+            gap: 10,
+            marginBottom: 20,
+            fontSize: 12,
+            fontWeight: 600,
+            color: "#94A3B8",
+            letterSpacing: "0.06em",
             textTransform: "uppercase",
-            color: "#F97316",
-            marginBottom: 24,
+            fontFamily: "var(--font-mono, ui-monospace, monospace)",
           }}
         >
-          ABOUT SUTRA
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: "var(--accent, #F97316)",
+              boxShadow: "0 0 8px rgba(249, 115, 22, 0.6)",
+              display: "inline-block",
+            }}
+          />
+          <span>Architecture &amp; Mission // About Sutra</span>
         </div>
 
         <h1
@@ -416,27 +418,30 @@ export function AboutPage() {
           ].map((item) => (
             <div
               key={item.tag}
-              style={{
-                padding: "22px",
-                borderRadius: 12,
-                background: "#151515",
-                border: "1px solid #242424",
-              }}
+              className="bezel-shell card-haptic"
             >
               <div
+                className="bezel-core"
                 style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: "0.12em",
-                  color: "#F97316",
-                  marginBottom: 8,
+                  padding: "20px 22px",
+                  height: "100%",
                 }}
               >
-                {item.tag}
+                <div
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    letterSpacing: "0.14em",
+                    color: "var(--accent)",
+                    marginBottom: 8,
+                  }}
+                >
+                  {item.tag}
+                </div>
+                <p style={{ fontSize: 13.5, lineHeight: 1.6, color: "var(--text-secondary)", margin: 0 }}>
+                  {item.text}
+                </p>
               </div>
-              <p style={{ fontSize: 14, lineHeight: 1.6, color: "#A3A3A3", margin: 0 }}>
-                {item.text}
-              </p>
             </div>
           ))}
         </div>
@@ -521,52 +526,51 @@ export function AboutPage() {
         style={{
           maxWidth: 860,
           margin: "0 auto 80px",
-          padding: "56px 24px",
-          background: "#151515",
-          border: "1px solid #242424",
-          borderRadius: 20,
-          textAlign: "center",
-          boxShadow: "0 20px 60px rgba(0, 0, 0, 0.5)",
+          padding: "0 24px",
         }}
       >
-        <h2
-          style={{
-            fontSize: "clamp(24px, 4vw, 36px)",
-            fontWeight: 800,
-            color: "#F5F5F5",
-            marginBottom: 14,
-          }}
-        >
-          Start Building Safely
-        </h2>
-        <p
-          style={{
-            fontSize: 16,
-            lineHeight: 1.6,
-            color: "#A3A3A3",
-            maxWidth: 600,
-            margin: "0 auto 28px",
-          }}
-        >
-          SUTRA provides the control plane engineering teams trust to run autonomous software engineering workflows.
-        </p>
-        <Link
-          href="/register"
-          className="btn primary"
-          style={{
-            padding: "12px 32px",
-            borderRadius: 999,
-            fontSize: 14,
-            fontWeight: 600,
-            textDecoration: "none",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          Get Started
-          <ArrowRight size={16} />
-        </Link>
+        <div className="bezel-shell">
+          <div
+            className="bezel-core"
+            style={{
+              padding: "56px 24px",
+              textAlign: "center",
+              background: "radial-gradient(ellipse at 50% -20%, rgba(249, 115, 22, 0.12) 0%, #111114 80%)",
+            }}
+          >
+            <h2
+              style={{
+                fontSize: "clamp(24px, 4vw, 36px)",
+                fontWeight: 800,
+                color: "#F5F5F5",
+                marginBottom: 14,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              Start Building Safely
+            </h2>
+            <p
+              style={{
+                fontSize: 15,
+                lineHeight: 1.6,
+                color: "var(--text-secondary)",
+                maxWidth: 600,
+                margin: "0 auto 28px",
+              }}
+            >
+              SUTRA provides the control plane engineering teams trust to run autonomous software engineering workflows.
+            </p>
+            <Link
+              href="/register"
+              className="btn-island"
+            >
+              <span>Get Started</span>
+              <span className="icon-pill">
+                <ArrowRight size={12} />
+              </span>
+            </Link>
+          </div>
+        </div>
       </section>
 
       {/* FOOTER */}
@@ -612,9 +616,6 @@ export function AboutPage() {
             </Link>
             <Link href="/docs" style={{ color: "#F97316", textDecoration: "none", fontWeight: 600 }}>
               Docs
-            </Link>
-            <Link href="/security" style={{ color: "#A3A3A3", textDecoration: "none" }}>
-              Security
             </Link>
             <Link href="/login" style={{ color: "#A3A3A3", textDecoration: "none" }}>
               Sign In

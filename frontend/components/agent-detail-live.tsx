@@ -74,7 +74,10 @@ export function AgentDetailLive() {
       setAgent(current);
       
       const [sess, access, repos, allTasks] = await Promise.all([
-        agentService.listSessions(current.id).catch(() => [] as AgentSession[]),
+        agentService.listSessions(current.id).catch((err) => {
+          console.error("Failed to load agent sessions:", err);
+          return [] as AgentSession[];
+        }),
         agentService.listRepositoryAccess(current.id).catch(() => [] as AgentRepositoryAccess[]),
         repositoryService.listRepositories().catch(() => [] as Repository[]),
         taskService.listAllTasks().catch(() => [] as Task[]),
@@ -395,11 +398,16 @@ export function AgentDetailLive() {
         <div className="card-head">
           <div>
             <div className="h2">Agent sessions</div>
-            <div className="sub">Real authenticated agent sessions. No fabricated run history.</div>
+            <div className="sub">All authenticated agent sessions recorded for this agent.</div>
           </div>
-          <Badge tone={activeSessions.length ? "green" : "amber"}>
-            {activeSessions.length} active
-          </Badge>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <Badge tone="">
+              {sessions.length} total
+            </Badge>
+            <Badge tone={activeSessions.length ? "green" : "amber"}>
+              {activeSessions.length} active
+            </Badge>
+          </div>
         </div>
 
         {sessions.length === 0 ? (
@@ -420,7 +428,7 @@ export function AgentDetailLive() {
                       Created {fmt(session.created_at)} · last seen {fmt(session.last_seen_at)} · expires {fmt(session.expires_at)}
                     </div>
                   </div>
-                  <Badge tone={session.status === "active" ? "green" : "amber"}>
+                  <Badge tone={session.status === "active" ? "green" : session.status === "revoked" ? "red" : "amber"}>
                     {session.status}
                   </Badge>
                   {session.status === "active" && (

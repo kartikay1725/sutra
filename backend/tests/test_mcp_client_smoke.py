@@ -289,13 +289,16 @@ async def test_official_mcp_client_smoke_test():
     finally:
         with SessionLocal() as cleanup_db:
             try:
-                cleanup_db.query(AgentRepositoryAccess).delete()
-                cleanup_db.query(AgentSession).delete()
-                cleanup_db.query(Agent).filter(Agent.owner_id == user.id).delete()
-                cleanup_db.query(Repository).filter(Repository.id.in_([repo1.id, repo2.id])).delete()
-                cleanup_db.query(UserSession).filter(UserSession.user_id == user.id).delete()
-                cleanup_db.query(Actor).filter(Actor.owner_id == user.id).delete()
-                cleanup_db.query(User).filter(User.id == user.id).delete()
+                test_agents = cleanup_db.query(Agent).filter(Agent.owner_id == user.id).all()
+                test_agent_ids = [a.id for a in test_agents]
+                if test_agent_ids:
+                    cleanup_db.query(AgentSession).filter(AgentSession.agent_id.in_(test_agent_ids)).delete(synchronize_session=False)
+                    cleanup_db.query(AgentRepositoryAccess).filter(AgentRepositoryAccess.agent_id.in_(test_agent_ids)).delete(synchronize_session=False)
+                cleanup_db.query(Agent).filter(Agent.owner_id == user.id).delete(synchronize_session=False)
+                cleanup_db.query(Repository).filter(Repository.id.in_([repo1.id, repo2.id])).delete(synchronize_session=False)
+                cleanup_db.query(UserSession).filter(UserSession.user_id == user.id).delete(synchronize_session=False)
+                cleanup_db.query(Actor).filter(Actor.owner_id == user.id).delete(synchronize_session=False)
+                cleanup_db.query(User).filter(User.id == user.id).delete(synchronize_session=False)
                 cleanup_db.commit()
             except Exception:
                 cleanup_db.rollback()

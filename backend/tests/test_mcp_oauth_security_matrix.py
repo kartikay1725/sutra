@@ -131,13 +131,14 @@ def sec_env():
         # Cleanup
         with SessionLocal() as cleanup_db:
             try:
-                cleanup_db.query(AgentRepositoryAccess).delete()
-                cleanup_db.query(AgentSession).delete()
-                cleanup_db.query(Agent).filter(Agent.owner_id.in_([user_a.id, user_b.id])).delete()
-                cleanup_db.query(Repository).filter(Repository.id.in_([repo_a.id, repo_b.id])).delete()
-                cleanup_db.query(UserSession).filter(UserSession.user_id.in_([user_a.id, user_b.id])).delete()
-                cleanup_db.query(Actor).filter(Actor.owner_id.in_([user_a.id, user_b.id])).delete()
-                cleanup_db.query(User).filter(User.id.in_([user_a.id, user_b.id])).delete()
+                test_agent_ids = [agent_a.id, agent_b.id]
+                cleanup_db.query(AgentSession).filter(AgentSession.agent_id.in_(test_agent_ids)).delete(synchronize_session=False)
+                cleanup_db.query(AgentRepositoryAccess).filter(AgentRepositoryAccess.agent_id.in_(test_agent_ids)).delete(synchronize_session=False)
+                cleanup_db.query(Agent).filter(Agent.owner_id.in_([user_a.id, user_b.id])).delete(synchronize_session=False)
+                cleanup_db.query(Repository).filter(Repository.id.in_([repo_a.id, repo_b.id])).delete(synchronize_session=False)
+                cleanup_db.query(UserSession).filter(UserSession.user_id.in_([user_a.id, user_b.id])).delete(synchronize_session=False)
+                cleanup_db.query(Actor).filter(Actor.owner_id.in_([user_a.id, user_b.id])).delete(synchronize_session=False)
+                cleanup_db.query(User).filter(User.id.in_([user_a.id, user_b.id])).delete(synchronize_session=False)
                 cleanup_db.commit()
             except Exception:
                 cleanup_db.rollback()

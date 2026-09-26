@@ -1314,7 +1314,7 @@ export function Repositories() {
         !error &&
         repositories.length > 0 &&
         (() => {
-          const pageSize = 10;
+          const pageSize = 12;
           const totalPages = Math.ceil(repositories.length / pageSize);
           const safeCurrentPage = Math.min(currentPage, totalPages || 1);
           const startIndex = (safeCurrentPage - 1) * pageSize;
@@ -1408,7 +1408,7 @@ export function Repositories() {
                 ))}
               </div>
 
-              {/* Repositories Pagination (10 per page) */}
+              {/* Repositories Pagination (12 per page) */}
               {totalPages > 1 && (
                 <div
                   style={{

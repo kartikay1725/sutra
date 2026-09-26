@@ -216,8 +216,8 @@ export function CIWorkflowSetupCard({
                 style={{
                   fontSize: 11,
                   fontWeight: 600,
-                  padding: '2px 8px',
-                  borderRadius: 999,
+                  padding: '2px 7px',
+                  borderRadius: 4,
                   background: 'rgba(16, 185, 129, 0.12)',
                   color: '#10b981',
                   border: '1px solid rgba(16, 185, 129, 0.25)',
@@ -230,8 +230,8 @@ export function CIWorkflowSetupCard({
                 style={{
                   fontSize: 11,
                   fontWeight: 600,
-                  padding: '2px 8px',
-                  borderRadius: 999,
+                  padding: '2px 7px',
+                  borderRadius: 4,
                   background: 'var(--link-subtle, rgba(59, 130, 246, 0.12))',
                   color: 'var(--link, #3B82F6)',
                   border: '1px solid rgba(59, 130, 246, 0.25)',
